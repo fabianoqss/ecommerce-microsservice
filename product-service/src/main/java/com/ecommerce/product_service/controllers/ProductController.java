@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping(value = "/products")
+@RequestMapping(value = "/api/products")
 public class ProductController {
 
     @Autowired
@@ -19,10 +19,11 @@ public class ProductController {
 
     @GetMapping(value = "/{id}")
     public ResponseEntity<ProductDTO> findById(@PathVariable String id){
-
+        ProductDTO dto = productService.findByID(id);
 
         return null;
     }
+
 
 
 }

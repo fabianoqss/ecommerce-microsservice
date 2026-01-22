@@ -6,9 +6,10 @@ import com.ecommerce.product_service.entities.Product;
 import com.ecommerce.product_service.repositories.ProductRepository;
 import com.ecommerce.product_service.services.exceptions.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
 
 @Service
 public class ProductService {
@@ -23,5 +24,17 @@ public class ProductService {
 
 
         return new ProductDTO(product.getName(), product.getDescription(), product.getPrice(), product.getCategory());
+    }
+
+
+    public Page<ProductDTO> findAll(Pageable pageable) {
+
+        return repository.findAll(pageable)
+                .map(product -> new ProductDTO(
+                        product.getName(),
+                        product.getDescription(),
+                        product.getPrice(),
+                        product.getCategory()
+                ));
     }
 }
