@@ -4,6 +4,8 @@ package com.ecommerce.product_service.controllers;
 import com.ecommerce.product_service.dto.ProductDTO;
 import com.ecommerce.product_service.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,9 +23,15 @@ public class ProductController {
     public ResponseEntity<ProductDTO> findById(@PathVariable String id){
         ProductDTO dto = productService.findByID(id);
 
-        return null;
+        return ResponseEntity.ok(dto);
     }
 
+    @GetMapping
+    public ResponseEntity<Page<ProductDTO>> findAll(Pageable pageable){
+        Page<ProductDTO> dto = productService.findAll(pageable);
+
+        return ResponseEntity.ok(dto);
+    }
 
 
 }
