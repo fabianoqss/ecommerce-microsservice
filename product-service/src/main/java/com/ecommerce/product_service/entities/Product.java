@@ -12,7 +12,7 @@ public class Product {
     private String name;
     private String description;
     private Double price;
-    private String Category;
+    private String category;
 
     public Product() {
     }
@@ -22,7 +22,7 @@ public class Product {
         this.name = name;
         this.description = description;
         this.price = price;
-        Category = category;
+        this.category = category;
     }
 
     public String getId() {
@@ -58,10 +58,10 @@ public class Product {
     }
 
     public String getCategory() {
-        return Category;
+        return category;
     }
 
     public void setCategory(String category) {
-        Category = category;
+        category = category;
     }
 }
