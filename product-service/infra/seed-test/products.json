@@ -1,0 +1,4 @@
+{"name":"Notebook Dell G15","description":"Notebook gamer","price":5999.90,"category":"NOTEBOOK","attributes":{"cpu":"Intel i7","ram":"16GB","storage":"512GB SSD","gpu":"RTX 3050"}}
+{"name":"Notebook Lenovo IdeaPad","description":"Notebook para estudo","price":3499.90,"category":"NOTEBOOK","attributes":{"cpu":"Ryzen 5","ram":"8GB","storage":"256GB SSD"}}
+{"name":"Mouse Logitech G502","description":"Mouse gamer","price":299.90,"category":"PERIFERICOS","attributes":{"dpi":12000,"connection":"USB","rgb":true}}
+{"name":"Teclado Mecânico Redragon","description":"Teclado mecânico RGB","price":219.90,"category":"PERIFERICOS","attributes":{"switch":"Blue","layout":"ABNT2","connection":"USB","rgb":true}}
