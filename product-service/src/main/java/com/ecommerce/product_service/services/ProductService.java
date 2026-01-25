@@ -10,6 +10,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 
 @Service
 public class ProductService {
@@ -22,21 +24,15 @@ public class ProductService {
 
     public ProductDTO findByID(String id){
         Product product = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado através do id" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado através do id: " + id));
 
 
         return new ProductDTO(product.getName(), product.getDescription(), product.getPrice(), product.getCategory());
     }
 
 
-    public Page<ProductDTO> findAll(Pageable pageable) {
+    public List<ProductDTO> findAll(Pageable pageable) {
+        return null;
 
-        return repository.findAll(pageable)
-                .map(product -> new ProductDTO(
-                        product.getName(),
-                        product.getDescription(),
-                        product.getPrice(),
-                        product.getCategory()
-                ));
     }
 }
