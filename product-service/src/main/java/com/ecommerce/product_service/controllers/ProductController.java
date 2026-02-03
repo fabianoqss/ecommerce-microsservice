@@ -4,13 +4,15 @@ package com.ecommerce.product_service.controllers;
 import com.ecommerce.product_service.dto.ProductDTO;
 import com.ecommerce.product_service.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping(value = "/api/products")
@@ -27,8 +29,8 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<ProductDTO>> findAll(Pageable pageable){
-        Page<ProductDTO> dto = productService.findAll(pageable);
+    public ResponseEntity<List<ProductDTO>> findAll(Pageable pageable){
+        List<ProductDTO> dto = productService.findAll();
 
         return ResponseEntity.ok(dto);
     }
