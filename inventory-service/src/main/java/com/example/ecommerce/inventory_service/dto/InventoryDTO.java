@@ -1,5 +1,7 @@
 package com.example.ecommerce.inventory_service.dto;
 
+import com.example.ecommerce.inventory_service.entities.Inventory;
+
 public class InventoryDTO {
 
     private Long id;
@@ -8,6 +10,11 @@ public class InventoryDTO {
 
 
 
+    public InventoryDTO(Inventory entity){
+        id = entity.getId();
+        skuCode = entity.getSkuCode();
+        quantity = entity.getQuantity();
+    }
 
     public Long getId() {
         return id;
