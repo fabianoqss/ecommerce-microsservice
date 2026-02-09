@@ -4,7 +4,7 @@ package com.ecommerce.product_service.entities;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(value = "product")
+@Document(value = "products")
 public class Product {
 
     @Id
@@ -24,6 +24,8 @@ public class Product {
         this.price = price;
         this.category = category;
     }
+
+
 
     public String getId() {
         return id;
