@@ -3,7 +3,6 @@ package com.example.ecommerce.inventory_service.controllers;
 
 import com.example.ecommerce.inventory_service.dto.InventoryDTO;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,7 +14,7 @@ public class InventoryController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<InventoryDTO> isInStock(@RequestParam("skuCode")List<String> skuCode, @RequestParam Integer quantity){
+    public List<InventoryDTO> isInStock(@RequestParam("skuCode")List<String> skuCode){
 
 
 
