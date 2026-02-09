@@ -1,0 +1,23 @@
+{"name":"Notebook Acer Nitro 5","description":"Notebook gamer","price":5299.90,"category":"NOTEBOOK","attributes":{"cpu":"Intel i5","ram":"16GB","storage":"512GB SSD","gpu":"RTX 3050","brand":"Acer"}}
+{"name":"Notebook Asus TUF","description":"Notebook gamer","price":5899.90,"category":"NOTEBOOK","attributes":{"cpu":"Ryzen 7","ram":"16GB","storage":"1TB SSD","gpu":"RTX 3060","brand":"Asus"}}
+{"name":"Notebook Samsung Book","description":"Notebook para trabalho","price":3199.90,"category":"NOTEBOOK","attributes":{"cpu":"Intel i5","ram":"8GB","storage":"256GB SSD","brand":"Samsung"}}
+{"name":"Notebook Lenovo Legion","description":"Notebook gamer premium","price":6999.90,"category":"NOTEBOOK","attributes":{"cpu":"Ryzen 7","ram":"32GB","storage":"1TB SSD","gpu":"RTX 3070","brand":"Lenovo"}}
+{"name":"Notebook HP Pavilion","description":"Notebook intermediário","price":3899.90,"category":"NOTEBOOK","attributes":{"cpu":"Intel i5","ram":"16GB","storage":"512GB SSD","brand":"HP"}}
+
+{"name":"Mouse Razer DeathAdder","description":"Mouse gamer","price":259.90,"category":"PERIFERICOS","attributes":{"dpi":16000,"connection":"USB","rgb":true,"brand":"Razer"}}
+{"name":"Mouse Corsair Harpoon","description":"Mouse gamer","price":199.90,"category":"PERIFERICOS","attributes":{"dpi":12000,"connection":"USB","rgb":true,"brand":"Corsair"}}
+{"name":"Teclado Mecânico HyperX","description":"Teclado mecânico RGB","price":499.90,"category":"PERIFERICOS","attributes":{"switch":"Red","layout":"ABNT2","connection":"USB","rgb":true,"brand":"HyperX"}}
+{"name":"Teclado Logitech G213","description":"Teclado gamer","price":349.90,"category":"PERIFERICOS","attributes":{"layout":"ABNT2","connection":"USB","rgb":true,"brand":"Logitech"}}
+{"name":"Headset HyperX Cloud II","description":"Headset gamer","price":599.90,"category":"PERIFERICOS","attributes":{"connection":"USB","surround":true,"brand":"HyperX"}}
+
+{"name":"Mousepad Redragon Large","description":"Mousepad grande","price":89.90,"category":"PERIFERICOS","attributes":{"size":"Large","surface":"Speed","brand":"Redragon"}}
+{"name":"Webcam Logitech C920","description":"Webcam Full HD","price":749.90,"category":"PERIFERICOS","attributes":{"resolution":"1080p","connection":"USB","brand":"Logitech"}}
+{"name":"Monitor LG UltraGear","description":"Monitor gamer","price":1799.90,"category":"PERIFERICOS","attributes":{"size":"27\"","refreshRate":"144Hz","resolution":"Full HD","brand":"LG"}}
+{"name":"Monitor Samsung Odyssey","description":"Monitor gamer curvo","price":2199.90,"category":"PERIFERICOS","attributes":{"size":"27\"","refreshRate":"165Hz","resolution":"QHD","brand":"Samsung"}}
+{"name":"SSD Kingston NV2","description":"SSD NVMe","price":399.90,"category":"PERIFERICOS","attributes":{"capacity":"1TB","interface":"NVMe","brand":"Kingston"}}
+
+{"name":"Notebook Dell Inspiron","description":"Notebook para estudos","price":3499.90,"category":"NOTEBOOK","attributes":{"cpu":"Intel i5","ram":"8GB","storage":"512GB SSD","brand":"Dell"}}
+{"name":"Notebook Apple MacBook Air","description":"Notebook Apple M1","price":7999.90,"category":"NOTEBOOK","attributes":{"cpu":"Apple M1","ram":"8GB","storage":"256GB SSD","brand":"Apple"}}
+{"name":"Notebook Apple MacBook Pro","description":"Notebook Apple M2","price":12999.90,"category":"NOTEBOOK","attributes":{"cpu":"Apple M2","ram":"16GB","storage":"512GB SSD","brand":"Apple"}}
+{"name":"Notebook Vaio FE","description":"Notebook leve","price":2999.90,"category":"NOTEBOOK","attributes":{"cpu":"Intel i3","ram":"8GB","storage":"256GB SSD","brand":"Vaio"}}
+{"name":"Notebook Positivo Motion","description":"Notebook básico","price":2199.90,"category":"NOTEBOOK","attributes":{"cpu":"Intel Celeron","ram":"4GB","storage":"128GB eMMC","brand":"Positivo"}}
