@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RequestMapping
-@RestController("/api/inventory")
+@RequestMapping("/api/inventory")
+@RestController
 public class InventoryController {
 
     @Autowired

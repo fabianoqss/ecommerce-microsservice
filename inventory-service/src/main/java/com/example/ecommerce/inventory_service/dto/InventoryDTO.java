@@ -4,21 +4,16 @@ import com.example.ecommerce.inventory_service.entities.Inventory;
 
 public class InventoryDTO {
 
-    private Long id;
     private String skuCode;
     private Integer quantity;
-
-
+    private boolean inStock;
 
     public InventoryDTO(Inventory entity){
-        id = entity.getId();
         skuCode = entity.getSkuCode();
         quantity = entity.getQuantity();
+        inStock = quantity > 0 ;
     }
 
-    public Long getId() {
-        return id;
-    }
 
     public String getSkuCode() {
         return skuCode;
