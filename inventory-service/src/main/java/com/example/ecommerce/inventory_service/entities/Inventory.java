@@ -2,15 +2,21 @@ package com.example.ecommerce.inventory_service.entities;
 
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
-@Table
+@Table(name = "tb_inventory")
 public class Inventory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "sku_code", nullable = false)
     private String skuCode;
+
+    @NotNull
+    @Column(nullable = false)
     private Integer quantity;
 
     public Inventory() {
