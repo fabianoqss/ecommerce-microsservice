@@ -1,8 +1,32 @@
+server:
+  port: 8081
+
 spring:
   application:
-    name: order-service # Nome que aparecerá no Eureka
+    name: order-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/order-service
+    username: postgres  # Geralmente é 'postgres'
+    password: Vtnc0987@
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      # 'update' cria as tabelas se não existirem e altera se houver mudanças.
+      # Para o TCC, isso facilita muito o desenvolvimento.
+      ddl-auto: update
+    show-sql: true # Mostra as queries no console (bom para debug)
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+  # Configuração adicional para evitar erros de inicialização caso o Eureka demore
+  instance:
+    prefer-ip-address: true
