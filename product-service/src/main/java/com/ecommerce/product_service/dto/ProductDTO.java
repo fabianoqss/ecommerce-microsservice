@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
+
 public class ProductDTO {
 
     @NotBlank(message = "O Nome do Produto não pode ser nulo ou vazio")
@@ -16,7 +18,7 @@ public class ProductDTO {
     private String description;
 
     @Positive(message = "O Nome do Preco não pode ser negativo ")
-    private Double price;
+    private BigDecimal price;
 
     @NotNull(message = "O nome da Categoria não pode ser nulo")
     private String category;
@@ -26,7 +28,7 @@ public class ProductDTO {
     }
 
 
-    public ProductDTO(String name, String description, Double price, String category) {
+    public ProductDTO(String name, String description, BigDecimal price, String category) {
         this.name = name;
         this.description = description;
         this.price = price;
@@ -52,7 +54,7 @@ public class ProductDTO {
 
 
 
-    public Double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 

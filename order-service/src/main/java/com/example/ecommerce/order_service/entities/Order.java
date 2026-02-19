@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,13 +24,13 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime orderTime;
+    private LocalDateTime orderTime;//V
 
-    private OrderStatus status;
+    private OrderStatus status;//V
 
-    private String userID;
+    private String userID;// V
 
-    private Double totalValue;
+    private BigDecimal totalValue;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "order_id")
