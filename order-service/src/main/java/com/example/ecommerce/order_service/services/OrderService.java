@@ -27,7 +27,7 @@ public class OrderService {
         return null;
     }
 
-
+/*
     private Order copyDTOtoEntity(Order order ,OrderRequestDTO request){
         order = new Order();
         order.setUserID(request.userId());
@@ -47,6 +47,6 @@ public class OrderService {
         return order;
     }
 
-
+*/
 
 }
