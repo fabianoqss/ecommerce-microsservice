@@ -18,7 +18,6 @@ public class ProductService {
     private ProductRepository repository;
 
 
-
     public ProductDTO findByID(String id){
         Product product = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado através do id: " + id));
@@ -35,6 +34,19 @@ public class ProductService {
 
     }
 
+    public ProductDTO insert(ProductDTO dto){
+        Product product = new Product();
+        copyDtoToEntity(dto, product);
+        product = repository.save(product);
+        return new ProductDTO(product);
+    }
 
 
+    private void copyDtoToEntity(ProductDTO dto, Product entity){
+        entity.setName(dto.getName());
+        entity.setCategory(dto.getCategory());
+        entity.setDescription(dto.getDescription());
+        entity.setPrice(dto.getPrice());
+
+    }
 }
