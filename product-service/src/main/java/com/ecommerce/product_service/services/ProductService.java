@@ -41,6 +41,18 @@ public class ProductService {
         return new ProductDTO(product);
     }
 
+    public ProductDTO update(String id, ProductDTO dto){
+
+        Product product = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+        copyDtoToEntity(dto, product);
+
+        product = repository.save(product);
+
+        return new ProductDTO(product);
+    }
+
 
     private void copyDtoToEntity(ProductDTO dto, Product entity){
         entity.setName(dto.getName());
