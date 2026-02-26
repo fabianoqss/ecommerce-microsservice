@@ -10,6 +10,8 @@ import java.math.BigDecimal;
 
 public class ProductDTO {
 
+    private String id;
+
     @NotBlank(message = "O Nome do Produto não pode ser nulo ou vazio")
     private String name;
 
@@ -42,6 +44,10 @@ public class ProductDTO {
         category = entity.getCategory();
     }
 
+
+    public String getId() {
+        return id;
+    }
 
     public String getName() {
         return name;
