@@ -53,6 +53,13 @@ public class ProductService {
         return new ProductDTO(product);
     }
 
+    public void delete(String id){
+        if(!repository.existsById(id)){
+            throw new ResourceNotFoundException("Product not found");
+        }
+        repository.deleteById(id);
+    }
+
 
     private void copyDtoToEntity(ProductDTO dto, Product entity){
         entity.setName(dto.getName());
