@@ -22,4 +22,8 @@ public class InventoryDTO {
     public Integer getQuantity() {
         return quantity;
     }
+
+    public boolean isInStock() {
+        return inStock;
+    }
 }

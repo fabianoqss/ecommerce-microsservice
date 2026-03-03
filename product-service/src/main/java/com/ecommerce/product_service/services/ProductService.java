@@ -23,7 +23,7 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado através do id: " + id));
 
 
-        return new ProductDTO(product.getName(), product.getDescription(), product.getPrice(), product.getCategory());
+        return new ProductDTO(product);
     }
 
 

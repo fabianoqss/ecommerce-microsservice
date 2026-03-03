@@ -66,6 +66,6 @@ public class Product {
     }
 
     public void setCategory(String category) {
-        category = category;
+        this.category = category;
     }
 }
