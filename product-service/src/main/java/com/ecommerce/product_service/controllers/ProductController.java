@@ -49,7 +49,7 @@ public class ProductController {
     @PutMapping(value = "/{id}")
     public ResponseEntity<ProductDTO> update(@PathVariable String id, @Valid @RequestBody ProductDTO dto) {
         dto = productService.update(id, dto);
-        
+
         return ResponseEntity.ok().body(dto);
     }
 
