@@ -1,25 +1,24 @@
 package com.example.ecommerce.order_service.controllers;
 
-import com.example.ecommerce.order_service.client.ProductClient;
-import com.example.ecommerce.order_service.dtos.ProductDTO;
+import com.example.ecommerce.order_service.dtos.OrderRequestDTO;
+import com.example.ecommerce.order_service.dtos.OrderResponseDTO;
+import com.example.ecommerce.order_service.services.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/order")
 public class OrderController {
 
     @Autowired
-    private ProductClient productClient;
+    private OrderService orderService;
 
-    @GetMapping("/test-product/{id}")
-    public ResponseEntity<?> testCommunication(@PathVariable String id){
-        ProductDTO productDTO = productClient.getProductById(id);
-
-        return ResponseEntity.ok("Comunicação OK! Produto recuperado: " + productDTO.name());
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ResponseEntity<OrderResponseDTO> createOrder(@RequestBody OrderRequestDTO request) {
+        OrderResponseDTO response = orderService.createOrder(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

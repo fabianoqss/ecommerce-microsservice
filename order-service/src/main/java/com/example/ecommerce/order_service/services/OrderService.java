@@ -1,52 +1,100 @@
 package com.example.ecommerce.order_service.services;
 
-import com.example.ecommerce.order_service.dtos.OrderRequestDTO;
-import com.example.ecommerce.order_service.dtos.OrderResponseDTO;
+import com.example.ecommerce.order_service.client.InventoryClient;
+import com.example.ecommerce.order_service.client.ProductClient;
+import com.example.ecommerce.order_service.dtos.*;
 import com.example.ecommerce.order_service.entities.Order;
 import com.example.ecommerce.order_service.entities.OrderItem;
 import com.example.ecommerce.order_service.enums.OrderStatus;
 import com.example.ecommerce.order_service.repositories.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
-
 public class OrderService {
 
     @Autowired
     private OrderRepository orderRepository;
 
-    public OrderResponseDTO createOrder(OrderRequestDTO orderRequestDTO){
+    @Autowired
+    private ProductClient productClient;
 
+    @Autowired
+    private InventoryClient inventoryClient;
 
+    @Transactional
+    public OrderResponseDTO createOrder(OrderRequestDTO request) {
+        List<String> productIds = request.items().stream()
+                .map(OrderItemRequestDTO::productId)
+                .toList();
 
-        return null;
-    }
+        // Verifica estoque de todos os itens de uma vez
+        List<InventoryResponseDTO> stockList = inventoryClient.isInStock(productIds);
 
-/*
-    private Order copyDTOtoEntity(Order order ,OrderRequestDTO request){
-        order = new Order();
-        order.setUserID(request.userId());
-        order.setOrderTime(LocalDateTime.now());
-        order.setStatus(OrderStatus.PENDING);
+        for (OrderItemRequestDTO itemRequest : request.items()) {
+            InventoryResponseDTO stock = stockList.stream()
+                    .filter(s -> s.skuCode().equals(itemRequest.productId()))
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException(
+                            "Produto não encontrado no estoque: " + itemRequest.productId()));
 
-        List<OrderItem> items = request.items().stream().map(itemDto -> {
+            if (stock.quantity() < itemRequest.quantity()) {
+                throw new RuntimeException(
+                        "Estoque insuficiente para o produto: " + itemRequest.productId()
+                        + ". Disponível: " + stock.quantity() + ", Solicitado: " + itemRequest.quantity());
+            }
+        }
+
+        // Busca detalhes de cada produto (uma chamada por produto único)
+        Map<String, ProductDTO> productMap = productIds.stream()
+                .distinct()
+                .collect(Collectors.toMap(id -> id, productClient::getProductById));
+
+        // Monta os itens do pedido
+        List<OrderItem> orderItems = request.items().stream().map(itemDto -> {
+            ProductDTO product = productMap.get(itemDto.productId());
             OrderItem item = new OrderItem();
             item.setProductId(itemDto.productId());
             item.setQuantity(itemDto.quantity());
+            item.setPrice(product.price());
+            return item;
+        }).toList();
 
+        // Calcula o valor total
+        BigDecimal totalValue = orderItems.stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        };
+        // Salva o pedido
+        Order order = new Order();
+        order.setUserID(request.userId());
+        order.setOrderTime(LocalDateTime.now());
+        order.setStatus(OrderStatus.PENDING);
+        order.setTotalValue(totalValue);
+        order.setItems(orderItems);
+        order = orderRepository.save(order);
 
+        // Monta o response
+        List<OrderItemResponseDTO> itemsResponse = order.getItems().stream()
+                .map(item -> new OrderItemResponseDTO(
+                        item.getProductId(),
+                        productMap.get(item.getProductId()).name(),
+                        item.getQuantity(),
+                        item.getPrice()))
+                .toList();
 
-
-        return order;
+        return new OrderResponseDTO(
+                order.getId(),
+                order.getStatus().name(),
+                order.getTotalValue(),
+                order.getOrderTime(),
+                itemsResponse);
     }
-
-*/
-
 }
