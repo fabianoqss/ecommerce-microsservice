@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/order")
 public class OrderController {
@@ -15,8 +17,17 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
+    @GetMapping
+    public ResponseEntity<List<OrderResponseDTO>> findAll() {
+        return ResponseEntity.ok(orderService.findAll());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<OrderResponseDTO> findById(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.findById(id));
+    }
+
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<OrderResponseDTO> createOrder(@RequestBody OrderRequestDTO request) {
         OrderResponseDTO response = orderService.createOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

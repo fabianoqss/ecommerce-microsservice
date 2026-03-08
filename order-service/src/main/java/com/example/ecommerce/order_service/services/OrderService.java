@@ -29,6 +29,18 @@ public class OrderService {
     @Autowired
     private InventoryClient inventoryClient;
 
+    public List<OrderResponseDTO> findAll() {
+        return orderRepository.findAll().stream()
+                .map(this::toResponseDTO)
+                .toList();
+    }
+
+    public OrderResponseDTO findById(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Pedido não encontrado com id: " + id));
+        return toResponseDTO(order);
+    }
+
     @Transactional
     public OrderResponseDTO createOrder(OrderRequestDTO request) {
         List<String> productIds = request.items().stream()
@@ -96,5 +108,22 @@ public class OrderService {
                 order.getTotalValue(),
                 order.getOrderTime(),
                 itemsResponse);
+    }
+
+    private OrderResponseDTO toResponseDTO(Order order) {
+        List<OrderItemResponseDTO> items = order.getItems().stream()
+                .map(item -> new OrderItemResponseDTO(
+                        item.getProductId(),
+                        null,
+                        item.getQuantity(),
+                        item.getPrice()))
+                .toList();
+
+        return new OrderResponseDTO(
+                order.getId(),
+                order.getStatus().name(),
+                order.getTotalValue(),
+                order.getOrderTime(),
+                items);
     }
 }
