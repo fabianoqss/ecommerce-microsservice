@@ -2,11 +2,13 @@ package com.example.ecommerce.order_service.services;
 
 import com.example.ecommerce.order_service.client.InventoryClient;
 import com.example.ecommerce.order_service.client.ProductClient;
+import com.example.ecommerce.order_service.config.RabbitMQConfig;
 import com.example.ecommerce.order_service.dtos.*;
 import com.example.ecommerce.order_service.entities.Order;
 import com.example.ecommerce.order_service.entities.OrderItem;
 import com.example.ecommerce.order_service.enums.OrderStatus;
 import com.example.ecommerce.order_service.repositories.OrderRepository;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,8 @@ public class OrderService {
 
     @Autowired
     private InventoryClient inventoryClient;
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
     public List<OrderResponseDTO> findAll() {
         return orderRepository.findAll().stream()
@@ -92,6 +96,19 @@ public class OrderService {
         order.setTotalValue(totalValue);
         order.setItems(orderItems);
         order = orderRepository.save(order);
+
+        OrderEventDTO event = new OrderEventDTO(
+                order.getId(),
+                order.getUserID(),
+                order.getStatus().name(),
+                order.getTotalValue(),
+                order.getOrderTime()
+        );
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.EXCHANGE,
+                RabbitMQConfig.ROUTING_KEY,
+                event
+        );
 
         // Monta o response
         List<OrderItemResponseDTO> itemsResponse = order.getItems().stream()
