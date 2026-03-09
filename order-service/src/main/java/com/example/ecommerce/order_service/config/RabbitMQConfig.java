@@ -25,7 +25,7 @@ public class RabbitMQConfig {
 
     @Bean
     public Queue orderCreatedQueue() {
-        return new Queue(QUEUE, true); // true = durable
+        return new Queue(QUEUE, true);
     }
 
     @Bean
@@ -37,7 +37,7 @@ public class RabbitMQConfig {
 
     @Bean
     public MessageConverter jsonMessageConverter() {
-        return new JacksonJsonMessageConverter(); // serializa objeto → JSON
+        return new JacksonJsonMessageConverter();
     }
 
     @Bean
