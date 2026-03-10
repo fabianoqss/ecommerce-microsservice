@@ -66,6 +66,6 @@ public class ProductService {
         entity.setCategory(dto.getCategory());
         entity.setDescription(dto.getDescription());
         entity.setPrice(dto.getPrice());
-
+        entity.setImageUrl(dto.getImageUrl());
     }
 }

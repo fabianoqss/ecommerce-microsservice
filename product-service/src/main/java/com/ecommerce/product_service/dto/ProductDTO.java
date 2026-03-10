@@ -25,16 +25,17 @@ public class ProductDTO {
     @NotNull(message = "O nome da Categoria não pode ser nulo")
     private String category;
 
+    private String imageUrl;
 
     public ProductDTO() {
     }
 
-
-    public ProductDTO(String name, String description, BigDecimal price, String category) {
+    public ProductDTO(String name, String description, BigDecimal price, String category, String imageUrl) {
         this.name = name;
         this.description = description;
         this.price = price;
         this.category = category;
+        this.imageUrl = imageUrl;
     }
 
     public ProductDTO (Product entity){
@@ -43,6 +44,7 @@ public class ProductDTO {
         description = entity.getDescription();
         price = entity.getPrice();
         category = entity.getCategory();
+        imageUrl = entity.getImageUrl();
     }
 
 
@@ -71,5 +73,7 @@ public class ProductDTO {
         return category;
     }
 
-
+    public String getImageUrl() {
+        return imageUrl;
+    }
 }
