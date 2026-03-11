@@ -1,0 +1,48 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      mvc:
+        routes:
+          - id: product-service
+            uri: lb://product-service
+            predicates:
+              - Path=/api/product/**
+
+          - id: order-service
+            uri: lb://order-service
+            predicates:
+              - Path=/api/order/**
+
+          - id: inventory-service
+            uri: lb://inventory-service
+            predicates:
+              - Path=/api/inventory/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+
+  cloud:
+    gateway:
+      mvc:
+        globalcors:
+          cors-configurations:
+            '[/**]':
+              allowed-origins: "*"
+              allowed-methods: "*"
+              allowed-headers: "*"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, gateway
