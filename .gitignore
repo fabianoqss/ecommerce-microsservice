@@ -1,2 +1,43 @@
-.CLAUDE.md
-.docker-compose-monitoring.yml
+# ===== MAVEN =====
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ===== INTELLIJ IDEA =====
+**/.idea/
+**/*.iws
+**/*.iml
+**/*.ipr
+
+# ===== SPRING BOOT =====
+**/HELP.md
+
+# ===== STS =====
+**/.apt_generated
+**/.classpath
+**/.factorypath
+**/.project
+**/.settings
+**/.springBeans
+**/.sts4-cache
+
+# ===== NETBEANS =====
+**/nbproject/private/
+**/nbbuild/
+**/dist/
+**/nbdist/
+**/.nb-gradle/
+**/build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# ===== VS CODE =====
+**/.vscode/
+
+# ===== SECRETS =====
+**/.env
+
+# ===== PROJETO =====
+CLAUDE.md
+docker-compose-monitoring.yml

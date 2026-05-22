@@ -7,21 +7,42 @@ spring:
   cloud:
     gateway:
       mvc:
+        globalcors:
+          cors-configurations:
+            '[/**]':
+              allowed-origins: "*"
+              allowed-methods: "*"
+              allowed-headers: "*"
         routes:
           - id: product-service
             uri: lb://product-service
             predicates:
               - Path=/api/product/**
 
+          - id: product-service-root
+            uri: lb://product-service
+            predicates:
+              - Path=/api/product
+
           - id: order-service
             uri: lb://order-service
             predicates:
               - Path=/api/order/**
 
+          - id: order-service-root
+            uri: lb://order-service
+            predicates:
+              - Path=/api/order
+
           - id: inventory-service
             uri: lb://inventory-service
             predicates:
               - Path=/api/inventory/**
+
+          - id: inventory-service-root
+            uri: lb://inventory-service
+            predicates:
+              - Path=/api/inventory
 
 eureka:
   client:
@@ -29,17 +50,6 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
-
-
-  cloud:
-    gateway:
-      mvc:
-        globalcors:
-          cors-configurations:
-            '[/**]':
-              allowed-origins: "*"
-              allowed-methods: "*"
-              allowed-headers: "*"
 
 management:
   endpoints:

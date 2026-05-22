@@ -1,38 +1,29 @@
 server:
-  port: 8081
+  port: 8086
 
 spring:
   application:
-    name: order-service
+    name: auth-service
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/order-service}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/auth_service}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:Vtnc0987@}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      # 'update' cria as tabelas se não existirem e altera se houver mudanças.
-      # Para o TCC, isso facilita muito o desenvolvimento.
       ddl-auto: update
-    show-sql: true # Mostra as queries no console (bom para debug)
+    show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
-  # Configuração adicional para evitar erros de inicialização caso o Eureka demore
   instance:
     prefer-ip-address: true
 
@@ -47,6 +38,9 @@ management:
   tracing:
     sampling:
       probability: 1.0
-  zipkin:
-    tracing:
-      endpoint: http://localhost:9411/api/v2/spans
+    export:
+      zipkin:
+        endpoint: http://localhost:9411/api/v2/spans
+
+jwt:
+  secret: ${JWT_SECRET:ecommerce-tcc-secret-key-super-segura-minimo-256-bits}
