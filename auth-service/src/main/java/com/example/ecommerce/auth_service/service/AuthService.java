@@ -5,10 +5,11 @@ import com.example.ecommerce.auth_service.domain.user.enums.UserRole;
 import com.example.ecommerce.auth_service.dto.LoginRequestDTO;
 import com.example.ecommerce.auth_service.dto.LoginResponseDTO;
 import com.example.ecommerce.auth_service.dto.RegisterRequestDTO;
+import com.example.ecommerce.auth_service.service.exception.EmailAlreadyExistsException;
+import com.example.ecommerce.auth_service.service.exception.InvalidCredentialsException;
 import com.example.ecommerce.auth_service.infra.security.TokenService;
 import com.example.ecommerce.auth_service.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -20,21 +21,21 @@ public class AuthService {
     private final TokenService tokenService;
     private final PasswordEncoder passwordEncoder;
 
-    public ResponseEntity<LoginResponseDTO> login(LoginRequestDTO dto) {
+    public LoginResponseDTO login(LoginRequestDTO dto) {
         User user = userRepository.findByEmail(dto.email())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(InvalidCredentialsException::new);
 
         if (!passwordEncoder.matches(dto.password(), user.getPassword())) {
-            return ResponseEntity.status(401).build();
+            throw new InvalidCredentialsException();
         }
 
         String token = tokenService.generateToken(user);
-        return ResponseEntity.ok(new LoginResponseDTO(token, user.getName(), user.getEmail(), user.getRole().name()));
+        return new LoginResponseDTO(token, user.getName(), user.getEmail(), user.getRole().name());
     }
 
-    public ResponseEntity<LoginResponseDTO> register(RegisterRequestDTO dto) {
+    public LoginResponseDTO register(RegisterRequestDTO dto) {
         if (userRepository.findByEmail(dto.email()).isPresent()) {
-            return ResponseEntity.status(409).build();
+            throw new EmailAlreadyExistsException(dto.email());
         }
 
         User user = new User();
@@ -46,6 +47,6 @@ public class AuthService {
         userRepository.save(user);
 
         String token = tokenService.generateToken(user);
-        return ResponseEntity.ok(new LoginResponseDTO(token, user.getName(), user.getEmail(), user.getRole().name()));
+        return new LoginResponseDTO(token, user.getName(), user.getEmail(), user.getRole().name());
     }
 }

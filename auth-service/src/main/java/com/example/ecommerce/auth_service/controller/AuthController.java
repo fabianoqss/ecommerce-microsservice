@@ -21,11 +21,11 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO dto) {
-        return authService.login(dto);
+        return ResponseEntity.ok(authService.login(dto));
     }
 
     @PostMapping("/register")
     public ResponseEntity<LoginResponseDTO> register(@Valid @RequestBody RegisterRequestDTO dto) {
-        return authService.register(dto);
+        return ResponseEntity.status(201).body(authService.register(dto));
     }
 }

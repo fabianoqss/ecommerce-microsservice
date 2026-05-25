@@ -1,5 +1,7 @@
 package com.example.ecommerce.auth_service.controller.handlers;
 
+import com.example.ecommerce.auth_service.service.exception.EmailAlreadyExistsException;
+import com.example.ecommerce.auth_service.service.exception.InvalidCredentialsException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -18,5 +20,15 @@ public class AuthExceptionHandler {
                 .stream()
                 .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage, (a, b) -> a));
         return ResponseEntity.badRequest().body(errors);
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidCredentials(InvalidCredentialsException ex) {
+        return ResponseEntity.status(401).body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<Map<String, String>> handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
+        return ResponseEntity.status(409).body(Map.of("error", ex.getMessage()));
     }
 }
