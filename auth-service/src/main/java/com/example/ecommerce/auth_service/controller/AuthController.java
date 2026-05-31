@@ -3,6 +3,7 @@ package com.example.ecommerce.auth_service.controller;
 import com.example.ecommerce.auth_service.dto.LoginRequestDTO;
 import com.example.ecommerce.auth_service.dto.LoginResponseDTO;
 import com.example.ecommerce.auth_service.dto.RegisterRequestDTO;
+
 import com.example.ecommerce.auth_service.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,8 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<LoginResponseDTO> register(@Valid @RequestBody RegisterRequestDTO dto) {
-        return ResponseEntity.status(201).body(authService.register(dto));
+    public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequestDTO dto) {
+        authService.register(dto);
+        return ResponseEntity.status(201).build();
     }
 }

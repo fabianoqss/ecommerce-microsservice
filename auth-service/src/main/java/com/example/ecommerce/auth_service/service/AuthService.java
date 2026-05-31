@@ -2,6 +2,8 @@ package com.example.ecommerce.auth_service.service;
 
 import com.example.ecommerce.auth_service.domain.user.User;
 import com.example.ecommerce.auth_service.domain.user.enums.UserRole;
+import com.example.ecommerce.auth_service.domain.user.User;
+import com.example.ecommerce.auth_service.domain.user.enums.UserRole;
 import com.example.ecommerce.auth_service.dto.LoginRequestDTO;
 import com.example.ecommerce.auth_service.dto.LoginResponseDTO;
 import com.example.ecommerce.auth_service.dto.RegisterRequestDTO;
@@ -33,7 +35,7 @@ public class AuthService {
         return new LoginResponseDTO(token, user.getName(), user.getEmail(), user.getRole().name());
     }
 
-    public LoginResponseDTO register(RegisterRequestDTO dto) {
+    public void register(RegisterRequestDTO dto) {
         if (userRepository.findByEmail(dto.email()).isPresent()) {
             throw new EmailAlreadyExistsException(dto.email());
         }
@@ -45,8 +47,5 @@ public class AuthService {
         user.setRole(UserRole.ROLE_USER);
 
         userRepository.save(user);
-
-        String token = tokenService.generateToken(user);
-        return new LoginResponseDTO(token, user.getName(), user.getEmail(), user.getRole().name());
     }
 }

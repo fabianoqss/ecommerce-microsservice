@@ -6,43 +6,46 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      mvc:
-        globalcors:
-          cors-configurations:
-            '[/**]':
-              allowed-origins: "*"
-              allowed-methods: "*"
-              allowed-headers: "*"
-        routes:
-          - id: product-service
-            uri: lb://product-service
-            predicates:
-              - Path=/api/product/**
+      server:
+        webmvc:
+          routes:
+            - id: auth-service
+              uri: lb://auth-service
+              predicates:
+                - Path=/auth/**
 
-          - id: product-service-root
-            uri: lb://product-service
-            predicates:
-              - Path=/api/product
+            - id: product-service
+              uri: lb://product-service
+              predicates:
+                - Path=/api/product/**
 
-          - id: order-service
-            uri: lb://order-service
-            predicates:
-              - Path=/api/order/**
+            - id: product-service-root
+              uri: lb://product-service
+              predicates:
+                - Path=/api/product
 
-          - id: order-service-root
-            uri: lb://order-service
-            predicates:
-              - Path=/api/order
+            - id: order-service
+              uri: lb://order-service
+              predicates:
+                - Path=/api/order/**
 
-          - id: inventory-service
-            uri: lb://inventory-service
-            predicates:
-              - Path=/api/inventory/**
+            - id: order-service-root
+              uri: lb://order-service
+              predicates:
+                - Path=/api/order
 
-          - id: inventory-service-root
-            uri: lb://inventory-service
-            predicates:
-              - Path=/api/inventory
+            - id: inventory-service
+              uri: lb://inventory-service
+              predicates:
+                - Path=/api/inventory/**
+
+            - id: inventory-service-root
+              uri: lb://inventory-service
+              predicates:
+                - Path=/api/inventory
+
+jwt:
+  secret: ${JWT_SECRET:minha-chave-super-secreta-para-o-tcc-ecommerce-2026-minimo-32chars}
 
 eureka:
   client:
@@ -50,6 +53,11 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.servlet.function: DEBUG
 
 management:
   endpoints:
