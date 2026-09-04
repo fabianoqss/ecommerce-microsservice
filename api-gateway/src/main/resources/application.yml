@@ -45,7 +45,7 @@ spring:
                 - Path=/api/inventory
 
 jwt:
-  secret: ${JWT_SECRET:minha-chave-super-secreta-para-o-tcc-ecommerce-2026-minimo-32chars}
+  secret: ${JWT_SECRET}
 
 eureka:
   client:

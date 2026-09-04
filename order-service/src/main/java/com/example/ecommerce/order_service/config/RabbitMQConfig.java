@@ -2,7 +2,9 @@ package com.example.ecommerce.order_service.config;
 
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -17,6 +19,9 @@ public class RabbitMQConfig {
     public static final String EXCHANGE = "order.exchange";
     public static final String QUEUE    = "order.created.queue";
     public static final String ROUTING_KEY = "order.created";
+    public static final String DEAD_LETTER_EXCHANGE = "order.dlx";
+    public static final String DEAD_LETTER_QUEUE = "order.created.dlq";
+    public static final String DEAD_LETTER_ROUTING_KEY = "order.created.dead";
 
     @Bean
     public TopicExchange orderExchange() {
@@ -25,7 +30,27 @@ public class RabbitMQConfig {
 
     @Bean
     public Queue orderCreatedQueue() {
-        return new Queue(QUEUE, true);
+        return QueueBuilder.durable(QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(DEAD_LETTER_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public DirectExchange deadLetterExchange() {
+        return new DirectExchange(DEAD_LETTER_EXCHANGE);
+    }
+
+    @Bean
+    public Queue deadLetterQueue() {
+        return QueueBuilder.durable(DEAD_LETTER_QUEUE).build();
+    }
+
+    @Bean
+    public Binding deadLetterBinding(Queue deadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(deadLetterQueue)
+                .to(deadLetterExchange)
+                .with(DEAD_LETTER_ROUTING_KEY);
     }
 
     @Bean
@@ -44,6 +69,7 @@ public class RabbitMQConfig {
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
         template.setMessageConverter(jsonMessageConverter());
+        template.setMandatory(true);
         return template;
     }
 }

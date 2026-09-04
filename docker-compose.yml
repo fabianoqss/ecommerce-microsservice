@@ -50,7 +50,7 @@ services:
   # ─── MONITORAMENTO ──────────────────────────────────────────────────────────
 
   zipkin:
-    image: openzipkin/zipkin:latest
+    image: openzipkin/zipkin@sha256:ebfd47b93879b4bec4075ea3a4b07744c5476bae8dca3f6f9c2aca798ceaf0cc
     container_name: zipkin
     ports:
       - "9411:9411"
@@ -62,7 +62,7 @@ services:
     restart: unless-stopped
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus@sha256:4a61322ac1103a0e3aea2a61ef1718422a48fa046441f299d71e660a3bc71ae9
     container_name: prometheus
     ports:
       - "9090:9090"
@@ -71,7 +71,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana@sha256:e932bd6ed0e026595b08483cd0141e5103e1ab7ff8604839ff899b8dc54cabcb
     container_name: grafana
     ports:
       - "3000:3000"
@@ -90,8 +90,6 @@ services:
   eureka-server:
     build: ./eureka-server
     container_name: eureka-server
-    ports:
-      - "8761:8761"
     environment:
       - EUREKA_INSTANCE_HOSTNAME=eureka-server
       - MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
@@ -108,8 +106,6 @@ services:
   product-service:
     build: ./product-service
     container_name: product-service
-    ports:
-      - "8082:8082"
     environment:
       - SPRING_MONGODB_URI=mongodb://mongo:27017/product_db
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
@@ -129,8 +125,6 @@ services:
   inventory-service:
     build: ./inventory-service
     container_name: inventory-service
-    ports:
-      - "8083:8083"
     environment:
       - DB_URL=jdbc:postgresql://postgres:5432/inventory_service
       - DB_USERNAME=postgres
@@ -152,8 +146,6 @@ services:
   notification-service:
     build: ./notification-service
     container_name: notification-service
-    ports:
-      - "8084:8084"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_RABBITMQ_HOST=rabbitmq
@@ -173,12 +165,11 @@ services:
   order-service:
     build: ./order-service
     container_name: order-service
-    ports:
-      - "8081:8081"
     environment:
       - DB_URL=jdbc:postgresql://postgres:5432/order-service
       - DB_USERNAME=postgres
       - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_RABBITMQ_HOST=rabbitmq
       - MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
@@ -203,8 +194,6 @@ services:
   auth-service:
     build: ./auth-service
     container_name: auth-service
-    ports:
-      - "8086:8086"
     environment:
       - DB_URL=jdbc:postgresql://postgres:5432/auth_service
       - DB_USERNAME=postgres

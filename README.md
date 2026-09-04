@@ -2,19 +2,19 @@
 
 Backend de e-commerce desenvolvido como projeto de TCC para demonstrar arquitetura distribuída com Spring Boot, Spring Cloud, autenticação JWT, comunicação síncrona e assíncrona e observabilidade.
 
-> O projeto está em desenvolvimento. A infraestrutura e os fluxos principais existem, mas o fluxo de compra ainda precisa de correções de integridade, segurança e testes antes de ser considerado concluído. Consulte [PROJECT_STATUS.md](PROJECT_STATUS.md) para o diagnóstico completo.
+> As sete fases de fechamento do P0 foram implementadas. O fluxo principal está funcional, com estoque atômico, Outbox, DLQ, idempotência e acesso externo somente pelo gateway. A principal pendência restante é ampliar os testes automatizados. Consulte [PROJECT_STATUS.md](PROJECT_STATUS.md) para o diagnóstico completo.
 
 ## Arquitetura atual
 
 | Componente | Porta | Persistência | Responsabilidade | Estado |
 |---|---:|---|---|---|
 | API Gateway | 8080 | — | Roteamento, validação JWT e autorização por perfil | Funcional |
-| Eureka Server | 8761 | — | Descoberta e registro de serviços | Funcional |
+| Eureka Server | 8761 (interna) | — | Descoberta e registro de serviços | Funcional |
 | Auth Service | 8086 | PostgreSQL | Cadastro, login, BCrypt, JWT e perfis | Funcional, requer endurecimento |
 | Product Service | 8082 | MongoDB | Catálogo e CRUD de produtos | Funcional |
-| Inventory Service | 8083 | PostgreSQL | Consulta e manutenção de estoque | Parcial: não realiza reserva/baixa |
-| Order Service | 8081 | PostgreSQL | Criação e consulta de pedidos | Parcial: não baixa estoque |
-| Notification Service | 8084 | — | Consumo do evento de pedido criado | Parcial: registra apenas no log |
+| Inventory Service | 8083 (interna) | PostgreSQL | Consulta, manutenção e reserva atômica de estoque | Funcional |
+| Order Service | 8081 (interna) | PostgreSQL | Criação, consulta e Outbox de pedidos | Funcional |
+| Notification Service | 8084 (interna) | — | Consumo idempotente, retry e DLQ do evento de pedido | Funcional; notificação registrada no log |
 
 Infraestrutura: PostgreSQL 16, MongoDB 7, RabbitMQ, Zipkin, Prometheus e Grafana.
 
@@ -45,7 +45,7 @@ Cliente
 
 ## Endpoints
 
-Todas as chamadas externas devem passar pelo gateway em `http://localhost:8080`.
+Todas as chamadas externas devem passar pelo gateway em `http://localhost:8080`. As portas dos microsserviços e do Eureka não são publicadas no host.
 
 ### Autenticação
 
@@ -85,7 +85,7 @@ Todas as chamadas externas devem passar pelo gateway em `http://localhost:8080`.
 ### Pré-requisitos
 
 - Docker Desktop com Docker Compose
-- Portas `3000`, `5432`, `5672`, `8080`–`8086`, `8761`, `9090`, `9411`, `15672` e `27017` disponíveis
+- Portas `3000`, `5432`, `5672`, `8080`, `9090`, `9411`, `15672` e `27017` disponíveis
 
 ### Configuração
 
@@ -105,7 +105,7 @@ docker compose up --build
 Serviços úteis:
 
 - Gateway: `http://localhost:8080`
-- Eureka: `http://localhost:8761`
+- Eureka: disponível apenas na rede interna do Compose, em `http://eureka-server:8761`
 - RabbitMQ Management: `http://localhost:15672` (`guest`/`guest`)
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3000` (`admin`/`admin`)
@@ -130,7 +130,7 @@ cd auth-service
 ./mvnw test
 ```
 
-Atualmente existe apenas um teste `contextLoads()` por módulo. Eles passaram na última auditoria, mas não cobrem regras de negócio, endpoints ou o fluxo ponta a ponta e podem usar infraestrutura local. A criação de testes isolados está entre as prioridades do projeto.
+Atualmente existe apenas um teste `contextLoads()` por módulo. Eles não cobrem regras de negócio ou endpoints e alguns ainda dependem de configuração local. A criação de testes isolados continua entre as prioridades do projeto. As Fases 6 e 7 foram validadas manualmente pelo gateway, inclusive com indisponibilidade temporária do RabbitMQ, entrega posterior via Outbox, DLQ e rejeição de evento duplicado.
 
 ## Escopo não implementado
 

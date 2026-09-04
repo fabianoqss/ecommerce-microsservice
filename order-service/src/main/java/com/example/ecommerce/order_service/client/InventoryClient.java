@@ -1,15 +1,16 @@
 package com.example.ecommerce.order_service.client;
 
-import com.example.ecommerce.order_service.dtos.response.InventoryResponseDTO;
+import com.example.ecommerce.order_service.dtos.request.InventoryReserveRequestDTO;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-
-import java.util.List;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(name = "inventory-service")
 public interface InventoryClient {
 
-    @GetMapping("/api/inventory")
-    List<InventoryResponseDTO> isInStock(@RequestParam("skuCode") List<String> skuCode);
+    @PostMapping("/api/inventory/reserve")
+    void reserve(@RequestBody InventoryReserveRequestDTO request);
+
+    @PostMapping("/api/inventory/release")
+    void release(@RequestBody InventoryReserveRequestDTO request);
 }

@@ -3,6 +3,7 @@ package com.example.ecommerce.inventory_service.controllers;
 
 import com.example.ecommerce.inventory_service.dto.response.InventoryDTO;
 import com.example.ecommerce.inventory_service.dto.request.InventoryRequestDTO;
+import com.example.ecommerce.inventory_service.dto.request.InventoryReserveRequestDTO;
 import com.example.ecommerce.inventory_service.dto.request.InventoryUpdateDTO;
 import com.example.ecommerce.inventory_service.services.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -63,6 +64,35 @@ public class InventoryController {
     @ResponseStatus(HttpStatus.OK)
     public InventoryDTO update(@PathVariable Long id, @Valid @RequestBody InventoryUpdateDTO dto){
         return inventoryService.update(id, dto);
+    }
+
+    @Operation(
+            description = "Atomically reserve (decrement) stock for a list of items. All-or-nothing.",
+            summary = "Reserve stock for an order",
+            responses = {
+                    @ApiResponse(description = "No Content", responseCode = "204"),
+                    @ApiResponse(description = "Conflict - insufficient stock", responseCode = "409"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400")
+            }
+    )
+    @PostMapping("/reserve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reserve(@Valid @RequestBody InventoryReserveRequestDTO dto){
+        inventoryService.reserve(dto.items());
+    }
+
+    @Operation(
+            description = "Release (increment) previously reserved stock, best-effort compensation",
+            summary = "Release reserved stock",
+            responses = {
+                    @ApiResponse(description = "No Content", responseCode = "204"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400")
+            }
+    )
+    @PostMapping("/release")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void release(@Valid @RequestBody InventoryReserveRequestDTO dto){
+        inventoryService.release(dto.items());
     }
 
 }

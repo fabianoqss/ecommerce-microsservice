@@ -26,6 +26,8 @@ public class Order {
 
     private LocalDateTime orderTime;//V
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
     private OrderStatus status;//V
 
     private String userID;// V

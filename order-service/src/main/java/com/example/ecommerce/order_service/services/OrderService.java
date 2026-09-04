@@ -2,20 +2,31 @@ package com.example.ecommerce.order_service.services;
 
 import com.example.ecommerce.order_service.client.InventoryClient;
 import com.example.ecommerce.order_service.client.ProductClient;
-import com.example.ecommerce.order_service.config.RabbitMQConfig;
 import com.example.ecommerce.order_service.dtos.OrderEventDTO;
+import com.example.ecommerce.order_service.dtos.request.InventoryItemDTO;
+import com.example.ecommerce.order_service.dtos.request.InventoryReserveRequestDTO;
 import com.example.ecommerce.order_service.dtos.request.OrderItemRequestDTO;
 import com.example.ecommerce.order_service.dtos.request.OrderRequestDTO;
-import com.example.ecommerce.order_service.dtos.response.InventoryResponseDTO;
 import com.example.ecommerce.order_service.dtos.response.OrderItemResponseDTO;
 import com.example.ecommerce.order_service.dtos.response.OrderResponseDTO;
 import com.example.ecommerce.order_service.dtos.response.ProductDTO;
 import com.example.ecommerce.order_service.entities.Order;
 import com.example.ecommerce.order_service.entities.OrderItem;
+import com.example.ecommerce.order_service.entities.OutboxEvent;
 import com.example.ecommerce.order_service.enums.OrderStatus;
+import com.example.ecommerce.order_service.exceptions.InsufficientStockException;
+import com.example.ecommerce.order_service.exceptions.OrderAccessDeniedException;
+import com.example.ecommerce.order_service.exceptions.OrderNotFoundException;
+import com.example.ecommerce.order_service.exceptions.ProductNotFoundException;
 import com.example.ecommerce.order_service.repositories.OrderRepository;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.example.ecommerce.order_service.repositories.OutboxEventRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import feign.FeignException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,8 +34,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class OrderService {
 
@@ -37,107 +50,152 @@ public class OrderService {
     @Autowired
     private InventoryClient inventoryClient;
     @Autowired
-    private RabbitTemplate rabbitTemplate;
+    private OutboxEventRepository outboxEventRepository;
 
-    public List<OrderResponseDTO> findAll() {
-        return orderRepository.findAll().stream()
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    public List<OrderResponseDTO> findAll(Authentication authentication) {
+        List<Order> orders = isAdmin(authentication)
+                ? orderRepository.findAll()
+                : orderRepository.findByUserID(authentication.getName());
+
+        return orders.stream()
                 .map(this::toResponseDTO)
                 .toList();
     }
 
-    public OrderResponseDTO findById(Long id) {
+    public OrderResponseDTO findById(Long id, Authentication authentication) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Pedido não encontrado com id: " + id));
+                .orElseThrow(() -> new OrderNotFoundException(id));
+
+        if (!isAdmin(authentication) && !order.getUserID().equals(authentication.getName())) {
+            throw new OrderAccessDeniedException();
+        }
+
         return toResponseDTO(order);
     }
 
     @Transactional
-    public OrderResponseDTO createOrder(OrderRequestDTO request) {
+    public OrderResponseDTO createOrder(OrderRequestDTO request, String userEmail) {
         List<String> productIds = request.items().stream()
                 .map(OrderItemRequestDTO::productId)
+                .distinct()
                 .toList();
-
-        // Verifica estoque de todos os itens de uma vez
-        List<InventoryResponseDTO> stockList = inventoryClient.isInStock(productIds);
-
-        for (OrderItemRequestDTO itemRequest : request.items()) {
-            InventoryResponseDTO stock = stockList.stream()
-                    .filter(s -> s.skuCode().equals(itemRequest.productId()))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException(
-                            "Produto não encontrado no estoque: " + itemRequest.productId()));
-
-            if (stock.quantity() < itemRequest.quantity()) {
-                throw new RuntimeException(
-                        "Estoque insuficiente para o produto: " + itemRequest.productId()
-                        + ". Disponível: " + stock.quantity() + ", Solicitado: " + itemRequest.quantity());
-            }
-        }
 
         // Busca detalhes de cada produto (uma chamada por produto único)
         Map<String, ProductDTO> productMap = productIds.stream()
-                .distinct()
-                .collect(Collectors.toMap(id -> id, productClient::getProductById));
+                .collect(Collectors.toMap(id -> id, this::fetchProduct));
 
-        // Monta os itens do pedido
-        List<OrderItem> orderItems = request.items().stream().map(itemDto -> {
-            ProductDTO product = productMap.get(itemDto.productId());
-            OrderItem item = new OrderItem();
-            item.setProductId(itemDto.productId());
-            item.setQuantity(itemDto.quantity());
-            item.setPrice(product.price());
-            return item;
-        }).toList();
-
-        // Calcula o valor total
-        BigDecimal totalValue = orderItems.stream()
-                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Salva o pedido
-        Order order = new Order();
-        order.setUserID(request.userId());
-        order.setOrderTime(LocalDateTime.now());
-        order.setStatus(OrderStatus.PENDING);
-        order.setTotalValue(totalValue);
-        order.setItems(orderItems);
-        order = orderRepository.save(order);
-
-        OrderEventDTO event = new OrderEventDTO(
-                order.getId(),
-                order.getUserID(),
-                order.getStatus().name(),
-                order.getTotalValue(),
-                order.getOrderTime()
-        );
-        rabbitTemplate.convertAndSend(
-                RabbitMQConfig.EXCHANGE,
-                RabbitMQConfig.ROUTING_KEY,
-                event
-        );
-
-        // Monta o response
-        List<OrderItemResponseDTO> itemsResponse = order.getItems().stream()
-                .map(item -> new OrderItemResponseDTO(
-                        item.getProductId(),
-                        productMap.get(item.getProductId()).name(),
-                        item.getQuantity(),
-                        item.getPrice()))
+        // Reserva (baixa atômica) o estoque de todos os itens antes de persistir o pedido.
+        // O inventory-service faz UPDATE condicional (quantity >= qty) por item, tudo dentro
+        // de uma única transação lá: se um item não tiver estoque, os decrementos anteriores
+        // daquele mesmo lote são desfeitos automaticamente (rollback), então é tudo-ou-nada.
+        List<InventoryItemDTO> reserveItems = request.items().stream()
+                .map(i -> new InventoryItemDTO(i.productId(), i.quantity()))
                 .toList();
 
-        return new OrderResponseDTO(
-                order.getId(),
-                order.getStatus().name(),
-                order.getTotalValue(),
-                order.getOrderTime(),
-                itemsResponse);
+        try {
+            inventoryClient.reserve(new InventoryReserveRequestDTO(reserveItems));
+        } catch (FeignException e) {
+            throw new InsufficientStockException("Estoque insuficiente para um ou mais itens do pedido");
+        }
+
+        try {
+            List<OrderItem> orderItems = request.items().stream().map(itemDto -> {
+                ProductDTO product = productMap.get(itemDto.productId());
+                OrderItem item = new OrderItem();
+                item.setProductId(itemDto.productId());
+                item.setProductName(product.name());
+                item.setQuantity(itemDto.quantity());
+                item.setPrice(product.price());
+                return item;
+            }).toList();
+
+            BigDecimal totalValue = orderItems.stream()
+                    .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // Não há payment-service: o estoque já foi garantido de forma síncrona acima,
+            // então o pedido já nasce confirmado.
+            Order order = new Order();
+            order.setUserID(userEmail);
+            order.setOrderTime(LocalDateTime.now());
+            order.setStatus(OrderStatus.CONFIRMED);
+            order.setTotalValue(totalValue);
+            order.setItems(orderItems);
+            order = orderRepository.save(order);
+
+            UUID eventId = UUID.randomUUID();
+            OrderEventDTO event = new OrderEventDTO(
+                    eventId,
+                    1,
+                    order.getId(),
+                    order.getUserID(),
+                    order.getStatus().name(),
+                    order.getTotalValue(),
+                    order.getOrderTime()
+            );
+            outboxEventRepository.save(OutboxEvent.pending(
+                    eventId,
+                    order.getId(),
+                    "ORDER_CREATED",
+                    serializeEvent(event)
+            ));
+
+            List<OrderItemResponseDTO> itemsResponse = order.getItems().stream()
+                    .map(item -> new OrderItemResponseDTO(
+                            item.getProductId(),
+                            item.getProductName(),
+                            item.getQuantity(),
+                            item.getPrice()))
+                    .toList();
+
+            return new OrderResponseDTO(
+                    order.getId(),
+                    order.getStatus().name(),
+                    order.getTotalValue(),
+                    order.getOrderTime(),
+                    itemsResponse);
+        } catch (RuntimeException ex) {
+            // O reserve() acima já commitou numa transação remota (inventory-service);
+            // o rollback local desta transação não desfaz isso, então compensamos manualmente.
+            try {
+                inventoryClient.release(new InventoryReserveRequestDTO(reserveItems));
+            } catch (Exception releaseEx) {
+                log.error("Falha ao compensar (liberar) estoque após erro ao persistir o pedido", releaseEx);
+            }
+            throw ex;
+        }
+    }
+
+    private String serializeEvent(OrderEventDTO event) {
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Não foi possível serializar o evento do pedido", ex);
+        }
+    }
+
+    private ProductDTO fetchProduct(String productId) {
+        try {
+            return productClient.getProductById(productId);
+        } catch (FeignException.NotFound e) {
+            throw new ProductNotFoundException(productId);
+        }
+    }
+
+    private boolean isAdmin(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_ADMIN"::equals);
     }
 
     private OrderResponseDTO toResponseDTO(Order order) {
         List<OrderItemResponseDTO> items = order.getItems().stream()
                 .map(item -> new OrderItemResponseDTO(
                         item.getProductId(),
-                        null,
+                        item.getProductName(),
                         item.getQuantity(),
                         item.getPrice()))
                 .toList();
