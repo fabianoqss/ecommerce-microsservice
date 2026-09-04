@@ -1,0 +1,27 @@
+meta {
+  name: Delete Product
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/product/{{productId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+docs {
+  Requires product-service/Create Product.bru and auth-service/Login Admin.bru to have
+  run first.
+
+  Run this LAST. {{productId}} is shared with inventory-service (as skuCode) and
+  order-service (as items[].productId) throughout this collection — deleting it here
+  breaks every later re-run of Insert Inventory Item / Create Order until Create
+  Product.bru runs again.
+
+  Expected: 204 No Content.
+}

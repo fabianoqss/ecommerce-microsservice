@@ -1,0 +1,28 @@
+meta {
+  name: Register Duplicate Email
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Bruno Tester",
+    "email": "bruno.tester@ecommerce.dev",
+    "password": "Bruno@123"
+  }
+}
+
+docs {
+  Requires auth-service/Register.bru to have run at least once already with this exact
+  email (it reuses the same one on purpose).
+
+  Expected: 409 CONFLICT — EmailAlreadyExistsException, body
+  {"error": "Email já cadastrado: bruno.tester@ecommerce.dev"} (approximate message,
+  see EmailAlreadyExistsException).
+}

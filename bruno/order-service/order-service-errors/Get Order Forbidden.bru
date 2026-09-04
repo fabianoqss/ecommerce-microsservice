@@ -1,0 +1,30 @@
+meta {
+  name: Get Order Forbidden
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/order/{{orderId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{secondUserAccessToken}}
+}
+
+docs {
+  Requires order-service/Create Order.bru (order owned by the FIRST test user, needs
+  {{orderId}}) and this folder's Register Second User.bru + Login Second User.bru
+  (needs {{secondUserAccessToken}}) to have all run first.
+
+  A different, authenticated, non-admin user tries to read someone else's order by id.
+
+  Expected: 403 FORBIDDEN — OrderAccessDeniedException, via ProblemDetail
+  (GlobalExceptionHandler.handleAccessDenied). Contrast with the FraudShield sibling
+  project's ledger-service/account-service, which return 403 the same way for
+  cross-user access — but note transaction-service's Get Transaction there has NO such
+  check, while order-service's Get Order DOES (findById checks ownership on every call,
+  not just at creation).
+}

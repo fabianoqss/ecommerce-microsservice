@@ -1,0 +1,38 @@
+meta {
+  name: Update Inventory Item
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/inventory/{{inventoryItemId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "quantity": 75
+  }
+}
+
+docs {
+  {{inventoryItemId}} is the numeric tb_inventory primary key, NOT the skuCode — and no
+  endpoint in this API ever returns it (InventoryDTO only exposes skuCode/quantity/
+  inStock). Set {{inventoryItemId}} manually before running this, e.g. by inspecting
+  the DB directly:
+    docker exec -it <postgres-container> psql -U postgres -d inventory_service \
+      -c "SELECT id, sku_code, quantity FROM tb_inventory;"
+
+  This is a real gap in the current API surface, not a Bruno limitation — flag it if
+  you're documenting inventory-service's REST contract for the TCC writeup.
+
+  Same ROLE_ADMIN gate as Insert Inventory Item.bru.
+
+  Expected: 200 OK with the updated item, or 404 if {{inventoryItemId}} doesn't exist
+  (see inventory-service-errors/Update Inventory Not Found.bru).
+}

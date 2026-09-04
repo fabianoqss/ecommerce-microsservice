@@ -1,0 +1,26 @@
+meta {
+  name: Login Unknown Email
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "nobody@ecommerce.dev",
+    "password": "whatever"
+  }
+}
+
+docs {
+  No user with this email exists.
+
+  Expected: 401 UNAUTHORIZED — InvalidCredentialsException. AuthService.login()
+  deliberately throws the same exception for "unknown email" and "wrong password"
+  (no user enumeration).
+}

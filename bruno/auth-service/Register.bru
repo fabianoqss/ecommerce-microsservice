@@ -1,0 +1,30 @@
+meta {
+  name: Register
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Bruno Tester",
+    "email": "bruno.tester@ecommerce.dev",
+    "password": "Bruno@123"
+  }
+}
+
+docs {
+  Registers a fresh regular user (UserRole.ROLE_USER is assigned automatically by
+  AuthService.register — there's no way to self-register as admin).
+
+  Run against "Gateway" (:8080) or "AuthDirect" (:8086) — /auth/** is public on both.
+
+  Expected: 201 CREATED, empty body (AuthController.register returns ResponseEntity<Void>).
+  Re-running this exact request a second time will fail — see
+  auth-service-errors/Register Duplicate Email.bru.
+}

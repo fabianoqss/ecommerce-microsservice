@@ -1,0 +1,19 @@
+meta {
+  name: Get Product Not Found
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/product/000000000000000000000000
+  body: none
+  auth: none
+}
+
+docs {
+  A well-formed 24-char hex ObjectId that doesn't exist in the product_db.
+
+  Expected: 404 NOT FOUND — ResourceNotFoundException, body
+  {timestamp, status: 404, error: "Not Found", message, path}
+  (ControllerExceptionHandler.handleResourceNotFound).
+}

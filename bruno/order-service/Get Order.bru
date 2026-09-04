@@ -1,0 +1,25 @@
+meta {
+  name: Get Order
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/order/{{orderId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+docs {
+  Requires order-service/Create Order.bru to have run first (needs {{orderId}}), by the
+  SAME user whose {{accessToken}} is sent here — OrderService.findById() throws
+  OrderAccessDeniedException (403) if the token's email doesn't match order.userID and
+  the token isn't ROLE_ADMIN. See order-service-errors/Get Order Forbidden.bru for the
+  denied case with a second user.
+
+  Expected: 200 OK with the order.
+}

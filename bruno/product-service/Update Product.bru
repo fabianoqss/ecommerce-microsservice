@@ -1,0 +1,36 @@
+meta {
+  name: Update Product
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/product/{{productId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "name": "Teclado Mecânico RGB (Revisão B)",
+    "description": "Teclado mecânico com switches blue e iluminação RGB — revisão B",
+    "price": 379.90,
+    "category": "Periféricos",
+    "imageUrl": "https://example.com/imagens/teclado.jpg"
+  }
+}
+
+docs {
+  Requires product-service/Create Product.bru and auth-service/Login Admin.bru to have
+  run first. Same ROLE_ADMIN gate as Create Product.bru (enforced by the gateway only,
+  not by product-service itself — see that request's docs).
+
+  ProductDTO has no PATCH semantics: this PUT replaces every field, so all of them are
+  sent even though only name/price/description changed here.
+
+  Expected: 200 OK with the updated product.
+}

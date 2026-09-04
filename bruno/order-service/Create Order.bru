@@ -1,0 +1,63 @@
+meta {
+  name: Create Order
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/order
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "productId": "{{productId}}",
+        "quantity": 2
+      }
+    ]
+  }
+}
+
+script:post-response {
+  if (res.body.id) {
+    bru.setVar("orderId", res.body.id);
+  }
+}
+
+docs {
+  Full chain required, in order: auth-service/Register.bru + Login.bru (needs
+  {{accessToken}}), auth-service/Login Admin.bru (needs {{adminAccessToken}}),
+  product-service/Create Product.bru (needs {{productId}}), and
+  inventory-service/Insert Inventory Item.bru with skuCode = {{productId}} (needs at
+  least 2 units in stock).
+
+  eureka-server, product-service, inventory-service and order-service must ALL be
+  running and registered — OrderService.createOrder() calls product-service via
+  OpenFeign (ProductClient, lb://product-service) to price each item, then calls
+  inventory-service via OpenFeign (InventoryClient.reserve, lb://inventory-service) to
+  atomically decrement stock, BEFORE saving the order. If either call fails, the order
+  is never persisted. RabbitMQ should also be running (order-service publishes
+  OrderEventDTO to order.exchange/order.created after saving) but a broker outage
+  doesn't block the HTTP response itself — this API has no outbox/retry, see CLAUDE.md.
+
+  userId is NOT taken from the request body — it's derived from the JWT subject
+  (authentication.getName(), i.e. the logged-in user's email), unlike account-service's
+  legacy behavior in the FraudShield sibling project. Run against "Gateway" (any
+  authenticated user) or "OrderDirect" — unlike product/inventory-service,
+  order-service DOES validate the JWT itself even when hit directly (OrderSecurityFilter
+  + SecurityConfig.anyRequest().authenticated()), so OrderDirect without a token also
+  401s. See order-service-errors/Create Order No Token.bru.
+
+  Saves {{orderId}}. Order is born with status CONFIRMED immediately (no
+  payment-service in this project — see CLAUDE.md).
+
+  Expected: 201 CREATED with the order (status CONFIRMED, totalValue = price × qty
+  summed across items, items[] with productName/price snapshotted at order time).
+}

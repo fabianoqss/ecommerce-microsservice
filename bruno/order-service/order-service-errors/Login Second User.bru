@@ -1,0 +1,37 @@
+meta {
+  name: Login Second User
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{authBaseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+vars:pre-request {
+  authBaseUrl: http://localhost:8086
+}
+
+body:json {
+  {
+    "email": "bruno.tester.2@ecommerce.dev",
+    "password": "Bruno@123"
+  }
+}
+
+script:post-response {
+  if (res.body.token) {
+    bru.setVar("secondUserAccessToken", res.body.token);
+  }
+}
+
+docs {
+  Requires Register Second User.bru to have run first.
+  Saves {{secondUserAccessToken}}, kept separate from {{accessToken}} (the first test
+  user) specifically so Get Order Forbidden.bru can use it without clobbering the main
+  flow's token.
+
+  Expected: 200 OK with {token, name, email, role}.
+}

@@ -1,0 +1,41 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "bruno.tester@ecommerce.dev",
+    "password": "Bruno@123"
+  }
+}
+
+script:post-response {
+  if (res.body.token) {
+    bru.setVar("accessToken", res.body.token);
+  }
+  if (res.body.email) {
+    bru.setVar("userEmail", res.body.email);
+  }
+  if (res.body.role) {
+    bru.setVar("userRole", res.body.role);
+  }
+}
+
+docs {
+  Requires auth-service/Register.bru to have run first in the same session (or any
+  prior registration with this email).
+
+  Saves {{accessToken}} (JWT, 4h expiration, issuer "auth-service", claim
+  role=ROLE_USER) for use by every other request that sends
+  "Authorization: Bearer {{accessToken}}".
+
+  Expected: 200 OK with {token, name, email, role}.
+}

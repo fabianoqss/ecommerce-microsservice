@@ -1,0 +1,34 @@
+meta {
+  name: Create Product No Token
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/product
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Sem Token",
+    "description": "Produto criado sem nenhum header de autenticação",
+    "price": 9.90,
+    "category": "Teste",
+    "imageUrl": ""
+  }
+}
+
+docs {
+  No Authorization header at all — tests write access without going through login.
+
+  Expected depends on which environment is selected — this is a KNOWN GAP, not a
+  hypothetical (see CLAUDE.md's "Limitações de segurança conhecidas"):
+  - "Gateway" (:8080): 401 UNAUTHORIZED, {"error": "Token não fornecido"} — rejected by
+    JwtAuthenticationFilter before ever reaching product-service.
+  - "ProductDirect" (:8082): 201 CREATED — product-service has no Spring Security
+    dependency/config of its own, so it accepts the write unauthenticated. Anyone who
+    can reach the container's host-published port bypasses the gateway's ROLE_ADMIN
+    check entirely. Clean up the created product afterward if you run this.
+}

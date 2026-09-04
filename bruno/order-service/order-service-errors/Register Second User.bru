@@ -1,0 +1,33 @@
+meta {
+  name: Register Second User
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{authBaseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+vars:pre-request {
+  authBaseUrl: http://localhost:8086
+}
+
+body:json {
+  {
+    "name": "Bruno Tester Two",
+    "email": "bruno.tester.2@ecommerce.dev",
+    "password": "Bruno@123"
+  }
+}
+
+docs {
+  Second, unrelated regular user — needed only to prove order ownership is enforced
+  (see Get Order Forbidden.bru). Hardcodes {{authBaseUrl}} to AuthDirect's port (8086)
+  so this works no matter which environment is selected for the rest of the
+  order-service-errors folder (auth-service's port never changes between scenarios
+  here).
+
+  Expected: 201 CREATED, empty body.
+}

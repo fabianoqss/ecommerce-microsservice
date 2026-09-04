@@ -1,0 +1,35 @@
+meta {
+  name: Create Order No Token
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/order
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "productId": "{{productId}}",
+        "quantity": 1
+      }
+    ]
+  }
+}
+
+docs {
+  No Authorization header at all — unlike product/inventory-service, order-service
+  validates the JWT itself (OrderSecurityFilter + anyRequest().authenticated()), so this
+  is rejected the same way on every environment:
+  - "Gateway" (:8080): 401 UNAUTHORIZED, {"error": "Token não fornecido"} —
+    rejected by api-gateway's JwtAuthenticationFilter before reaching order-service.
+  - "OrderDirect" (:8081): 401 (Spring Security's default entry point — plain
+    WWW-Authenticate challenge, no JSON body, since order-service has no custom
+    AuthenticationEntryPoint like auth-service does) — order-service's own
+    SecurityConfig rejects it independently, the defense-in-depth check working as
+    intended (contrast with the No Token requests under product/inventory-service).
+}

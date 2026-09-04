@@ -1,0 +1,34 @@
+meta {
+  name: Create Product Missing Required Fields
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/product
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "name": "",
+    "description": "short",
+    "price": -10,
+    "category": null,
+    "imageUrl": ""
+  }
+}
+
+docs {
+  Blank name, description under 10 chars, negative price, null category.
+
+  Expected: 400 BAD_REQUEST, body
+  {timestamp, status: 400, error: "Validation Failed", fields: {...}, path}
+  (ControllerExceptionHandler.handleValidation) with entries for name, description,
+  price and category.
+}

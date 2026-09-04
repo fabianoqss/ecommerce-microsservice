@@ -1,0 +1,29 @@
+meta {
+  name: Insert No Token
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/inventory
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "skuCode": "sem-token-{{$randomInt}}",
+    "quantity": 1
+  }
+}
+
+docs {
+  No Authorization header at all.
+
+  Expected depends on environment — same known gap as
+  product-service-errors/Create Product No Token.bru (see CLAUDE.md's "Limitações de
+  segurança conhecidas"):
+  - "Gateway" (:8080): 401 UNAUTHORIZED, {"error": "Token não fornecido"}.
+  - "InventoryDirect" (:8083): 201 CREATED — inventory-service has no Spring Security
+    dependency at all, so the write goes through unauthenticated.
+}

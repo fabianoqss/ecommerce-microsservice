@@ -1,0 +1,27 @@
+meta {
+  name: List Orders
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/order
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+docs {
+  Requires auth-service/Login.bru to have run first (needs {{accessToken}}).
+
+  OrderService.findAll(): a ROLE_USER token only sees orders where userID equals its
+  own email (orderRepository.findByUserID); a ROLE_ADMIN token
+  (use {{adminAccessToken}} instead) sees every order in the table — this matches the
+  MVP requirement "consultar apenas os pedidos permitidos" from CLAUDE.md.
+
+  Expected: 200 OK with a plain array (no pagination) of the caller's own orders (or
+  all orders, for an admin token).
+}

@@ -1,0 +1,51 @@
+meta {
+  name: Create Product
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/product
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "name": "Teclado Mecânico RGB",
+    "description": "Teclado mecânico com switches blue e iluminação RGB",
+    "price": 349.90,
+    "category": "Periféricos",
+    "imageUrl": "https://example.com/imagens/teclado.jpg"
+  }
+}
+
+script:post-response {
+  if (res.body.id) {
+    bru.setVar("productId", res.body.id);
+  }
+  if (res.body.name) {
+    bru.setVar("productName", res.body.name);
+  }
+}
+
+docs {
+  Requires auth-service/Login Admin.bru to have run first — needs {{adminAccessToken}}.
+  Through "Gateway", POST /api/product requires ROLE_ADMIN
+  (JwtAuthenticationFilter.requiresAdmin); through "ProductDirect" (:8082) the header is
+  sent but ignored — product-service itself has no Spring Security config yet (see the
+  "To DO: @SecurityRequirement / @PreAuthorize" comments in ProductController), so an
+  unauthenticated POST against :8082 also succeeds. See
+  product-service-errors/Create Product No Token.bru.
+
+  Saves {{productId}} (MongoDB ObjectId) and {{productName}}, used by every
+  inventory-service and order-service request below — this is effectively the first
+  step of the end-to-end order flow, not just a product-service smoke test.
+
+  Expected: 201 CREATED, Location header /api/product/{id}, body echoes the product
+  with its generated id.
+}

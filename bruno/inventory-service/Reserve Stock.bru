@@ -1,0 +1,47 @@
+meta {
+  name: Reserve Stock
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/inventory/reserve
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "skuCode": "{{productId}}",
+        "quantity": 1
+      }
+    ]
+  }
+}
+
+docs {
+  In production this is only ever called service-to-service by order-service
+  (InventoryClient.reserve, see order-service/Create Order.bru) — this request lets
+  you exercise it directly, bypassing order-service entirely.
+
+  Atomic per-item conditional decrement (InventoryRepository.decrement, a single
+  UPDATE ... WHERE quantity >= ? per item, inside one @Transactional method) — if any
+  item in the list can't be decremented, InsufficientStockException is thrown and the
+  whole batch rolls back (nothing else in the same request is left partially applied).
+
+  Through "Gateway" this needs ROLE_ADMIN: JwtAuthenticationFilter.requiresAdmin
+  matches ANY POST under /api/inventory/**, not just the admin-facing insert/update
+  endpoints — so /reserve and /release are gated the same as inventory management,
+  even though they're really an internal order-service-to-inventory-service contract.
+  Worth flagging as a design quirk, not a deliberate access-control decision. Through
+  "InventoryDirect" no auth is checked at all either way.
+
+  Expected: 204 No Content, or 409 CONFLICT if quantity exceeds what's in stock — see
+  inventory-service-errors/Reserve Insufficient Stock.bru.
+}

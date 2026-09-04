@@ -1,0 +1,23 @@
+meta {
+  name: Get Order Not Found
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/order/999999999
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+docs {
+  Requires auth-service/Login.bru to have run first (needs {{accessToken}}).
+  An id that doesn't exist in tb_order.
+
+  Expected: 404 NOT FOUND — OrderNotFoundException, via ProblemDetail
+  (GlobalExceptionHandler.handleOrderNotFound).
+}

@@ -1,0 +1,18 @@
+meta {
+  name: List Products
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/product
+  body: none
+  auth: none
+}
+
+docs {
+  Public on every environment — GET /api/product is in api-gateway's permitAll list
+  and product-service has no security of its own either way.
+
+  Expected: 200 OK with the full product list (no pagination).
+}

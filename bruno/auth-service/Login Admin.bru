@@ -1,0 +1,42 @@
+meta {
+  name: Login Admin
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{adminEmail}}",
+    "password": "{{adminPassword}}"
+  }
+}
+
+vars:pre-request {
+  adminEmail: admin@ecommerce.com
+  adminPassword: Admin@123
+}
+
+script:post-response {
+  if (res.body.token) {
+    bru.setVar("adminAccessToken", res.body.token);
+  }
+}
+
+docs {
+  Logs in as the seed admin created on startup by auth-service's DataInitializer, from
+  the root .env's ADMIN_EMAIL/ADMIN_PASSWORD (docker-compose.yml passes both through to
+  the auth-service container). If ADMIN_EMAIL/ADMIN_PASSWORD are blank, no admin is
+  created at all and this request returns 401 — check the root .env first.
+
+  Saves {{adminAccessToken}} (claim role=ROLE_ADMIN), required by every
+  ROLE_ADMIN-gated request in product-service and inventory-service (see
+  api-gateway/JwtAuthenticationFilter.requiresAdmin).
+
+  Expected: 200 OK with {token, name, email, role: "ROLE_ADMIN"}.
+}

@@ -1,0 +1,35 @@
+meta {
+  name: Reserve Insufficient Stock
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/inventory/reserve
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "skuCode": "{{productId}}",
+        "quantity": 999999
+      }
+    ]
+  }
+}
+
+docs {
+  Requires inventory-service/Insert Inventory Item.bru to have run first — asks for far
+  more units than were inserted (50).
+
+  Expected: 409 CONFLICT — InsufficientStockException, body
+  {timestamp, status: 409, ..., detail} via ProblemDetail
+  (GlobalExceptionHandler.handleInsufficientStock).
+}

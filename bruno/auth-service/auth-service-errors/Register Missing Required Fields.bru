@@ -1,0 +1,27 @@
+meta {
+  name: Register Missing Required Fields
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "",
+    "email": "not-an-email",
+    "password": ""
+  }
+}
+
+docs {
+  Blank name/password plus an invalid email format.
+
+  Expected: 400 BAD_REQUEST — AuthExceptionHandler.handleValidationErrors returns a
+  flat {field: message} map (not fieldErrors/errors like order/inventory-service),
+  with entries for name, email and password.
+}

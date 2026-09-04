@@ -1,0 +1,53 @@
+meta {
+  name: Insert Inventory Item
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/inventory
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "skuCode": "{{productId}}",
+    "quantity": 50
+  }
+}
+
+script:post-response {
+  if (res.body.skuCode) {
+    bru.setVar("inventorySkuCode", res.body.skuCode);
+  }
+}
+
+docs {
+  Requires product-service/Create Product.bru and auth-service/Login Admin.bru to have
+  run first — needs {{productId}} and {{adminAccessToken}}.
+
+  IMPORTANT — skuCode here MUST be the product's Mongo id ({{productId}}), not a
+  human-readable code like "TECLADO-MECH-001" (used only as a Swagger @Schema example
+  in InventoryRequestDTO, never enforced). order-service/Create Order.bru calls
+  OrderService.createOrder(), which builds
+  InventoryItemDTO(orderItem.productId(), orderItem.quantity()) — i.e. it sends the
+  product id as the skuCode field when it calls inventory-service's reserve/release
+  endpoints. Insert with any other skuCode and Create Order will fail with 409 /
+  InsufficientStockException because inventory-service finds no matching row.
+
+  Through "Gateway", POST /api/inventory requires ROLE_ADMIN
+  (JwtAuthenticationFilter.requiresAdmin — matches every POST under /api/inventory,
+  including /reserve and /release, see Reserve Stock.bru). Through "InventoryDirect"
+  (:8083) the token is ignored entirely — inventory-service has no security config, so
+  an unauthenticated POST also succeeds.
+
+  InventoryDTO has no id field in its response — the numeric DB id (needed by
+  Update Inventory Item.bru) isn't returned by any endpoint. See that request's docs.
+
+  Expected: 201 CREATED with {skuCode, quantity, inStock: true}.
+}

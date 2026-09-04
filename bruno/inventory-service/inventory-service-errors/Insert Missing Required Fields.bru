@@ -1,0 +1,30 @@
+meta {
+  name: Insert Missing Required Fields
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/inventory
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "skuCode": "",
+    "quantity": -5
+  }
+}
+
+docs {
+  Blank skuCode, negative quantity.
+
+  Expected: 400 BAD_REQUEST via ProblemDetail
+  (GlobalExceptionHandler.handleValidation), property "errors" listing skuCode and
+  quantity.
+}

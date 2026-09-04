@@ -1,0 +1,28 @@
+meta {
+  name: Check Stock
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/inventory?skuCode={{productId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  skuCode: {{productId}}
+}
+
+docs {
+  Requires inventory-service/Insert Inventory Item.bru to have run first.
+  Public on every environment — GET /api/inventory is in api-gateway's permitAll list.
+
+  skuCode is List<String> on the controller (@RequestParam("skuCode") List<String>) —
+  Bruno/Spring will bind repeated ?skuCode=A&skuCode=B query params into that list if
+  you need to check more than one item at once; add a second "skuCode" row in
+  params:query to try it.
+
+  Expected: 200 OK with an array (even for a single skuCode) —
+  [{skuCode, quantity, inStock}].
+}

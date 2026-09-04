@@ -1,0 +1,39 @@
+meta {
+  name: Release Stock
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/inventory/release
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "skuCode": "{{productId}}",
+        "quantity": 1
+      }
+    ]
+  }
+}
+
+docs {
+  Compensating action for Reserve Stock.bru (InventoryRepository.increment) — best
+  effort, no check that the item was ever actually reserved. In production
+  order-service calls this from its own catch block if persisting the order fails
+  after inventory was already decremented (see OrderService.createOrder — the comment
+  about the remote reserve() transaction already having committed).
+
+  Same ROLE_ADMIN-via-gateway quirk as Reserve Stock.bru.
+
+  Expected: 204 No Content, always (no 404/409 path — incrementing a skuCode that
+  doesn't exist just matches zero rows silently).
+}

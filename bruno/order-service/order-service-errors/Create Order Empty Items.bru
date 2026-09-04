@@ -1,0 +1,29 @@
+meta {
+  name: Create Order Empty Items
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/order
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+body:json {
+  {
+    "items": []
+  }
+}
+
+docs {
+  Requires auth-service/Login.bru to have run first (needs {{accessToken}}).
+  Empty items list — fails OrderRequestDTO's @NotEmpty.
+
+  Expected: 400 BAD_REQUEST via ProblemDetail
+  (GlobalExceptionHandler.handleValidation), property "errors" listing "items".
+}
