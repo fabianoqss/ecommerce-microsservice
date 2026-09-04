@@ -153,4 +153,4 @@ Detalhamento técnico de cada fase: [`docs/PLANO_EXECUCAO.md`](docs/PLANO_EXECUC
 
 ## Estado do Git
 
-A correção de `docker-compose.yml` mencionada na auditoria de 19/08 foi commitada junto da Fase 1 (`e9122e3`). As Fases 2–7 estão implementadas e validadas localmente, mas ainda não foram commitadas; revisar `git status` e criar commits antes da entrega.
+A correção de `docker-compose.yml` mencionada na auditoria de 19/08 foi commitada junto da Fase 1 (`e9122e3`). As Fases 2–7 (identidade JWT, estoque atômico, erros padronizados, Outbox/DLQ/idempotência e isolamento de rede) foram commitadas e enviadas para `origin/main` em `777d369`; a collection Bruno de testes de API foi commitada separadamente em `8bd8cb8`. `git status` está limpo — working tree sincronizado com o remoto.
