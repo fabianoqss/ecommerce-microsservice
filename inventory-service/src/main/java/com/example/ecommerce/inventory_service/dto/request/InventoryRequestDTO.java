@@ -1,4 +1,4 @@
-package com.example.ecommerce.inventory_service.dto;
+package com.example.ecommerce.inventory_service.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;

@@ -1,4 +1,4 @@
-package com.example.ecommerce.order_service.dtos;
+package com.example.ecommerce.order_service.dtos.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

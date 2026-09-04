@@ -1,9 +1,9 @@
 package com.example.ecommerce.inventory_service.controllers;
 
 
-import com.example.ecommerce.inventory_service.dto.InventoryDTO;
-import com.example.ecommerce.inventory_service.dto.InventoryRequestDTO;
-import com.example.ecommerce.inventory_service.dto.InventoryUpdateDTO;
+import com.example.ecommerce.inventory_service.dto.response.InventoryDTO;
+import com.example.ecommerce.inventory_service.dto.request.InventoryRequestDTO;
+import com.example.ecommerce.inventory_service.dto.request.InventoryUpdateDTO;
 import com.example.ecommerce.inventory_service.services.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

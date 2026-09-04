@@ -1,4 +1,4 @@
-package com.example.ecommerce.inventory_service.dto;
+package com.example.ecommerce.inventory_service.dto.response;
 
 import com.example.ecommerce.inventory_service.entities.Inventory;
 import io.swagger.v3.oas.annotations.media.Schema;

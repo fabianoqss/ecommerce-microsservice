@@ -1,7 +1,7 @@
 package com.example.ecommerce.order_service.controllers;
 
-import com.example.ecommerce.order_service.dtos.OrderRequestDTO;
-import com.example.ecommerce.order_service.dtos.OrderResponseDTO;
+import com.example.ecommerce.order_service.dtos.request.OrderRequestDTO;
+import com.example.ecommerce.order_service.dtos.response.OrderResponseDTO;
 import com.example.ecommerce.order_service.services.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

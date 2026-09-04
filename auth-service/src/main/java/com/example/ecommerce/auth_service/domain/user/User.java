@@ -19,7 +19,10 @@ public class User {
     private String id;
 
     private String name;
+
+    @Column(nullable = false, unique = true)
     private String email;
+
     private String password;
 
     @Enumerated(EnumType.STRING)

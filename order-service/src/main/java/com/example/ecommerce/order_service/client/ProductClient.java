@@ -1,7 +1,7 @@
 package com.example.ecommerce.order_service.client;
 
 
-import com.example.ecommerce.order_service.dtos.ProductDTO;
+import com.example.ecommerce.order_service.dtos.response.ProductDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
