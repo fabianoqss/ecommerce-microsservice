@@ -1,6 +1,6 @@
 # E-commerce baseado em microsserviços
 
-Backend de e-commerce desenvolvido como projeto de TCC para demonstrar arquitetura distribuída com Spring Boot, Spring Cloud, autenticação JWT, comunicação síncrona e assíncrona e observabilidade.
+Backend de e-commerce que demonstra arquitetura distribuída com Spring Boot, Spring Cloud, autenticação JWT, comunicação síncrona e assíncrona e observabilidade.
 
 > As sete fases de fechamento do P0 foram implementadas. O fluxo principal está funcional, com estoque atômico, Outbox, DLQ, idempotência e acesso externo somente pelo gateway. A principal pendência restante é ampliar os testes automatizados. Consulte [PROJECT_STATUS.md](PROJECT_STATUS.md) para o diagnóstico completo.
 

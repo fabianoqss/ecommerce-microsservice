@@ -25,7 +25,7 @@ O P0 do MVP (identidade via JWT, estoque atômico, eventos confiáveis via Outbo
 
 ### Demonstração
 
-- [ ] Criar seeds reproduzíveis para demonstração/apresentação do TCC.
+- [ ] Criar seeds reproduzíveis para demonstração e apresentação do projeto.
 
 ### Qualidade e evolução
 
