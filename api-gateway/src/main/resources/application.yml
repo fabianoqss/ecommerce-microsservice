@@ -23,43 +23,49 @@ spring:
               predicates:
                 - Path=/api/product/**
               filters:
-                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: product-service-root
               uri: lb://product-service
               predicates:
                 - Path=/api/product
               filters:
-                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: order-service
               uri: lb://order-service
               predicates:
                 - Path=/api/order/**
               filters:
-                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: order-service-root
               uri: lb://order-service
               predicates:
                 - Path=/api/order
               filters:
-                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: inventory-service
               uri: lb://inventory-service
               predicates:
                 - Path=/api/inventory/**
               filters:
-                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: inventory-service-root
               uri: lb://inventory-service
               predicates:
                 - Path=/api/inventory
               filters:
-                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
   security:
     oauth2:
       resourceserver:
@@ -79,7 +85,9 @@ spring:
 
 ecommerce:
   bff:
-    frontend-url: ${FRONTEND_URL:http://localhost:4200}
+    # Sem frontend, o login cai em /bff/me (JSON do usuário). Com frontend, aponte para a URL dele.
+    post-login-redirect-uri: ${BFF_POST_LOGIN_REDIRECT_URI:/bff/me}
+    post-logout-redirect-uri: ${BFF_POST_LOGOUT_REDIRECT_URI:}
     # URL pública do IdP (navegador) e a mesma URL vista de dentro da rede do Compose.
     issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/ecommerce}
     internal-issuer-uri: ${OIDC_INTERNAL_ISSUER_URI:http://localhost:8180/realms/ecommerce}
