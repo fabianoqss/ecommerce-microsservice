@@ -49,6 +49,23 @@ spring:
           issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/ecommerce}
           jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
           audiences: ${OIDC_AUDIENCE:ecommerce-api}
+      client:
+        registration:
+          order-service:
+            provider: oidc
+            client-id: order-service
+            client-secret: ${KC_ORDER_SERVICE_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+        provider:
+          oidc:
+            token-uri: ${OIDC_TOKEN_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/token}
+
+  cloud:
+    openfeign:
+      oauth2:
+        # Adiciona o token de serviço (client_credentials) em todas as chamadas Feign.
+        enabled: true
+        clientRegistrationId: order-service
 
 eureka:
   client:

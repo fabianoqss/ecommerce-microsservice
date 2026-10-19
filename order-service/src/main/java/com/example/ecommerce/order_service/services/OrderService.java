@@ -97,7 +97,9 @@ public class OrderService {
 
         try {
             inventoryClient.reserve(new InventoryReserveRequestDTO(reserveItems));
-        } catch (FeignException e) {
+        } catch (FeignException.Conflict e) {
+            // Só o 409 do inventory significa falta de estoque. 401/403 (token de serviço rejeitado)
+            // e demais falhas seguem para o GlobalExceptionHandler, que responde 502.
             throw new InsufficientStockException("Estoque insuficiente para um ou mais itens do pedido");
         }
 
