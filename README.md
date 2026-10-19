@@ -85,39 +85,62 @@ Todas as chamadas externas devem passar pelo gateway em `http://localhost:8080`.
 ### Pré-requisitos
 
 - Docker Desktop com Docker Compose
-- Portas `3000`, `5432`, `5672`, `8080`, `9090`, `9411`, `15672` e `27017` disponíveis
+- Portas `3000`, `5432`, `5672`, `6379`, `8080`, `9090`, `9411`, `15672` e `27017` disponíveis
+
+### Arquivos do Compose
+
+| Arquivo                  | Conteúdo                                                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `docker-compose.yml`     | Produção: microsserviços, Keycloak, RabbitMQ, Redis e monitoramento. Os bancos ficam na OCI           |
+| `docker-compose.dev.yml` | Override só de desenvolvimento: adiciona `postgres` e `mongo` em containers                           |
+
+Todo endereço e segredo entra por variável de ambiente. As obrigatórias usam `${VAR:?}`, então o Compose falha antes de subir se faltar alguma.
 
 ### Configuração
 
-Crie um `.env` na raiz (há um arquivo local ignorado pelo Git) contendo:
+Copie o `.env.example` para `.env` (ignorado pelo Git) e troque os valores. Em produção, o mesmo conjunto de variáveis é gerado a partir do OCI Vault, apontando para os serviços da OCI.
 
-```dotenv
-DB_PASSWORD=defina-uma-senha
-JWT_SECRET=defina-uma-chave-com-pelo-menos-32-caracteres
-```
+A autenticação usa o Keycloak, com o realm `ecommerce` configurado pelo console de administração (a migração dos serviços está em andamento; ver `docs/superpowers/specs/2026-10-13-keycloak-bff-plan.md`). O gateway só conhece OIDC genérico (`OIDC_ISSUER_URI`, `OIDC_JWK_SET_URI`, `OIDC_AUDIENCE`), então trocar o provedor (Cognito, Entra ID, OCI IAM) é só configuração. Em produção, o Keycloak fica atrás do nginx (`KEYCLOAK_HOSTNAME` é a URL pública) e o banco dele fica no PostgreSQL da OCI.
 
 ### Inicialização
 
+Os serviços estão separados em profiles:
+
+| Profile      | Serviços                                                                                            |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| _(nenhum)_   | `keycloak`, `rabbitmq`, `redis` e, em dev, `postgres` e `mongo` (sobem sempre)                      |
+| `monitoring` | `zipkin`, `prometheus`, `grafana`                                                                   |
+| `apps`       | `eureka-server`, `api-gateway`, `auth-service`, `product-service`, `inventory-service`, `order-service`, `notification-service` |
+
+O `.env.example` já define `COMPOSE_PROFILES=monitoring,apps`. Remova essa linha do `.env` para subir só a infraestrutura e rodar os serviços pela IDE.
+
 ```bash
-docker compose up --build
+# Desenvolvimento local
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+# Produção (na VM, com o arquivo de ambiente gerado a partir do Vault)
+docker compose --env-file <arquivo-de-ambiente> up -d --build
 ```
 
-Serviços úteis:
+Serviços úteis (publicados só em `127.0.0.1`; na VM, acesse por túnel SSH):
 
 - Gateway: `http://localhost:8080`
+- Keycloak: `http://localhost:8180` (`admin`/`KEYCLOAK_ADMIN_PASSWORD`)
 - Eureka: disponível apenas na rede interna do Compose, em `http://eureka-server:8761`
-- RabbitMQ Management: `http://localhost:15672` (`guest`/`guest`)
+- RabbitMQ Management: `http://localhost:15672` (`RABBITMQ_USERNAME`/`RABBITMQ_PASSWORD`)
 - Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000` (`admin`/`admin`)
+- Grafana: `http://localhost:3000` (`admin`/`GRAFANA_ADMIN_PASSWORD`)
 - Zipkin: `http://localhost:9411`
 
-O script `init-db.sql` só é executado quando o volume do PostgreSQL é criado. Em um volume antigo, os bancos adicionados posteriormente precisam ser criados manualmente ou o ambiente deve ser recriado conscientemente.
+O script `init-db.sh` só é executado quando o volume do PostgreSQL local é criado. Em um volume antigo, os bancos adicionados posteriormente precisam ser criados manualmente ou o ambiente deve ser recriado conscientemente.
 
 ### Encerramento
 
 ```bash
-docker compose down
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
+
+O `down` respeita o `COMPOSE_PROFILES` do `.env`; sem ele, só remove os serviços sem profile.
 
 Não use `docker compose down -v` se quiser preservar os bancos locais.
 

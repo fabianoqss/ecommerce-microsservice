@@ -41,3 +41,6 @@
 # ===== PROJETO =====
 CLAUDE.md
 docker-compose-monitoring.yml
+
+# Backups locais do .env (contêm segredos)
+.env.bak-*
