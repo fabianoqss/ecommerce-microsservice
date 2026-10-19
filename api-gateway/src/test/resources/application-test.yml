@@ -1,0 +1,56 @@
+spring:
+  cloud:
+    discovery:
+      enabled: false
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: product-service
+              uri: ${backend.url}
+              predicates:
+                - Path=/api/product/**
+              filters:
+                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                - RemoveRequestHeader=Cookie
+            - id: product-service-root
+              uri: ${backend.url}
+              predicates:
+                - Path=/api/product
+              filters:
+                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                - RemoveRequestHeader=Cookie
+            - id: order-service
+              uri: ${backend.url}
+              predicates:
+                - Path=/api/order/**
+              filters:
+                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                - RemoveRequestHeader=Cookie
+            - id: order-service-root
+              uri: ${backend.url}
+              predicates:
+                - Path=/api/order
+              filters:
+                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                - RemoveRequestHeader=Cookie
+            - id: inventory-service
+              uri: ${backend.url}
+              predicates:
+                - Path=/api/inventory/**
+              filters:
+                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                - RemoveRequestHeader=Cookie
+            - id: inventory-service-root
+              uri: ${backend.url}
+              predicates:
+                - Path=/api/inventory
+              filters:
+                # O cookie de sessão do BFF nunca chega aos microsserviços.
+                - RemoveRequestHeader=Cookie
+
+eureka:
+  client:
+    enabled: false
+
+KC_BFF_CLIENT_SECRET: bff-secret-test
