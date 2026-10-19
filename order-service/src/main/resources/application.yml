@@ -41,6 +41,15 @@ spring:
         max-attempts: 3
         max-interval: 5s
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # issuer-uri só valida o claim iss; com jwk-set-uri presente não há discovery na subida.
+          issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/ecommerce}
+          jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
+          audiences: ${OIDC_AUDIENCE:ecommerce-api}
+
 eureka:
   client:
     service-url:
@@ -64,5 +73,3 @@ management:
     tracing:
       endpoint: http://localhost:9411/api/v2/spans
 
-jwt:
-  secret: ${JWT_SECRET}

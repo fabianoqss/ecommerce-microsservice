@@ -77,7 +77,7 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponseDTO createOrder(OrderRequestDTO request, String userEmail) {
+    public OrderResponseDTO createOrder(OrderRequestDTO request, String userId) {
         List<String> productIds = request.items().stream()
                 .map(OrderItemRequestDTO::productId)
                 .distinct()
@@ -119,7 +119,7 @@ public class OrderService {
             // Não há payment-service: o estoque já foi garantido de forma síncrona acima,
             // então o pedido já nasce confirmado.
             Order order = new Order();
-            order.setUserID(userEmail);
+            order.setUserID(userId);
             order.setOrderTime(LocalDateTime.now());
             order.setStatus(OrderStatus.CONFIRMED);
             order.setTotalValue(totalValue);
