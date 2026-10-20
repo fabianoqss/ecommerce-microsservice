@@ -21,15 +21,26 @@ body:json {
   }
 }
 
+tests {
+  test("Não envia autenticação de usuário", function () {
+    expect(req.getHeader("Authorization")).to.be.undefined;
+    expect(req.getHeader("authorization")).to.be.undefined;
+    expect(req.getHeader("Cookie")).to.be.undefined;
+    expect(req.getHeader("cookie")).to.be.undefined;
+  });
+  test("POST anônimo respeita a cadeia de segurança do ambiente", function () {
+    const expectedStatus = bru.getEnvName() === "Gateway" ? 403 : 401;
+    expect(res.getStatus()).to.equal(expectedStatus);
+  });
+}
+
 docs {
-  No Authorization header at all — unlike product/inventory-service, order-service
-  validates the JWT itself (OrderSecurityFilter + anyRequest().authenticated()), so this
-  is rejected the same way on every environment:
-  - "Gateway" (:8080): 401 UNAUTHORIZED, {"error": "Token não fornecido"} —
-    rejected by api-gateway's JwtAuthenticationFilter before reaching order-service.
-  - "OrderDirect" (:8081): 401 (Spring Security's default entry point — plain
-    WWW-Authenticate challenge, no JSON body, since order-service has no custom
-    AuthenticationEntryPoint like auth-service does) — order-service's own
-    SecurityConfig rejects it independently, the defense-in-depth check working as
-    intended (contrast with the No Token requests under product/inventory-service).
+  auth: none desativa explicitamente o OAuth2 herdado da coleção; não há header
+  Authorization manual. Desative o envio de cookies no Bruno (ou limpe a sessão BFF)
+  para não autenticar pelo cookie SESSION. Na CLI, use --disable-cookies.
+  Esperado no Gateway: 403 FORBIDDEN. Sem Bearer nem cookie, este POST entra na cadeia
+  de sessão; o filtro CSRF rejeita a ausência do token CSRF antes da autorização.
+  Esperado em OrderDirect: 401 UNAUTHORIZED; o serviço valida a autenticação por conta própria.
+  Um token válido salvo na coleção não altera o cenário, pois auth: none evita seu envio.
+  Bearer inválido é outro cenário: seleciona a cadeia Bearer do gateway e recebe 401.
 }

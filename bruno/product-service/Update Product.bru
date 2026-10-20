@@ -7,11 +7,7 @@ meta {
 put {
   url: {{baseUrl}}/api/product/{{productId}}
   body: json
-  auth: none
-}
-
-headers {
-  Authorization: Bearer {{adminAccessToken}}
+  auth: inherit
 }
 
 body:json {
@@ -25,12 +21,10 @@ body:json {
 }
 
 docs {
-  Requires product-service/Create Product.bru and auth-service/Login Admin.bru to have
-  run first. Same ROLE_ADMIN gate as Create Product.bru (enforced by the gateway only,
-  not by product-service itself — see that request's docs).
-
-  ProductDTO has no PATCH semantics: this PUT replaces every field, so all of them are
-  sent even though only name/price/description changed here.
-
-  Expected: 200 OK with the updated product.
+  Execute Create Product antes ({{productId}}) e autentique um ADMIN na coleção.
+  Gateway e ProductDirect exigem ADMIN; Bearer válido sem a role recebe 403.
+  ProductDirect sem token recebe 401. No Gateway, PUT anônimo sem Bearer/cookie/CSRF
+  recebe 403 pelo filtro CSRF da cadeia de sessão; Bearer inválido recebe 401.
+  PUT substitui todos os campos do produto; não tem semântica de PATCH.
+  Esperado: 200 OK com o produto atualizado.
 }

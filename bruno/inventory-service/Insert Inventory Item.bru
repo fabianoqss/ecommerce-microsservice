@@ -7,11 +7,7 @@ meta {
 post {
   url: {{baseUrl}}/api/inventory
   body: json
-  auth: none
-}
-
-headers {
-  Authorization: Bearer {{adminAccessToken}}
+  auth: inherit
 }
 
 body:json {
@@ -28,26 +24,14 @@ script:post-response {
 }
 
 docs {
-  Requires product-service/Create Product.bru and auth-service/Login Admin.bru to have
-  run first — needs {{productId}} and {{adminAccessToken}}.
+  Execute product-service/Create Product antes ({{productId}}), com um ADMIN na Auth
+  herdada da coleção. Gateway e InventoryDirect exigem ADMIN (Bearer válido sem role: 403).
+  InventoryDirect sem token recebe 401. No Gateway, POST anônimo sem Bearer/cookie/CSRF
+  recebe 403 pelo filtro CSRF da cadeia de sessão; Bearer inválido recebe 401.
 
-  IMPORTANT — skuCode here MUST be the product's Mongo id ({{productId}}), not a
-  human-readable code like "TECLADO-MECH-001" (used only as a Swagger @Schema example
-  in InventoryRequestDTO, never enforced). order-service/Create Order.bru calls
-  OrderService.createOrder(), which builds
-  InventoryItemDTO(orderItem.productId(), orderItem.quantity()) — i.e. it sends the
-  product id as the skuCode field when it calls inventory-service's reserve/release
-  endpoints. Insert with any other skuCode and Create Order will fail with 409 /
-  InsufficientStockException because inventory-service finds no matching row.
-
-  Through "Gateway", POST /api/inventory requires ROLE_ADMIN
-  (JwtAuthenticationFilter.requiresAdmin — matches every POST under /api/inventory,
-  including /reserve and /release, see Reserve Stock.bru). Through "InventoryDirect"
-  (:8083) the token is ignored entirely — inventory-service has no security config, so
-  an unauthenticated POST also succeeds.
-
-  InventoryDTO has no id field in its response — the numeric DB id (needed by
-  Update Inventory Item.bru) isn't returned by any endpoint. See that request's docs.
-
-  Expected: 201 CREATED with {skuCode, quantity, inStock: true}.
+  skuCode precisa ser o id do produto: o order-service usa items[].productId nas
+  chamadas de reserva/liberação. Outro skuCode não será encontrado ao criar o pedido.
+  Salva {{inventorySkuCode}}. O DTO não retorna o id numérico de tb_inventory;
+  para atualizar por id, veja Update Inventory Item.
+  Esperado: 201 CREATED com {skuCode, quantity, inStock: true}.
 }

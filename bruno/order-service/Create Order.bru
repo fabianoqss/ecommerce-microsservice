@@ -7,11 +7,7 @@ meta {
 post {
   url: {{baseUrl}}/api/order
   body: json
-  auth: none
-}
-
-headers {
-  Authorization: Bearer {{accessToken}}
+  auth: inherit
 }
 
 body:json {
@@ -32,32 +28,15 @@ script:post-response {
 }
 
 docs {
-  Full chain required, in order: auth-service/Register.bru + Login.bru (needs
-  {{accessToken}}), auth-service/Login Admin.bru (needs {{adminAccessToken}}),
-  product-service/Create Product.bru (needs {{productId}}), and
-  inventory-service/Insert Inventory Item.bru with skuCode = {{productId}} (needs at
-  least 2 units in stock).
+  Preparação: um ADMIN autenticado na coleção cria o produto e o item de estoque com
+  skuCode = {{productId}} (ao menos 2 unidades). Depois obtenha um novo token na Auth da
+  coleção como CUSTOMER e execute este request no Gateway ou OrderDirect.
 
-  eureka-server, product-service, inventory-service and order-service must ALL be
-  running and registered — OrderService.createOrder() calls product-service via
-  OpenFeign (ProductClient, lb://product-service) to price each item, then calls
-  inventory-service via OpenFeign (InventoryClient.reserve, lb://inventory-service) to
-  atomically decrement stock, BEFORE saving the order. If either call fails, the order
-  is never persisted. RabbitMQ should also be running (order-service publishes
-  OrderEventDTO to order.exchange/order.created after saving) but a broker outage
-  doesn't block the HTTP response itself — this API has no outbox/retry, see CLAUDE.md.
+  Requer autenticação nos dois ambientes; o dono é derivado do claim sub (UUID do
+  usuário Keycloak), nunca de um email ou campo enviado pelo cliente.
+  Product, inventory, order e descoberta de serviços devem estar disponíveis. O pedido
+  consulta os preços e reserva estoque com o token de serviço do order-service.
 
-  userId is NOT taken from the request body — it's derived from the JWT subject
-  (authentication.getName(), i.e. the logged-in user's email), unlike account-service's
-  legacy behavior in the FraudShield sibling project. Run against "Gateway" (any
-  authenticated user) or "OrderDirect" — unlike product/inventory-service,
-  order-service DOES validate the JWT itself even when hit directly (OrderSecurityFilter
-  + SecurityConfig.anyRequest().authenticated()), so OrderDirect without a token also
-  401s. See order-service-errors/Create Order No Token.bru.
-
-  Saves {{orderId}}. Order is born with status CONFIRMED immediately (no
-  payment-service in this project — see CLAUDE.md).
-
-  Expected: 201 CREATED with the order (status CONFIRMED, totalValue = price × qty
-  summed across items, items[] with productName/price snapshotted at order time).
+  Salva {{orderId}}. Esperado: 201 CREATED, status CONFIRMED, total calculado pelo
+  servidor e nome/preço dos produtos registrados nos itens do pedido.
 }

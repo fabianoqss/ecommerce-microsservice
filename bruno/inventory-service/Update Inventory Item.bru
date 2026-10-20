@@ -7,11 +7,7 @@ meta {
 put {
   url: {{baseUrl}}/api/inventory/{{inventoryItemId}}
   body: json
-  auth: none
-}
-
-headers {
-  Authorization: Bearer {{adminAccessToken}}
+  auth: inherit
 }
 
 body:json {

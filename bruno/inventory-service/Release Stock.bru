@@ -7,11 +7,28 @@ meta {
 post {
   url: {{baseUrl}}/api/inventory/release
   body: json
-  auth: none
+  auth: oauth2
 }
 
-headers {
-  Authorization: Bearer {{adminAccessToken}}
+auth:oauth2 {
+  grant_type: client_credentials
+  access_token_url: {{keycloakUrl}}/realms/ecommerce/protocol/openid-connect/token
+  client_id: order-service
+  client_secret: {{orderServiceClientSecret}}
+  scope: inventory:reserve
+  credentials_placement: basic_auth_header
+  credentials_id: order-service
+  token_source: access_token
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: false
+}
+
+script:pre-request {
+  if (bru.getEnvName() !== "InventoryDirect") {
+    throw new Error("Contrato interno: selecione InventoryDirect; o gateway nega reserve/release (403).");
+  }
 }
 
 body:json {
@@ -26,14 +43,13 @@ body:json {
 }
 
 docs {
-  Compensating action for Reserve Stock.bru (InventoryRepository.increment) — best
-  effort, no check that the item was ever actually reserved. In production
-  order-service calls this from its own catch block if persisting the order fails
-  after inventory was already decremented (see OrderService.createOrder — the comment
-  about the remote reserve() transaction already having committed).
+  Contrato interno order-service → inventory-service, só no ambiente InventoryDirect.
+  OAuth2 client_credentials usa order-service e o scope inventory:reserve.
+  Preencha orderServiceClientSecret como variável secreta local; ADMIN não substitui o scope.
+  O gateway nega reserve/release para qualquer cliente (403); a guarda local impede
+  usar a credencial de serviço nos outros ambientes.
 
-  Same ROLE_ADMIN-via-gateway quirk as Reserve Stock.bru.
-
-  Expected: 204 No Content, always (no 404/409 path — incrementing a skuCode that
-  doesn't exist just matches zero rows silently).
+  Compensa Reserve Stock incrementando o estoque. Não verifica se houve reserva antes;
+  um skuCode inexistente não altera nenhuma linha.
+  Esperado: 204 No Content.
 }

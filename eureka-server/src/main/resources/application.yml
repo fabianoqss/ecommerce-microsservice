@@ -1,3 +1,7 @@
+spring:
+  application:
+    name: eureka-server
+
 server:
   port: 8761
 
@@ -20,7 +24,7 @@ management:
       application: ${spring.application.name}
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
     export:
       zipkin:
         endpoint: http://localhost:9411/api/v2/spans

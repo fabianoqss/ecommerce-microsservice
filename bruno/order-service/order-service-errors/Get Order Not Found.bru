@@ -7,17 +7,11 @@ meta {
 get {
   url: {{baseUrl}}/api/order/00000000-0000-7000-8000-000000000000
   body: none
-  auth: none
-}
-
-headers {
-  Authorization: Bearer {{accessToken}}
+  auth: inherit
 }
 
 docs {
-  Requires {{accessToken}} (token do Keycloak).
-  Um UUID válido que não existe em tb_orders (um id que não é UUID, ex. /api/order/123, responde 400).
-
-  Expected: 404 NOT FOUND — OrderNotFoundException, via ProblemDetail
-  (GlobalExceptionHandler.handleOrderNotFound).
+  Herda o token de usuário da coleção. O UUID é válido mas não existe em tb_orders.
+  Um identificador inválido, por exemplo /api/order/123, responde 400.
+  Esperado: 404 NOT FOUND via ProblemDetail (OrderNotFoundException).
 }

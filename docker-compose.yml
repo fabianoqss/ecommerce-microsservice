@@ -9,7 +9,8 @@
 # Variáveis com ":?" são obrigatórias: o compose falha antes de subir se faltar alguma.
 
 x-app-env: &app-env
-  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://${EUREKA_USERNAME:?defina EUREKA_USERNAME}:${EUREKA_PASSWORD:?defina EUREKA_PASSWORD}@eureka-server:8761/eureka/
+  TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
   MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
 
 # Resource Servers: nomes genéricos de OIDC, o provedor (hoje Keycloak) muda sem mexer no código.
@@ -21,15 +22,14 @@ x-oidc-env: &oidc-env
 
 x-rabbitmq-env: &rabbitmq-env
   SPRING_RABBITMQ_HOST: rabbitmq
-  SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?defina RABBITMQ_USERNAME}
-  SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD}
+  SPRING_RABBITMQ_VIRTUAL_HOST: ecommerce
 
 services:
 
   # ─── INFRAESTRUTURA NA VM ───────────────────────────────────────────────────
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.4.7
+    image: quay.io/keycloak/keycloak:26.7.5
     container_name: keycloak
     # Realm "ecommerce" configurado manualmente pelo console e exportado depois
     # (kc.sh export) para keycloak/realm-ecommerce.json.
@@ -60,12 +60,13 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:4.2.5-management
     container_name: rabbitmq
     hostname: rabbitmq # o diretório de dados depende do nome do nó
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?defina RABBITMQ_USERNAME}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_ADMIN_USERNAME:?defina RABBITMQ_ADMIN_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_ADMIN_PASSWORD:?defina RABBITMQ_ADMIN_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ecommerce
     ports:
       - "127.0.0.1:15672:15672" # console só por túnel SSH
     volumes:
@@ -76,6 +77,22 @@ services:
       timeout: 5s
       retries: 5
     restart: ${RESTART_POLICY:-unless-stopped}
+
+  rabbitmq-init:
+    image: curlimages/curl:8.17.0
+    # PUTs idempotentes; uma falha impede os produtores/consumidores de iniciar.
+    entrypoint: ["/bin/sh", "/scripts/rabbitmq-init.sh"]
+    environment:
+      RABBITMQ_ADMIN_USERNAME: ${RABBITMQ_ADMIN_USERNAME:?defina RABBITMQ_ADMIN_USERNAME}
+      RABBITMQ_ADMIN_PASSWORD: ${RABBITMQ_ADMIN_PASSWORD:?defina RABBITMQ_ADMIN_PASSWORD}
+      RABBITMQ_ORDER_PASSWORD: ${RABBITMQ_ORDER_PASSWORD:?defina RABBITMQ_ORDER_PASSWORD}
+      RABBITMQ_NOTIFICATION_PASSWORD: ${RABBITMQ_NOTIFICATION_PASSWORD:?defina RABBITMQ_NOTIFICATION_PASSWORD}
+    volumes:
+      - ./scripts/rabbitmq-init.sh:/scripts/rabbitmq-init.sh:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: "no"
 
   redis:
     image: redis:7.4.11-alpine3.21
@@ -135,12 +152,16 @@ services:
 
   # ─── MICROSSERVIÇOS ─────────────────────────────────────────────────────────
 
+  # Porta 8761 só na rede interna; health e métricas públicos dependem desse isolamento.
   eureka-server:
     build: ./eureka-server
     profiles: ["apps"]
     container_name: eureka-server
     environment:
       EUREKA_INSTANCE_HOSTNAME: eureka-server
+      EUREKA_USERNAME: ${EUREKA_USERNAME:?defina EUREKA_USERNAME}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?defina EUREKA_PASSWORD}
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
       MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
     depends_on:
       zipkin:
@@ -199,10 +220,16 @@ services:
     container_name: notification-service
     environment:
       <<: [*app-env, *rabbitmq-env]
+      SPRING_RABBITMQ_USERNAME: notification-service
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_NOTIFICATION_PASSWORD:?defina RABBITMQ_NOTIFICATION_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD}
     depends_on:
       eureka-server:
         condition: service_healthy
-      rabbitmq:
+      rabbitmq-init:
+        condition: service_completed_successfully
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
@@ -217,6 +244,8 @@ services:
     container_name: order-service
     environment:
       <<: [*app-env, *rabbitmq-env, *oidc-env]
+      SPRING_RABBITMQ_USERNAME: order-service
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_ORDER_PASSWORD:?defina RABBITMQ_ORDER_PASSWORD}
       DB_URL: ${ORDER_DB_URL:?defina ORDER_DB_URL}
       DB_USERNAME: ${ORDER_DB_USERNAME:?defina ORDER_DB_USERNAME}
       DB_PASSWORD: ${ORDER_DB_PASSWORD:?defina ORDER_DB_PASSWORD}
@@ -226,8 +255,8 @@ services:
     depends_on:
       keycloak:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
       eureka-server:
         condition: service_healthy
       product-service:
@@ -255,7 +284,8 @@ services:
       BFF_POST_LOGIN_REDIRECT_URI: ${BFF_POST_LOGIN_REDIRECT_URI:-/bff/me}
       BFF_POST_LOGOUT_REDIRECT_URI: ${BFF_POST_LOGOUT_REDIRECT_URI:-}
       # true em produção (HTTPS no nginx): o cookie de sessão só trafega por TLS.
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      MANAGEMENT_SERVER_PORT: 8090
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD}
     depends_on:
@@ -266,7 +296,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8090/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10

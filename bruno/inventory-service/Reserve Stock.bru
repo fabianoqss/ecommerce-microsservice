@@ -7,11 +7,28 @@ meta {
 post {
   url: {{baseUrl}}/api/inventory/reserve
   body: json
-  auth: none
+  auth: oauth2
 }
 
-headers {
-  Authorization: Bearer {{adminAccessToken}}
+auth:oauth2 {
+  grant_type: client_credentials
+  access_token_url: {{keycloakUrl}}/realms/ecommerce/protocol/openid-connect/token
+  client_id: order-service
+  client_secret: {{orderServiceClientSecret}}
+  scope: inventory:reserve
+  credentials_placement: basic_auth_header
+  credentials_id: order-service
+  token_source: access_token
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: false
+}
+
+script:pre-request {
+  if (bru.getEnvName() !== "InventoryDirect") {
+    throw new Error("Contrato interno: selecione InventoryDirect; o gateway nega reserve/release (403).");
+  }
 }
 
 body:json {
@@ -26,22 +43,13 @@ body:json {
 }
 
 docs {
-  In production this is only ever called service-to-service by order-service
-  (InventoryClient.reserve, see order-service/Create Order.bru) — this request lets
-  you exercise it directly, bypassing order-service entirely.
+  Contrato interno order-service → inventory-service, só no ambiente InventoryDirect.
+  OAuth2 client_credentials usa order-service e o scope inventory:reserve.
+  Preencha orderServiceClientSecret como variável secreta local; ADMIN não substitui o scope.
+  O gateway nega reserve/release para qualquer cliente (403); a guarda local impede
+  usar a credencial de serviço nos outros ambientes.
 
-  Atomic per-item conditional decrement (InventoryRepository.decrement, a single
-  UPDATE ... WHERE quantity >= ? per item, inside one @Transactional method) — if any
-  item in the list can't be decremented, InsufficientStockException is thrown and the
-  whole batch rolls back (nothing else in the same request is left partially applied).
-
-  Through "Gateway" this needs ROLE_ADMIN: JwtAuthenticationFilter.requiresAdmin
-  matches ANY POST under /api/inventory/**, not just the admin-facing insert/update
-  endpoints — so /reserve and /release are gated the same as inventory management,
-  even though they're really an internal order-service-to-inventory-service contract.
-  Worth flagging as a design quirk, not a deliberate access-control decision. Through
-  "InventoryDirect" no auth is checked at all either way.
-
-  Expected: 204 No Content, or 409 CONFLICT if quantity exceeds what's in stock — see
-  inventory-service-errors/Reserve Insufficient Stock.bru.
+  Execute Insert Inventory Item antes ({{productId}}). A reserva decrementa o estoque
+  atomicamente por item; uma falha reverte toda a transação da lista.
+  Esperado: 204 No Content; estoque insuficiente: 409 CONFLICT.
 }
