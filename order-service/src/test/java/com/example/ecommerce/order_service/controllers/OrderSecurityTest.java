@@ -4,6 +4,8 @@ import com.example.ecommerce.order_service.exceptions.InvalidProductDataExceptio
 import com.example.ecommerce.order_service.infra.security.SecurityConfig;
 import com.example.ecommerce.order_service.services.OrderService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -68,6 +70,49 @@ class OrderSecurityTest {
                         .content("""
                                 {"items":[{"productId":"x/..","quantity":1}]}
                                 """))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
+    void createRejectsMoreThan50Items() throws Exception {
+        String items = String.join(",", java.util.Collections.nCopies(51, "{\"productId\":\"p1\",\"quantity\":1}"));
+
+        mvc.perform(post("/api/order")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[" + items + "]}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
+    void createAccepts50ItemsAtQuantityLimit() throws Exception {
+        String items = String.join(",", java.util.Collections.nCopies(50, "{\"productId\":\"p1\",\"quantity\":10000}"));
+
+        mvc.perform(post("/api/order")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[" + items + "]}"))
+                .andExpect(status().isCreated());
+        verify(orderService).createOrder(any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "10001", "null"})
+    void createRejectsInvalidQuantity(String quantity) throws Exception {
+        mvc.perform(post("/api/order")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"productId\":\"p1\",\"quantity\":" + quantity + "}]}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(orderService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"items\":null}", "{\"items\":[]}", "{\"items\":[null]}"})
+    void createRejectsMissingOrEmptyItems(String body) throws Exception {
+        mvc.perform(post("/api/order")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(orderService);
     }

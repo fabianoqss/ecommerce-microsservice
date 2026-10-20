@@ -22,12 +22,6 @@ public class Inventory {
     public Inventory() {
     }
 
-    public Inventory(Long id, String skuCode, Integer quantity) {
-        this.id = id;
-        this.skuCode = skuCode;
-        this.quantity = quantity;
-    }
-
     public Long getId() {
         return id;
     }
