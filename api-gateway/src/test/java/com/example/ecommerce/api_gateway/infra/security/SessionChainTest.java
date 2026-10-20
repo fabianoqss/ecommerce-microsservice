@@ -2,9 +2,10 @@ package com.example.ecommerce.api_gateway.infra.security;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -80,14 +81,18 @@ class SessionChainTest extends GatewayTestSupport {
                         org.hamcrest.Matchers.containsString("code_challenge_method=S256"))));
     }
 
-    @Test
-    void sessionRequestIsRelayedWithBearerAndWithoutCookie() throws Exception {
-        mvc.perform(get("/api/order").with(customer()).cookie(new Cookie("SESSION", "abc")))
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/product", "/api/product/123", "/api/order", "/api/order/123",
+            "/api/inventory", "/api/inventory/123"})
+    void sessionRequestIsRelayedWithoutBrowserCredentials(String path) throws Exception {
+        mvc.perform(get(path).with(customer()).cookie(new Cookie("SESSION", "abc"))
+                        .header("X-XSRF-TOKEN", "browser-csrf"))
                 .andExpect(status().isOk());
 
-        BACKEND.verify(getRequestedFor(urlEqualTo("/api/order"))
+        BACKEND.verify(getRequestedFor(urlEqualTo(path))
                 .withHeader("Authorization", equalTo("Bearer relay-token"))
-                .withoutHeader("Cookie"));
+                .withoutHeader("Cookie")
+                .withoutHeader("X-XSRF-TOKEN"));
     }
 
     @Test
