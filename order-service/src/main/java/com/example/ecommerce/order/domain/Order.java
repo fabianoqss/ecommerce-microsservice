@@ -9,8 +9,10 @@ import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -34,6 +36,14 @@ public class Order {
     @Column(nullable = false, length = 20)
     private OrderStatus status;
 
+    // Novos pedidos usam o livro-razão (LEDGER) no inventory; pedidos anteriores à V7 são LEGACY.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reservation_mode", nullable = false, length = 10)
+    private ReservationMode reservationMode = ReservationMode.LEDGER;
+
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
+
     private String userID;
 
     private BigDecimal totalValue;
@@ -43,7 +53,7 @@ public class Order {
     private List<OrderItem> items;
 
     // Optimistic locking: duas transições simultâneas no mesmo pedido (ex.: dois cancelamentos,
-    // ou cancelar enquanto o admin conclui) não passam as duas; a segunda recebe 409.
+    // ou confirmar após o reconciliador expirar) não passam as duas.
     @Version
     @Column(nullable = false)
     private Long version;
@@ -57,14 +67,41 @@ public class Order {
     private String cancellationReason;
 
     /**
-     * CONFIRMED -> CANCELLED. Retorna false se o pedido já estava cancelado (operação idempotente:
-     * repetir o cancelamento não reprocessa estoque nem publica outro evento).
+     * PENDING -> CONFIRMED. Pedido já expirado pelo reconciliador nunca pode ser confirmado tarde.
+     */
+    public void confirm(Instant now) {
+        Objects.requireNonNull(now, "confirmedAt não pode ser nulo");
+        if (status != OrderStatus.PENDING) {
+            throw new InvalidOrderStatusTransitionException(id, status, OrderStatus.CONFIRMED);
+        }
+        status = OrderStatus.CONFIRMED;
+        confirmedAt = now;
+    }
+
+    public void confirm() {
+        confirm(Instant.now());
+    }
+
+    /**
+     * PENDING -> EXPIRED. Gravado antes do DELETE da reserva no inventory para impedir que uma
+     * confirmação atrasada do fluxo síncrono vença a corrida.
+     */
+    public void expire() {
+        if (status != OrderStatus.PENDING) {
+            throw new InvalidOrderStatusTransitionException(id, status, OrderStatus.EXPIRED);
+        }
+        status = OrderStatus.EXPIRED;
+    }
+
+    /**
+     * PENDING | EXPIRED | CONFIRMED -> CANCELLED. Retorna false se o pedido já estava cancelado
+     * (operação idempotente: repetir o cancelamento não reprocessa estoque nem publica outro evento).
      */
     public boolean cancel(String actorSubject, String reason, LocalDateTime now) {
         if (status == OrderStatus.CANCELLED) {
             return false;
         }
-        if (status != OrderStatus.CONFIRMED) {
+        if (status != OrderStatus.CONFIRMED && status != OrderStatus.PENDING && status != OrderStatus.EXPIRED) {
             throw new InvalidOrderStatusTransitionException(id, status, OrderStatus.CANCELLED);
         }
         status = OrderStatus.CANCELLED;

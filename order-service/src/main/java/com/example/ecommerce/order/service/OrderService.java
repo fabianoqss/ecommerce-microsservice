@@ -5,6 +5,7 @@ import com.example.ecommerce.order.domain.OrderEventType;
 import com.example.ecommerce.order.domain.OrderItem;
 import com.example.ecommerce.order.domain.OrderStatus;
 import com.example.ecommerce.order.domain.OutboxEvent;
+import com.example.ecommerce.order.domain.ReservationMode;
 import com.example.ecommerce.order.dto.request.InventoryItemDTO;
 import com.example.ecommerce.order.dto.request.InventoryReserveRequestDTO;
 import com.example.ecommerce.order.dto.request.OrderItemRequestDTO;
@@ -14,8 +15,10 @@ import com.example.ecommerce.order.dto.response.OrderResponseDTO;
 import com.example.ecommerce.order.dto.response.PageResponseDTO;
 import com.example.ecommerce.order.dto.response.ProductDTO;
 import com.example.ecommerce.order.exception.InsufficientStockException;
+import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionException;
 import com.example.ecommerce.order.exception.InvalidProductDataException;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
+import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.exception.ProductNotFoundException;
 import com.example.ecommerce.order.infra.client.InventoryClient;
 import com.example.ecommerce.order.infra.client.ProductClient;
@@ -25,22 +28,31 @@ import com.example.ecommerce.order.repository.OutboxEventRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.FeignException;
+import feign.RetryableException;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +78,7 @@ public class OrderService {
 
     @Autowired
     private InventoryClient inventoryClient;
+
     @Autowired
     private OutboxEventRepository outboxEventRepository;
 
@@ -73,18 +86,27 @@ public class OrderService {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private MeterRegistry meterRegistry;
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @Autowired
     private TransactionTemplate transactionTemplate;
+
+    @Setter
+    @Value("${ecommerce.order.reservation.max-attempts:3}")
+    private int reservationMaxAttempts = 3;
+
+    @Setter
+    @Value("${ecommerce.order.reservation.retry-delay:50ms}")
+    private Duration reservationRetryDelay = Duration.ofMillis(50);
 
     @Transactional(readOnly = true)
     public PageResponseDTO<OrderResponseDTO> findAll(int page, int size, Authentication authentication) {
         // Ordenação fixa no servidor: o cliente não escolhe propriedade de sort (evita erro/sort em coluna sem índice).
         Pageable pageable = PageRequest.of(page, size, LATEST_FIRST);
+        // "Meus pedidos" do cliente exibe apenas pedidos que chegaram a ser confirmados (confirmed_at IS NOT NULL).
         Page<Order> orders = isAdmin(authentication)
                 ? orderRepository.findAll(pageable)
-                : orderRepository.findByUserID(authentication.getName(), pageable);
+                : orderRepository.findByUserIDAndConfirmedAtIsNotNull(authentication.getName(), pageable);
 
         return PageResponseDTO.from(orders.map(this::toResponseDTO));
     }
@@ -124,39 +146,114 @@ public class OrderService {
                 .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        Order order = new Order();
-        order.setUserID(userId);
-        order.setOrderTime(LocalDateTime.now());
-        order.setStatus(OrderStatus.CONFIRMED);
-        order.setTotalValue(totalValue);
-        order.setItems(orderItems);
-
         List<InventoryItemDTO> reserveItems = aggregateInventoryItems(request.items().stream()
                 .map(i -> new InventoryItemDTO(i.productId(), i.quantity()))
                 .toList());
 
+        // 1. Tx curta: grava o pedido como PENDING (LEDGER) antes do efeito remoto no inventory.
+        Order order = new Order();
+        order.setUserID(userId);
+        order.setOrderTime(LocalDateTime.now());
+        order.setStatus(OrderStatus.PENDING);
+        order.setReservationMode(ReservationMode.LEDGER);
+        order.setTotalValue(totalValue);
+        order.setItems(orderItems);
+
+        Order pendingOrder = Objects.requireNonNull(
+                transactionTemplate.execute(status -> orderRepository.saveAndFlush(order)),
+                "Falha ao persistir o pedido pendente");
+        UUID orderId = pendingOrder.getId();
+
+        // 2. Reserva idempotente por orderId fora de transação (até 2 retentativas rápidas só em timeout/IO/5xx).
         try {
-            inventoryClient.reserve(new InventoryReserveRequestDTO(reserveItems));
+            reserveWithRetry(orderId, new InventoryReserveRequestDTO(reserveItems));
         } catch (FeignException.Conflict e) {
-            // Só o 409 do inventory significa falta de estoque. 401/403 (token de serviço rejeitado)
-            // e demais falhas seguem para o GlobalExceptionHandler, que responde 502.
+            // 3b. 409 sem estoque => PENDING -> CANCELLED e responde 409 ao cliente.
+            cancelOrderWithoutStock(pendingOrder);
+            meterRegistry.counter("orders.created", "result", "insufficient_stock").increment();
+            log.info("Pedido cancelado por falta de estoque: orderId={}", orderId);
             throw new InsufficientStockException("Estoque insuficiente para um ou mais itens do pedido");
+        } catch (OAuth2AuthorizationException e) {
+            meterRegistry.counter("orders.created", "result", "pending").increment();
+            log.warn("Pedido mantido PENDING por indisponibilidade do token de serviço: orderId={}", orderId);
+            throw e;
+        } catch (RuntimeException e) {
+            // 3c. Falha ambígua (timeout/5xx após retries) ou erro inesperado (410/422/401/403):
+            // mantém PENDING para o reconciliador liberar/colocar lápide no inventory e cancelar.
+            meterRegistry.counter("orders.created", "result", "pending").increment();
+            log.warn("Falha ao reservar estoque; pedido permanecerá PENDING para reconciliação: orderId={}", orderId, e);
+            throw new OrderReservationException(
+                    "Não foi possível confirmar a reserva de estoque do pedido " + orderId + "; tente novamente", e);
         }
 
+        // 3a. Reserva confirmada (201/200) => tx curta: PENDING -> CONFIRMED + outbox ORDER_CREATED.
         try {
-            return transactionTemplate.execute(status -> {
-                Order persistedOrder = orderRepository.saveAndFlush(order);
-                enqueueEvent(persistedOrder, OrderEventType.ORDER_CREATED);
-                return toResponseDTO(persistedOrder);
+            OrderResponseDTO response = transactionTemplate.execute(status -> {
+                pendingOrder.confirm(Instant.now());
+                Order confirmedOrder = orderRepository.saveAndFlush(pendingOrder);
+                enqueueEvent(confirmedOrder, OrderEventType.ORDER_CREATED);
+                return toResponseDTO(confirmedOrder);
             });
-        } catch (RuntimeException ex) {
-            // execute() inclui o commit; compensamos só após encerrar a transação local.
+            meterRegistry.counter("orders.created", "result", "confirmed").increment();
+            log.info("Pedido confirmado com sucesso: orderId={}", orderId);
+            return response;
+        } catch (OptimisticLockingFailureException | InvalidOrderStatusTransitionException ex) {
+            // O reconciliador expirou o pedido enquanto o PUT estava em voo: nunca confirma tarde.
+            meterRegistry.counter("orders.created", "result", "pending").increment();
+            log.warn("Confirmação rejeitada porque o reconciliador já expirou o pedido: orderId={}", orderId, ex);
+            throw new OrderReservationException(
+                    "O tempo limite de confirmação do pedido " + orderId + " expirou", ex);
+        }
+    }
+
+    private void reserveWithRetry(UUID orderId, InventoryReserveRequestDTO request) {
+        int maxAttempts = Math.max(1, reservationMaxAttempts);
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                inventoryClient.release(new InventoryReserveRequestDTO(reserveItems));
-            } catch (Exception releaseEx) {
-                log.error("Falha ao compensar (liberar) estoque após erro ao persistir o pedido", releaseEx);
+                inventoryClient.reserve(orderId, request);
+                return;
+            } catch (RuntimeException ex) {
+                if (attempt >= maxAttempts || !isRetryableReserveFailure(ex)) {
+                    throw ex;
+                }
+                log.warn("Falha transitória ao reservar estoque (tentativa {}/{}): orderId={}",
+                        attempt, maxAttempts, orderId, ex);
+                sleepBeforeRetry();
             }
-            throw ex;
+        }
+    }
+
+    private static boolean isRetryableReserveFailure(Throwable ex) {
+        if (ex instanceof RetryableException) {
+            return true;
+        }
+        if (ex instanceof FeignException feignEx) {
+            return feignEx.status() >= 500 && feignEx.status() < 600;
+        }
+        return ex.getCause() instanceof IOException;
+    }
+
+    private void sleepBeforeRetry() {
+        long delayMillis = reservationRetryDelay != null ? reservationRetryDelay.toMillis() : 0L;
+        if (delayMillis <= 0L) {
+            return;
+        }
+        try {
+            Thread.sleep(delayMillis);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void cancelOrderWithoutStock(Order pendingOrder) {
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                pendingOrder.cancel("system", "Estoque insuficiente", LocalDateTime.now());
+                orderRepository.saveAndFlush(pendingOrder);
+            });
+        } catch (OptimisticLockingFailureException ex) {
+            log.debug("Pedido já alterado concorrentemente pelo reconciliador ao cancelar por falta de estoque: orderId={}",
+                    pendingOrder.getId(), ex);
         }
     }
 

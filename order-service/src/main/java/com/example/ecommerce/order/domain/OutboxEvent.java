@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -48,6 +49,9 @@ public class OutboxEvent {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "next_attempt_at", nullable = false)
+    private Instant nextAttemptAt;
+
     @Column(name = "sent_at")
     private LocalDateTime sentAt;
 
@@ -63,6 +67,7 @@ public class OutboxEvent {
         event.setStatus(OutboxStatus.PENDING);
         event.setAttempts(0);
         event.setCreatedAt(LocalDateTime.now());
+        event.setNextAttemptAt(Instant.now());
         return event;
     }
 }

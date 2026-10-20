@@ -36,7 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "eureka.client.enabled=false",
         "spring.cloud.discovery.enabled=false",
         "KC_ORDER_SERVICE_CLIENT_SECRET=order-secret-test",
-        "DB_PASSWORD=unused"
+        "DB_PASSWORD=unused",
+        "ecommerce.order.reconciliation.fixed-delay=3600000"
 })
 @AutoConfigureMockMvc
 @Testcontainers
@@ -44,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrderServiceToInventoryAuthIntegrationTest {
 
     private static final String TOKEN_PATH = "/realms/ecommerce/protocol/openid-connect/token";
+    private static final String RESERVATION_URL_PATTERN = "/api/inventory/reservations/.*";
     private static final String ORDER_BODY = """
             {"items":[{"productId":"p1","quantity":1}]}
             """;
@@ -83,7 +85,7 @@ class OrderServiceToInventoryAuthIntegrationTest {
         WIREMOCK.stubFor(WireMock.get("/api/product/p1").willReturn(okJson("""
                 {"id":"p1","name":"Teclado","price":10.00}
                 """)));
-        WIREMOCK.stubFor(WireMock.post("/api/inventory/reserve").willReturn(aResponse().withStatus(204)));
+        WIREMOCK.stubFor(WireMock.put(urlPathMatching(RESERVATION_URL_PATTERN)).willReturn(aResponse().withStatus(201)));
     }
 
     @Test
@@ -99,7 +101,7 @@ class OrderServiceToInventoryAuthIntegrationTest {
 
         WIREMOCK.verify(postRequestedFor(urlEqualTo(TOKEN_PATH))
                 .withRequestBody(containing("grant_type=client_credentials")));
-        WIREMOCK.verify(postRequestedFor(urlEqualTo("/api/inventory/reserve"))
+        WIREMOCK.verify(putRequestedFor(urlPathMatching(RESERVATION_URL_PATTERN))
                 .withHeader("Authorization", equalTo("Bearer svc-token")));
         WIREMOCK.verify(getRequestedFor(urlEqualTo("/api/product/p1"))
                 .withoutHeader("Authorization"));
@@ -114,7 +116,7 @@ class OrderServiceToInventoryAuthIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
                 .andExpect(status().isServiceUnavailable());
 
-        WIREMOCK.verify(0, postRequestedFor(urlEqualTo("/api/inventory/reserve")));
+        WIREMOCK.verify(0, putRequestedFor(urlPathMatching(RESERVATION_URL_PATTERN)));
         WIREMOCK.verify(getRequestedFor(urlEqualTo("/api/product/p1"))
                 .withoutHeader("Authorization"));
     }

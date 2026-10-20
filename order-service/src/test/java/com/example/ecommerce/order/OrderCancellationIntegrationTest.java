@@ -42,8 +42,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.cloud.discovery.enabled=false",
         "KC_ORDER_SERVICE_CLIENT_SECRET=order-secret-test",
         "DB_PASSWORD=unused",
-        // Poller desligado na prática: o teste inspeciona o outbox antes da publicação.
-        "app.outbox.fixed-delay=3600000"
+        // Poller e reconciliador desligados na prática: o teste inspeciona o banco antes de jobs em background.
+        "app.outbox.fixed-delay=3600000",
+        "ecommerce.order.reconciliation.fixed-delay=3600000"
 })
 @AutoConfigureMockMvc
 @Testcontainers
@@ -99,7 +100,8 @@ class OrderCancellationIntegrationTest {
         WIREMOCK.stubFor(WireMock.get("/api/product/p1").willReturn(okJson("""
                 {"id":"p1","name":"Teclado","price":10.00}
                 """)));
-        WIREMOCK.stubFor(WireMock.post("/api/inventory/reserve").willReturn(aResponse().withStatus(204)));
+        WIREMOCK.stubFor(WireMock.put(urlPathMatching("/api/inventory/reservations/.*"))
+                .willReturn(aResponse().withStatus(201)));
         WIREMOCK.stubFor(WireMock.post(RELEASE_PATH).willReturn(aResponse().withStatus(204)));
     }
 
