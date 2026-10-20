@@ -1,0 +1,98 @@
+package com.example.ecommerce.order.controller;
+
+import com.example.ecommerce.order.dto.request.CancelOrderRequestDTO;
+import com.example.ecommerce.order.dto.request.OrderRequestDTO;
+import com.example.ecommerce.order.dto.response.OrderResponseDTO;
+import com.example.ecommerce.order.dto.response.PageResponseDTO;
+import com.example.ecommerce.order.service.OrderService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.PositiveOrZero;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/order")
+@Tag(name = "Orders", description = "Controller for Order")
+public class OrderController {
+
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    // Teto do size: impede que um único request carregue a tabela inteira na memória.
+    private static final int MAX_PAGE_SIZE = 100;
+
+    @Autowired
+    private OrderService orderService;
+
+    @Operation(
+            description = "Get orders paginated, newest first (usuário comum vê só os próprios; admin vê todos)",
+            summary = "List orders",
+            responses = {
+                    @ApiResponse(description = "Ok", responseCode = "200"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400")
+            }
+    )
+    @GetMapping
+    public ResponseEntity<PageResponseDTO<OrderResponseDTO>> findAll(
+            @RequestParam(defaultValue = "0") @PositiveOrZero int page,
+            @RequestParam(defaultValue = "" + DEFAULT_PAGE_SIZE) @Min(1) @Max(MAX_PAGE_SIZE) int size,
+            Authentication authentication) {
+        return ResponseEntity.ok(orderService.findAll(page, size, authentication));
+    }
+
+    @Operation(
+            description = "Get order by id (apenas o dono do pedido ou um admin; pedido de outro usuário responde 404)",
+            summary = "Get order by id",
+            responses = {
+                    @ApiResponse(description = "Ok", responseCode = "200"),
+                    @ApiResponse(description = "Not Found", responseCode = "404")
+            }
+    )
+    @GetMapping("/{id}")
+    public ResponseEntity<OrderResponseDTO> findById(@PathVariable UUID id, Authentication authentication) {
+        return ResponseEntity.ok(orderService.findById(id, authentication));
+    }
+
+    @Operation(
+            description = "Cancel an order (dono ou admin) e devolve o estoque reservado. "
+                    + "Só pedidos CONFIRMED; repetir em um pedido já cancelado responde 200 sem efeito.",
+            summary = "Cancel an order",
+            responses = {
+                    @ApiResponse(description = "Ok", responseCode = "200"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400"),
+                    @ApiResponse(description = "Not Found", responseCode = "404"),
+                    @ApiResponse(description = "Conflict - status não permite cancelar ou alteração concorrente", responseCode = "409"),
+                    @ApiResponse(description = "Bad Gateway - falha ao devolver o estoque", responseCode = "502")
+            }
+    )
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<OrderResponseDTO> cancel(@PathVariable UUID id,
+                                                   @Valid @RequestBody(required = false) CancelOrderRequestDTO request,
+                                                   Authentication authentication) {
+        String reason = request != null ? request.reason() : null;
+        return ResponseEntity.ok(orderService.cancel(id, reason, authentication));
+    }
+
+    @Operation(
+            description = "Create a new order for the authenticated user",
+            summary = "Create a new order",
+            responses = {
+                    @ApiResponse(description = "Created", responseCode = "201"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400"),
+                    @ApiResponse(description = "Unprocessable Entity", responseCode = "422")
+            }
+    )
+    @PostMapping
+    public ResponseEntity<OrderResponseDTO> createOrder(@Valid @RequestBody OrderRequestDTO request, Authentication authentication) {
+        OrderResponseDTO response = orderService.createOrder(request, authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+}

@@ -38,10 +38,17 @@ printf '%s' '{"configure":"(?!)","write":"(?!)","read":"(?!)"}' | put "permissio
 
 for service in order-service notification-service; do
   case "$service" in
-    order-service) password=$RABBITMQ_ORDER_PASSWORD ;;
-    notification-service) password=$RABBITMQ_NOTIFICATION_PASSWORD ;;
+    order-service)
+      password=$RABBITMQ_ORDER_PASSWORD
+      # Único dono da topologia: declara exchanges, filas/DLQs e bindings order.* e publica eventos.
+      permissions='{"configure":"^order\\.","write":"^order\\.","read":"^order\\."}'
+      ;;
+    notification-service)
+      password=$RABBITMQ_NOTIFICATION_PASSWORD
+      # Consumidor puro: apenas lê das filas de eventos de pedido, sem declarar nem publicar.
+      permissions='{"configure":"^$","write":"^$","read":"^order\\.(created|cancelled)\\.queue$"}'
+      ;;
   esac
   printf '{"password":%s,"tags":""}' "$(json_string "$password")" | put "users/$service"
-  # Ambos ainda declaram a topologia; apertar permissões quando a declaração duplicada for removida.
-  printf '%s' '{"configure":"^order\\.","write":"^order\\.","read":"^order\\."}' | put "permissions/ecommerce/$service"
+  printf '%s' "$permissions" | put "permissions/ecommerce/$service"
 done
