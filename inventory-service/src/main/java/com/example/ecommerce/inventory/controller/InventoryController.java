@@ -1,0 +1,104 @@
+package com.example.ecommerce.inventory.controller;
+
+
+import com.example.ecommerce.inventory.dto.response.InventoryDTO;
+import com.example.ecommerce.inventory.dto.request.InventoryRequestDTO;
+import com.example.ecommerce.inventory.dto.request.InventoryReserveRequestDTO;
+import com.example.ecommerce.inventory.dto.request.InventoryUpdateDTO;
+import com.example.ecommerce.inventory.service.InventoryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RequestMapping("/api/inventory")
+@RestController
+@Tag(name = "Inventory", description = "Controller for Inventory")
+public class InventoryController {
+
+    @Autowired
+    private InventoryService inventoryService;
+
+    @Operation(
+            description = "Check stock for one or more SKU codes",
+            summary = "Check if items are in stock",
+            responses = {
+                    @ApiResponse(description = "Ok", responseCode = "200")
+            }
+    )
+    @GetMapping
+    @ResponseStatus(HttpStatus.OK)
+    public List<InventoryDTO> isInStock(@RequestParam("skuCode") List<String> skuCode){
+        return inventoryService.isInStock(skuCode);
+    }
+
+    @Operation(
+            description = "Insert a new inventory item",
+            summary = "Insert inventory item",
+            responses = {
+                    @ApiResponse(description = "Created", responseCode = "201"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400")
+            }
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public InventoryDTO insert(@Valid @RequestBody InventoryRequestDTO dto){
+        return inventoryService.insert(dto);
+    }
+
+    @Operation(
+            description = "Update quantity of an inventory item",
+            summary = "Update inventory item",
+            responses = {
+                    @ApiResponse(description = "Ok", responseCode = "200"),
+                    @ApiResponse(description = "Not Found", responseCode = "404"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400")
+            }
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public InventoryDTO update(@PathVariable Long id, @Valid @RequestBody InventoryUpdateDTO dto){
+        return inventoryService.update(id, dto);
+    }
+
+    @Operation(
+            description = "Atomically reserve (decrement) stock for a list of items. All-or-nothing.",
+            summary = "Reserve stock for an order",
+            responses = {
+                    @ApiResponse(description = "No Content", responseCode = "204"),
+                    @ApiResponse(description = "Conflict - insufficient stock", responseCode = "409"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400")
+            }
+    )
+    @PostMapping("/reserve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reserve(@Valid @RequestBody InventoryReserveRequestDTO dto){
+        inventoryService.reserve(dto.items());
+    }
+
+    @Operation(
+            description = "Release (increment) previously reserved stock, best-effort compensation",
+            summary = "Release reserved stock",
+            responses = {
+                    @ApiResponse(description = "No Content", responseCode = "204"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400")
+            }
+    )
+    @PostMapping("/release")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void release(@Valid @RequestBody InventoryReserveRequestDTO dto){
+        inventoryService.release(dto.items());
+    }
+
+}
