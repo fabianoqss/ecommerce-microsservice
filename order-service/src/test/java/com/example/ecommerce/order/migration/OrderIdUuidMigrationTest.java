@@ -1,6 +1,7 @@
 package com.example.ecommerce.order.migration;
 
 import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -17,14 +18,21 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * A V5 troca a PK de tb_orders de BIGINT para UUID com dados já existentes: os pedidos legados
- * precisam ganhar um UUIDv7 coerente com o order_time, e itens/outbox continuar apontando para eles.
+ * Testa as migrations que transformam dados já existentes (V5: BIGINT -> UUIDv7;
+ * V7: reservation_mode LEGACY, confirmed_at preenchido a partir de order_time e next_attempt_at no outbox).
  */
 @Testcontainers
 class OrderIdUuidMigrationTest {
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16");
+
+    @BeforeEach
+    void resetDatabase() throws Exception {
+        try (Connection connection = connect(); Statement sql = connection.createStatement()) {
+            sql.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+        }
+    }
 
     @Test
     void v5PreservesLegacyOrdersAndTheirReferences() throws Exception {
@@ -56,6 +64,60 @@ class OrderIdUuidMigrationTest {
 
             assertThat(singleUuid(sql, "SELECT order_id FROM tb_order_items")).isEqualTo(orderId);
             assertThat(singleUuid(sql, "SELECT aggregate_id FROM tb_outbox_event")).isEqualTo(orderId);
+        }
+    }
+
+    @Test
+    void v7MarksExistingOrdersAsLegacyAndBackfillsConfirmedAtForConfirmedAndCancelled() throws Exception {
+        migrateTo("6");
+
+        UUID confirmedId = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a01");
+        UUID cancelledId = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a02");
+        UUID pendingId = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a03");
+        LocalDateTime confirmedTime = LocalDateTime.of(2026, 5, 10, 12, 0);
+        LocalDateTime cancelledTime = LocalDateTime.of(2026, 5, 11, 15, 45);
+        LocalDateTime pendingTime = LocalDateTime.of(2026, 5, 12, 9, 15);
+
+        try (Connection connection = connect(); Statement sql = connection.createStatement()) {
+            sql.execute("INSERT INTO tb_orders (id, order_time, status, userid, total_value) VALUES "
+                    + "('" + confirmedId + "', '" + confirmedTime + "', 'CONFIRMED', 'u1', 50.00), "
+                    + "('" + cancelledId + "', '" + cancelledTime + "', 'CANCELLED', 'u1', 30.00), "
+                    + "('" + pendingId + "', '" + pendingTime + "', 'PENDING', 'u1', 10.00)");
+            sql.execute("INSERT INTO tb_outbox_event (event_id, aggregate_id, event_type, payload, status, attempts, created_at) "
+                    + "VALUES ('" + UUID.randomUUID() + "', '" + confirmedId + "', 'ORDER_CREATED', '{}', 'PENDING', 0, now())");
+        }
+
+        migrateTo("7");
+
+        try (Connection connection = connect(); Statement sql = connection.createStatement()) {
+            try (ResultSet rs = sql.executeQuery(
+                    "SELECT id, status, reservation_mode, confirmed_at, (confirmed_at = order_time) AS matches_order_time "
+                            + "FROM tb_orders ORDER BY order_time ASC")) {
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getObject("id", UUID.class)).isEqualTo(confirmedId);
+                assertThat(rs.getString("reservation_mode")).isEqualTo("LEGACY");
+                assertThat(rs.getTimestamp("confirmed_at")).isNotNull();
+                assertThat(rs.getBoolean("matches_order_time")).isTrue();
+
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getObject("id", UUID.class)).isEqualTo(cancelledId);
+                assertThat(rs.getString("reservation_mode")).isEqualTo("LEGACY");
+                assertThat(rs.getTimestamp("confirmed_at")).isNotNull();
+                assertThat(rs.getBoolean("matches_order_time")).isTrue();
+
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getObject("id", UUID.class)).isEqualTo(pendingId);
+                assertThat(rs.getString("reservation_mode")).isEqualTo("LEGACY");
+                assertThat(rs.getTimestamp("confirmed_at")).isNull();
+            }
+
+            // Verifica que status aceita EXPIRED após a V7.
+            sql.execute("UPDATE tb_orders SET status = 'EXPIRED' WHERE id = '" + pendingId + "'");
+
+            try (ResultSet outbox = sql.executeQuery("SELECT next_attempt_at FROM tb_outbox_event")) {
+                assertThat(outbox.next()).isTrue();
+                assertThat(outbox.getTimestamp("next_attempt_at")).isNotNull();
+            }
         }
     }
 

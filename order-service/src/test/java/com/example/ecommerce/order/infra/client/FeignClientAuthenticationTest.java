@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.when;
 
 class FeignClientAuthenticationTest {
 
+    private static final UUID ORDER_ID = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b");
     private static final InventoryReserveRequestDTO ITEMS = new InventoryReserveRequestDTO(
             List.of(new InventoryItemDTO("p1", 1)));
 
@@ -63,7 +65,7 @@ class FeignClientAuthenticationTest {
     }
 
     @Test
-    void inventoryReserveAndReleaseSendServiceToken() {
+    void inventoryOperationsSendServiceToken() {
         contextRunner.run(context -> {
             var manager = context.getBean(OAuth2AuthorizedClientManager.class);
             when(manager.authorize(any())).thenAnswer(invocation -> {
@@ -74,10 +76,11 @@ class FeignClientAuthenticationTest {
             });
             var inventory = context.getBean(InventoryClient.class);
 
-            inventory.reserve(ITEMS);
+            inventory.reserve(ORDER_ID, ITEMS);
+            inventory.releaseReservation(ORDER_ID);
             inventory.release(ITEMS);
 
-            assertThat(context.getBean(RecordingClient.class).requests).hasSize(2).allSatisfy(request ->
+            assertThat(context.getBean(RecordingClient.class).requests).hasSize(3).allSatisfy(request ->
                     assertThat(request.headers().get("Authorization")).containsExactly("Bearer svc-token"));
         });
     }
@@ -87,7 +90,7 @@ class FeignClientAuthenticationTest {
         contextRunner.run(context -> {
             var inventory = context.getBean(InventoryClient.class);
 
-            assertThatThrownBy(() -> inventory.reserve(ITEMS))
+            assertThatThrownBy(() -> inventory.reserve(ORDER_ID, ITEMS))
                     .isInstanceOf(OAuth2AuthorizationException.class)
                     .hasMessageContaining("token");
             assertThat(context.getBean(RecordingClient.class).requests).isEmpty();
@@ -101,7 +104,7 @@ class FeignClientAuthenticationTest {
             when(context.getBean(OAuth2AuthorizedClientManager.class).authorize(any())).thenThrow(failure);
             var inventory = context.getBean(InventoryClient.class);
 
-            assertThatThrownBy(() -> inventory.reserve(ITEMS)).isSameAs(failure);
+            assertThatThrownBy(() -> inventory.reserve(ORDER_ID, ITEMS)).isSameAs(failure);
             assertThat(context.getBean(RecordingClient.class).requests).isEmpty();
         });
     }
@@ -140,6 +143,9 @@ class FeignClientAuthenticationTest {
                 return Response.builder().request(request).status(200)
                         .headers(Map.of("Content-Type", List.of("application/json")))
                         .body("{\"id\":\"p1\",\"name\":\"Teclado\",\"price\":10.00}", StandardCharsets.UTF_8).build();
+            }
+            if (request.httpMethod() == Request.HttpMethod.PUT) {
+                return Response.builder().request(request).status(201).headers(Map.of()).build();
             }
             return Response.builder().request(request).status(204).headers(Map.of()).build();
         }

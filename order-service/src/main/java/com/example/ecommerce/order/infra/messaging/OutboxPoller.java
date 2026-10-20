@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+
 @Component
 @RequiredArgsConstructor
 public class OutboxPoller {
@@ -15,7 +17,8 @@ public class OutboxPoller {
 
     @Scheduled(fixedDelayString = "${app.outbox.fixed-delay:5000}")
     public void publishPendingEvents() {
-        outboxEventRepository.findTop50ByStatusOrderByCreatedAtAsc(OutboxStatus.PENDING)
+        outboxEventRepository.findTop50ByStatusAndNextAttemptAtLessThanEqualOrderByNextAttemptAtAscCreatedAtAsc(
+                        OutboxStatus.PENDING, Instant.now())
                 .forEach(event -> outboxDispatcher.dispatch(event.getId()));
     }
 }

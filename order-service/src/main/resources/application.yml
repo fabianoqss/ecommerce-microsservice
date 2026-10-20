@@ -73,6 +73,21 @@ spring:
             connect-timeout: 2000
             read-timeout: 5000
 
+ecommerce:
+  order:
+    reservation:
+      max-attempts: 3
+      retry-delay: 50ms
+    reconciliation:
+      # Idade mínima muito maior que o tempo máximo do fluxo síncrono (3 tentativas x 5s read-timeout).
+      fixed-delay: 30000
+      min-age: 2m
+      batch-size: 50
+    outbox:
+      base-backoff: 5s
+      max-backoff: 30m
+      max-attempts: 100
+
 eureka:
   client:
     service-url:
@@ -94,4 +109,3 @@ management:
     export:
       zipkin:
         endpoint: http://localhost:9411/api/v2/spans
-

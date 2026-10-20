@@ -4,6 +4,7 @@ import com.example.ecommerce.order.exception.InsufficientStockException;
 import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionException;
 import com.example.ecommerce.order.exception.InvalidProductDataException;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
+import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.exception.ProductNotFoundException;
 import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +53,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InsufficientStockException.class)
     public ResponseEntity<ProblemDetail> handleInsufficientStock(InsufficientStockException ex) {
         return problem(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(OrderReservationException.class)
+    public ResponseEntity<ProblemDetail> handleOrderReservationFailure(OrderReservationException ex) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

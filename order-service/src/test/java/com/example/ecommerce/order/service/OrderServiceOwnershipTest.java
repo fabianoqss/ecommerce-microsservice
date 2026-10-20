@@ -41,12 +41,15 @@ class OrderServiceOwnershipTest {
     private OrderService orderService;
 
     @Test
-    void customerListsOnlyOwnOrdersBySubject() {
-        when(orderRepository.findByUserID(eq("user-sub"), any(Pageable.class))).thenReturn(Page.empty());
+    void customerListsOnlyOwnConfirmedOrdersBySubject() {
+        when(orderRepository.findByUserIDAndConfirmedAtIsNotNull(eq("user-sub"), any(Pageable.class)))
+                .thenReturn(Page.empty());
 
         orderService.findAll(0, 20, token("user-sub", "ROLE_CUSTOMER"));
 
+        verify(orderRepository).findByUserIDAndConfirmedAtIsNotNull(eq("user-sub"), any(Pageable.class));
         verify(orderRepository, never()).findAll(any(Pageable.class));
+        verify(orderRepository, never()).findByUserID(any(), any(Pageable.class));
     }
 
     @Test
@@ -55,13 +58,15 @@ class OrderServiceOwnershipTest {
 
         orderService.findAll(0, 20, token("admin-sub", "ROLE_ADMIN"));
 
+        verify(orderRepository, never()).findByUserIDAndConfirmedAtIsNotNull(any(), any(Pageable.class));
         verify(orderRepository, never()).findByUserID(any(), any(Pageable.class));
     }
 
     @Test
     void listIsPagedNewestFirstWithRequestedPageAndSize() {
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        when(orderRepository.findByUserID(eq("user-sub"), pageable.capture())).thenReturn(Page.empty());
+        when(orderRepository.findByUserIDAndConfirmedAtIsNotNull(eq("user-sub"), pageable.capture()))
+                .thenReturn(Page.empty());
 
         orderService.findAll(2, 10, token("user-sub", "ROLE_CUSTOMER"));
 
@@ -69,6 +74,19 @@ class OrderServiceOwnershipTest {
         assertThat(pageable.getValue().getPageSize()).isEqualTo(10);
         assertThat(pageable.getValue().getSort())
                 .isEqualTo(Sort.by(Sort.Direction.DESC, "orderTime", "id"));
+    }
+
+    @Test
+    void customerCanGetOwnPendingOrderByIdEvenBeforeConfirmation() {
+        Order pending = order("owner-sub");
+        pending.setStatus(OrderStatus.PENDING);
+        pending.setConfirmedAt(null);
+        when(orderRepository.findByIdAndUserID(ORDER_ID, "owner-sub")).thenReturn(Optional.of(pending));
+
+        var dto = orderService.findById(ORDER_ID, token("owner-sub", "ROLE_CUSTOMER"));
+
+        assertThat(dto.id()).isEqualTo(ORDER_ID);
+        assertThat(dto.status()).isEqualTo("PENDING");
     }
 
     @Test
