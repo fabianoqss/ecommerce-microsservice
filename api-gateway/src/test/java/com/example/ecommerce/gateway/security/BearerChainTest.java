@@ -68,6 +68,18 @@ class BearerChainTest extends GatewayTestSupport {
     }
 
     @Test
+    void reservationsLedgerIsDeniedAtTheEdgeEvenForGet() throws Exception {
+        mvc.perform(get("/api/inventory/reservations/0199f5d2-0000-7000-8000-000000000001")
+                        .header("Authorization", "Bearer customer-token"))
+                .andExpect(status().isForbidden());
+        // Anônimo recebe 401 (denyAll dispara o entry point), mas também nunca chega ao backend.
+        mvc.perform(get("/api/inventory/reservations/0199f5d2-0000-7000-8000-000000000001"))
+                .andExpect(status().isUnauthorized());
+
+        BACKEND.verify(0, getRequestedFor(urlMatching("/api/inventory/reservations/.*")));
+    }
+
+    @Test
     void bffEndpointsAreNotAvailableToBearerClients() throws Exception {
         mvc.perform(get("/bff/me").header("Authorization", "Bearer customer-token"))
                 .andExpect(status().isForbidden());
