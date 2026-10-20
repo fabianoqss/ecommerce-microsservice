@@ -9,7 +9,6 @@ import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-/** Expõe Authorization: Bearer <token> no lugar de qualquer Authorization recebido do navegador. */
 class BearerTokenRequestWrapper extends HttpServletRequestWrapper {
 
     private final String authorization;

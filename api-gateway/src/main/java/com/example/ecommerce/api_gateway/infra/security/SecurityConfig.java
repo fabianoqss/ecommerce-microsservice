@@ -27,7 +27,6 @@ import org.springframework.util.StringUtils;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    /** Requisições de clientes de API (Bruno, app mobile): têm o header Authorization: Bearer. */
     static final RequestMatcher BEARER_REQUEST = (HttpServletRequest request) -> {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         return header != null && header.regionMatches(true, 0, "Bearer ", 0, 7);
