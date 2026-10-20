@@ -2,13 +2,15 @@ package com.ecommerce.product_service.services;
 
 
 import com.ecommerce.product_service.dto.ProductDTO;
+import com.ecommerce.product_service.dto.PageResponseDTO;
 import com.ecommerce.product_service.entities.Product;
 import com.ecommerce.product_service.repositories.ProductRepository;
 import com.ecommerce.product_service.services.exceptions.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 
 
 @Service
@@ -27,11 +29,10 @@ public class ProductService {
     }
 
 
-    public List<ProductDTO> findAll() {
-        return repository.findAll().stream()
-                .map(x -> new ProductDTO(x))
-                .toList();
-
+    public PageResponseDTO<ProductDTO> findAll(int page, int size) {
+        // O id único dá uma ordem estável e usa o índice padrão do MongoDB.
+        var pageable = PageRequest.of(page, size, Sort.by("id"));
+        return PageResponseDTO.from(repository.findAll(pageable).map(ProductDTO::new));
     }
 
     public ProductDTO insert(ProductDTO dto){

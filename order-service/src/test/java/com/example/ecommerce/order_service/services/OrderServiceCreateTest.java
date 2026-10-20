@@ -33,13 +33,16 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -180,6 +183,39 @@ class OrderServiceCreateTest {
         assertThat(response.items()).hasSize(3);
         assertThat(outbox.getValue().getAggregateId()).isEqualTo(ORDER_ID);
         assertThat(outbox.getValue().getEventType()).isEqualTo("ORDER_CREATED");
+    }
+
+    @Test
+    void responseIsMappedBeforeTransactionCloses() {
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        var committed = new AtomicBoolean();
+        doAnswer(invocation -> {
+            committed.set(true);
+            return null;
+        }).when(transactionManager).commit(any());
+        when(orderRepository.saveAndFlush(any())).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setId(ORDER_ID);
+            var items = order.getItems();
+            var persisted = spy(order);
+            // Simula uma associação que não pode ser acessada após fechar a sessão.
+            doAnswer(call -> {
+                if (committed.get()) {
+                    throw new org.hibernate.LazyInitializationException("Sessão encerrada");
+                }
+                return items;
+            }).when(persisted).getItems();
+            return persisted;
+        });
+
+        var response = orderService.createOrder(ORDER, "owner-sub");
+
+        assertThat(committed).isTrue();
+        assertThat(response.id()).isEqualTo(ORDER_ID);
+        assertThat(response.items()).singleElement().satisfies(item -> {
+            assertThat(item.productId()).isEqualTo("p1");
+            assertThat(item.quantity()).isEqualTo(1);
+        });
     }
 
     @Test

@@ -20,17 +20,6 @@ public class Product {
     public Product() {
     }
 
-    public Product(String id, String name, String description, BigDecimal price, String category, String imageUrl) {
-        this.id = id;
-        this.name = name;
-        this.description = description;
-        this.price = price;
-        this.category = category;
-        this.imageUrl = imageUrl;
-    }
-
-
-
     public String getId() {
         return id;
     }

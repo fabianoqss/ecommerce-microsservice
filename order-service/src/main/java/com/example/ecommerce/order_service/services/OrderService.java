@@ -143,12 +143,11 @@ public class OrderService {
             throw new InsufficientStockException("Estoque insuficiente para um ou mais itens do pedido");
         }
 
-        Order savedOrder;
         try {
-            savedOrder = transactionTemplate.execute(status -> {
+            return transactionTemplate.execute(status -> {
                 Order persistedOrder = orderRepository.saveAndFlush(order);
                 enqueueEvent(persistedOrder, OrderEventType.ORDER_CREATED);
-                return persistedOrder;
+                return toResponseDTO(persistedOrder);
             });
         } catch (RuntimeException ex) {
             // execute() inclui o commit; compensamos só após encerrar a transação local.
@@ -159,8 +158,6 @@ public class OrderService {
             }
             throw ex;
         }
-
-        return toResponseDTO(savedOrder);
     }
 
     /**

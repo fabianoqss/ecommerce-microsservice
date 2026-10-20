@@ -101,6 +101,8 @@ class OrderServiceToInventoryAuthIntegrationTest {
                 .withRequestBody(containing("grant_type=client_credentials")));
         WIREMOCK.verify(postRequestedFor(urlEqualTo("/api/inventory/reserve"))
                 .withHeader("Authorization", equalTo("Bearer svc-token")));
+        WIREMOCK.verify(getRequestedFor(urlEqualTo("/api/product/p1"))
+                .withoutHeader("Authorization"));
     }
 
     @Test
@@ -113,5 +115,7 @@ class OrderServiceToInventoryAuthIntegrationTest {
                 .andExpect(status().isServiceUnavailable());
 
         WIREMOCK.verify(0, postRequestedFor(urlEqualTo("/api/inventory/reserve")));
+        WIREMOCK.verify(getRequestedFor(urlEqualTo("/api/product/p1"))
+                .withoutHeader("Authorization"));
     }
 }

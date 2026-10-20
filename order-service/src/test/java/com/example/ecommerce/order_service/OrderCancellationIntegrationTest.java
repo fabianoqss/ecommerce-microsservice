@@ -33,6 +33,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -129,6 +130,20 @@ class OrderCancellationIntegrationTest {
         mvc.perform(post("/api/order/{id}/cancel", orderId).with(user("owner-sub")))
                 .andExpect(status().isOk());
         WIREMOCK.verify(1, postRequestedFor(urlEqualTo(RELEASE_PATH)));
+    }
+
+    @Test
+    void readEndpointsMapLazyItemsWithoutOpenInView() throws Exception {
+        UUID orderId = createOrder("reader-sub");
+
+        mvc.perform(get("/api/order/{id}", orderId).with(user("reader-sub")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].productId").value("p1"))
+                .andExpect(jsonPath("$.items[0].quantity").value(2));
+        mvc.perform(get("/api/order").with(user("reader-sub")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(orderId.toString()))
+                .andExpect(jsonPath("$.content[0].items[0].productId").value("p1"));
     }
 
     @Test

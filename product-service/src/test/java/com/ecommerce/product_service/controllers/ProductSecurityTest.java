@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -50,6 +51,16 @@ class ProductSecurityTest {
     void anonymousCanReadProducts() throws Exception {
         mvc.perform(get("/api/product")).andExpect(allowed());
         mvc.perform(get("/api/product/abc")).andExpect(allowed());
+    }
+
+    @Test
+    void listRejectsInvalidPagination() throws Exception {
+        mvc.perform(get("/api/product").param("size", "101")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/product").param("size", "0")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/product").param("size", "-1")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/product").param("page", "-1")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/product").param("page", "abc")).andExpect(status().isBadRequest());
+        verifyNoInteractions(productService);
     }
 
     @Test

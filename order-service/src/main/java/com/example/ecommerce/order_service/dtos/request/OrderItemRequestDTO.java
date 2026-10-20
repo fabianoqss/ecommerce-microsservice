@@ -1,10 +1,11 @@
 package com.example.ecommerce.order_service.dtos.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 
 @Schema(name = "OrderItemRequestDTO", description = "Item de um pedido")
 public record OrderItemRequestDTO(
@@ -14,7 +15,8 @@ public record OrderItemRequestDTO(
         String productId,
         @Schema(description = "Quantidade do produto", example = "2")
         @NotNull(message = "quantity é obrigatório")
-        @Min(value = 1, message = "quantity deve ser maior ou igual a 1")
+        @Positive(message = "quantity deve ser maior que zero")
+        @Max(value = 10000, message = "quantity deve ser menor ou igual a 10000")
         Integer quantity
 ) {
 }
