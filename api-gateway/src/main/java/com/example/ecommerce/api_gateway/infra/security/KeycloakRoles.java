@@ -1,5 +1,7 @@
 package com.example.ecommerce.api_gateway.infra.security;
 
+import com.example.ecommerce.common.security.KeycloakJwtAuthenticationConverter;
+
 import java.util.Map;
 import java.util.Set;
 

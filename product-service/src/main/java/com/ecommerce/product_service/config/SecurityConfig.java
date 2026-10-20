@@ -1,5 +1,6 @@
 package com.ecommerce.product_service.config;
 
+import com.example.ecommerce.common.security.KeycloakJwtAuthenticationConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;

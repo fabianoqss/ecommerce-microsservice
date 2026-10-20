@@ -1,0 +1,35 @@
+# Só os arquivos necessários ao build entram no contexto compartilhado.
+**
+!pom.xml
+!mvnw
+!.mvn/
+!.mvn/wrapper/
+!.mvn/wrapper/maven-wrapper.properties
+!common-security/
+!eureka-server/
+!api-gateway/
+!product-service/
+!inventory-service/
+!order-service/
+!notification-service/
+!*/pom.xml
+!*/Dockerfile
+!*/src/
+!*/src/**
+
+# Mantém segredos e artefatos locais fora até quando estiverem em src/.
+**/target/
+**/.env*
+**/.git
+**/.idea/
+**/.vscode/
+**/.aws/
+**/.agents/
+**/.codex/
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+bruno/
+docs/

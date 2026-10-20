@@ -1,11 +1,26 @@
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
-COPY pom.xml .
-RUN mvn dependency:go-offline -q
-COPY src ./src
-RUN mvn clean package -DskipTests -q
+COPY mvnw pom.xml ./
+COPY .mvn ./.mvn
+COPY common-security/pom.xml ./common-security/pom.xml
+COPY eureka-server/pom.xml ./eureka-server/pom.xml
+COPY api-gateway/pom.xml ./api-gateway/pom.xml
+COPY product-service/pom.xml ./product-service/pom.xml
+COPY inventory-service/pom.xml ./inventory-service/pom.xml
+COPY order-service/pom.xml ./order-service/pom.xml
+COPY notification-service/pom.xml ./notification-service/pom.xml
+RUN chmod +x mvnw && ./mvnw -B -pl order-service -am dependency:go-offline
+COPY common-security/src ./common-security/src
+COPY order-service/src ./order-service/src
+RUN ./mvnw -B -pl order-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre-jammy
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 app \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
-ENTRYPOINT ["java", "-jar", "app.jar"]
+COPY --from=build --chown=10001:10001 /app/order-service/target/*.jar app.jar
+USER 10001:10001
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]

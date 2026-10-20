@@ -1,5 +1,6 @@
 package com.example.ecommerce.order_service.infra.security;
 
+import com.example.ecommerce.common.security.KeycloakJwtAuthenticationConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
