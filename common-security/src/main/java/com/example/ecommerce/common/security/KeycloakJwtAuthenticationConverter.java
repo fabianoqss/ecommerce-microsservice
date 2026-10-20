@@ -1,4 +1,4 @@
-package com.example.ecommerce.api_gateway.infra.security;
+package com.example.ecommerce.common.security;
 
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -30,8 +30,11 @@ public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Abstra
         return new JwtAuthenticationToken(jwt, authorities, jwt.getSubject());
     }
 
-    /** Lê realm_access.roles de um conjunto de claims (access token ou ID token); ignora formatos inesperados. */
-    static Set<String> realmRoles(Map<String, Object> claims) {
+    /**
+     * Também atende ao BFF, que lê roles sem prefixo dos claims do ID token.
+     * Formatos inesperados não concedem autoridades.
+     */
+    public static Set<String> realmRoles(Map<String, Object> claims) {
         Set<String> roles = new HashSet<>();
         if (claims.get("realm_access") instanceof Map<?, ?> realmAccess
                 && realmAccess.get("roles") instanceof Collection<?> names) {

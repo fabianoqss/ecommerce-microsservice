@@ -154,7 +154,7 @@ services:
 
   # Porta 8761 só na rede interna; health e métricas públicos dependem desse isolamento.
   eureka-server:
-    build: ./eureka-server
+    build: { context: ., dockerfile: eureka-server/Dockerfile }
     profiles: ["apps"]
     container_name: eureka-server
     environment:
@@ -175,7 +175,7 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
 
   product-service:
-    build: ./product-service
+    build: { context: ., dockerfile: product-service/Dockerfile }
     profiles: ["apps"]
     container_name: product-service
     environment:
@@ -194,7 +194,7 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
 
   inventory-service:
-    build: ./inventory-service
+    build: { context: ., dockerfile: inventory-service/Dockerfile }
     profiles: ["apps"]
     container_name: inventory-service
     environment:
@@ -215,7 +215,7 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
 
   notification-service:
-    build: ./notification-service
+    build: { context: ., dockerfile: notification-service/Dockerfile }
     profiles: ["apps"]
     container_name: notification-service
     environment:
@@ -239,7 +239,7 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
 
   order-service:
-    build: ./order-service
+    build: { context: ., dockerfile: order-service/Dockerfile }
     profiles: ["apps"]
     container_name: order-service
     environment:
@@ -271,7 +271,7 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
 
   api-gateway:
-    build: ./api-gateway
+    build: { context: ., dockerfile: api-gateway/Dockerfile }
     profiles: ["apps"]
     container_name: api-gateway
     ports:

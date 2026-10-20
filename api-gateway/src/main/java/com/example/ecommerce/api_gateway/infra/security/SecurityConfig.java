@@ -1,5 +1,6 @@
 package com.example.ecommerce.api_gateway.infra.security;
 
+import com.example.ecommerce.common.security.KeycloakJwtAuthenticationConverter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;

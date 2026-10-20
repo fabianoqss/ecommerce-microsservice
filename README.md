@@ -81,6 +81,25 @@ O BFF mantém os tokens no servidor e usa sessão no Redis. Requisições que al
 - OpenSSL para gerar os segredos locais
 - Portas `3000`, `5432`, `5672`, `6379`, `8025`, `8080`, `8180`, `9090`, `9411`, `15672` e `27017` disponíveis
 
+### Build com Maven
+
+Importe o `pom.xml` da raiz como projeto Maven com JDK 21. O parent agrega os seis serviços e o JAR `common-security`, que concentra apenas a conversão de autoridades Keycloak. O Maven Wrapper é único na raiz (Maven 3.9.12); no Windows, use `mvnw.cmd`.
+
+Execute a partir da raiz:
+
+```bash
+# Compila e verifica todos os módulos
+./mvnw verify
+
+# Verifica um serviço e os módulos dos quais ele depende
+./mvnw -pl order-service -am verify
+
+# Executa apenas os testes do conversor compartilhado
+./mvnw -pl common-security test
+```
+
+Os testes de integração com Testcontainers precisam de Docker acessível. A primeira execução do wrapper e a resolução de dependências precisam de acesso ao Maven Central. O Compose usa a raiz como contexto de build e o Dockerfile de cada serviço; a imagem final contém somente o runtime Java e o curl necessário aos healthchecks.
+
 ### Arquivos e profiles do Compose
 
 O Compose da raiz é o ponto de entrada oficial de toda a infraestrutura.
@@ -156,7 +175,7 @@ Eureka só fica acessível na rede interna do Compose, em `http://eureka-server:
 
 ### Execução pela IDE
 
-Remova `COMPOSE_PROFILES` do `.env` para subir só a infraestrutura; para manter o monitoramento, use `COMPOSE_PROFILES=monitoring`. Execute o mesmo comando Compose de desenvolvimento e configure os seis módulos Java pela IDE:
+Remova `COMPOSE_PROFILES` do `.env` para subir só a infraestrutura; para manter o monitoramento, use `COMPOSE_PROFILES=monitoring`. Execute o mesmo comando Compose de desenvolvimento. Importe o `pom.xml` da raiz na IDE, aguarde a sincronização Maven e configure o JDK 21. Crie uma configuração Spring Boot para a classe principal anotada com `@SpringBootApplication` de cada serviço, usando o classpath do respectivo módulo; `common-security` é uma biblioteca, sem aplicação própria. Use o diretório do serviço como diretório de trabalho e configure as variáveis emitidas pelo script:
 
 ```bash
 ./scripts/ide-env.sh
@@ -184,12 +203,12 @@ O `down` respeita os profiles ativos no ambiente. Não use `down -v` se quiser p
 
 ## Testes
 
-Cada módulo possui Maven Wrapper. Exemplo, a partir da raiz:
+Use o Maven Wrapper único, a partir da raiz:
 
 ```bash
-(cd order-service && ./mvnw test)
-(cd api-gateway && ./mvnw test)
-(cd eureka-server && ./mvnw -o -q test)
+./mvnw -pl order-service -am test
+./mvnw -pl api-gateway -am test
+./mvnw -o -q -pl eureka-server -am test
 python3 -m unittest discover -s scripts/tests -v
 ```
 
