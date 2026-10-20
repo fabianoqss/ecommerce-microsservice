@@ -5,9 +5,14 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/order
+  url: {{baseUrl}}/api/order?page=0&size=20
   body: none
   auth: none
+}
+
+params:query {
+  page: 0
+  size: 20
 }
 
 headers {
@@ -15,13 +20,15 @@ headers {
 }
 
 docs {
-  Requires auth-service/Login.bru to have run first (needs {{accessToken}}).
+  Requires {{accessToken}} (token do Keycloak).
 
-  OrderService.findAll(): a ROLE_USER token only sees orders where userID equals its
-  own email (orderRepository.findByUserID); a ROLE_ADMIN token
-  (use {{adminAccessToken}} instead) sees every order in the table — this matches the
-  MVP requirement "consultar apenas os pedidos permitidos" from CLAUDE.md.
+  OrderService.findAll(): um token sem ROLE_ADMIN só vê os pedidos cujo userID é o
+  próprio sub (orderRepository.findByUserID); um token ROLE_ADMIN
+  (use {{adminAccessToken}}) vê todos os pedidos.
 
-  Expected: 200 OK with a plain array (no pagination) of the caller's own orders (or
-  all orders, for an admin token).
+  Paginação: page começa em 0 (default 0), size entre 1 e 100 (default 20). Ordenação
+  fixa no servidor: mais recentes primeiro (orderTime DESC, id DESC).
+
+  Expected: 200 OK com { content, page, size, totalElements, totalPages }.
+  size > 100, size < 1, page < 0 ou page não numérico → 400 ProblemDetail.
 }

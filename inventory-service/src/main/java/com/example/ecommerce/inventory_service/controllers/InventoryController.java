@@ -8,10 +8,12 @@ import com.example.ecommerce.inventory_service.dto.request.InventoryUpdateDTO;
 import com.example.ecommerce.inventory_service.services.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,6 +47,8 @@ public class InventoryController {
                     @ApiResponse(description = "Bad Request", responseCode = "400")
             }
     )
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public InventoryDTO insert(@Valid @RequestBody InventoryRequestDTO dto){
@@ -60,6 +64,8 @@ public class InventoryController {
                     @ApiResponse(description = "Bad Request", responseCode = "400")
             }
     )
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
     public InventoryDTO update(@PathVariable Long id, @Valid @RequestBody InventoryUpdateDTO dto){

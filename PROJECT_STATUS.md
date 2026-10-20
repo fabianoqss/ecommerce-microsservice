@@ -18,6 +18,11 @@ O P0 do MVP (identidade via JWT, estoque atômico, eventos confiáveis via Outbo
 - [ ] Transições válidas do status do pedido (status já é texto correto; falta validar transição entre estados e criar endpoint de mudança de status).
 - [ ] Timeouts, circuit breakers, retry e fallbacks para as chamadas Feign (Product/Inventory).
 
+### Segurança e identidade (Keycloak)
+
+- [ ] Versionar o realm `ecommerce` como código (export em `keycloak/realm-ecommerce.json`, importado no start) e criar o teste de integração do realm. Hoje ele é configurado manualmente pelo console, o que não é reproduzível nem revisável em PR.
+- [ ] Garantir que o client `ecommerce-dev` (público, PKCE, redirect `https://oauth.usebruno.com/callback`, usado pelo Bruno) exista só em desenvolvimento e nunca no realm de produção: um client público com redirect para domínio de terceiros amplia a superfície de ataque, mesmo com PKCE.
+
 ### Observabilidade
 
 - [ ] Adicionar auth-service ao scrape do Prometheus.
@@ -25,7 +30,7 @@ O P0 do MVP (identidade via JWT, estoque atômico, eventos confiáveis via Outbo
 
 ### Demonstração
 
-- [ ] Criar seeds reproduzíveis para demonstração/apresentação do TCC.
+- [ ] Criar seeds reproduzíveis para demonstração e apresentação do projeto.
 
 ### Qualidade e evolução
 

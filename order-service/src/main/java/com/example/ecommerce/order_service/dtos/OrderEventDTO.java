@@ -7,7 +7,7 @@ import java.util.UUID;
 public record OrderEventDTO(
         UUID eventId,
         Integer version,
-        Long orderId,
+        UUID orderId,
         String userId,
         String status,
         BigDecimal totalValue,

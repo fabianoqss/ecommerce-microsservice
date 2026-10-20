@@ -1,155 +1,204 @@
+# Compose de produção: serviços da aplicação + o que roda na própria VM
+# (Keycloak, RabbitMQ, Redis e monitoramento). Os bancos (OCI Database with
+# PostgreSQL e Autonomous JSON) ficam fora e entram só por variáveis de
+# ambiente, então trocar a infraestrutura não exige mudar este arquivo.
+#
+# Desenvolvimento local (Postgres e Mongo em containers):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# Variáveis com ":?" são obrigatórias: o compose falha antes de subir se faltar alguma.
+
+x-app-env: &app-env
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+  MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+
+# Resource Servers: nomes genéricos de OIDC, o provedor (hoje Keycloak) muda sem mexer no código.
+# O issuer é a URL pública (vai no "iss"); as chaves vêm pela rede interna do Compose.
+x-oidc-env: &oidc-env
+  OIDC_ISSUER_URI: ${OIDC_ISSUER_URI:?defina OIDC_ISSUER_URI}
+  OIDC_JWK_SET_URI: ${OIDC_JWK_SET_URI:?defina OIDC_JWK_SET_URI}
+  OIDC_AUDIENCE: ${OIDC_AUDIENCE:?defina OIDC_AUDIENCE}
+
+x-rabbitmq-env: &rabbitmq-env
+  SPRING_RABBITMQ_HOST: rabbitmq
+  SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?defina RABBITMQ_USERNAME}
+  SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD}
+
 services:
 
-  # ─── INFRAESTRUTURA ─────────────────────────────────────────────────────────
+  # ─── INFRAESTRUTURA NA VM ───────────────────────────────────────────────────
 
-  postgres:
-    image: postgres:16
-    container_name: postgres
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.7
+    container_name: keycloak
+    # Realm "ecommerce" configurado manualmente pelo console e exportado depois
+    # (kc.sh export) para keycloak/realm-ecommerce.json.
+    command: ["start"]
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?defina KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: ${KEYCLOAK_DB_URL:?defina KEYCLOAK_DB_URL}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USERNAME:?defina KEYCLOAK_DB_USERNAME}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?defina KEYCLOAK_DB_PASSWORD}
+      # URL pública (a que vai no "iss" dos tokens); o TLS termina no nginx.
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:?defina KEYCLOAK_HOSTNAME}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - "127.0.0.1:8180:8080" # exposto só para o nginx da própria VM
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      # A imagem não tem curl; o health fica na porta de gerenciamento 9000.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 15s
       timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  mongo:
-    image: mongo:7
-    container_name: mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+      retries: 20
+      start_period: 30s
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
+    hostname: rabbitmq # o diretório de dados depende do nome do nó
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?defina RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD}
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:15672:15672" # console só por túnel SSH
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
+
+  redis:
+    image: redis:7.4.11-alpine3.21
+    container_name: redis
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   # ─── MONITORAMENTO ──────────────────────────────────────────────────────────
 
   zipkin:
     image: openzipkin/zipkin@sha256:ebfd47b93879b4bec4075ea3a4b07744c5476bae8dca3f6f9c2aca798ceaf0cc
     container_name: zipkin
+    profiles: ["monitoring"]
     ports:
-      - "9411:9411"
+      - "127.0.0.1:9411:9411"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:9411/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   prometheus:
     image: prom/prometheus@sha256:4a61322ac1103a0e3aea2a61ef1718422a48fa046441f299d71e660a3bc71ae9
     container_name: prometheus
+    profiles: ["monitoring"]
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-    restart: unless-stopped
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   grafana:
     image: grafana/grafana@sha256:e932bd6ed0e026595b08483cd0141e5103e1ab7ff8604839ff899b8dc54cabcb
     container_name: grafana
+    profiles: ["monitoring"]
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?defina GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   # ─── MICROSSERVIÇOS ─────────────────────────────────────────────────────────
 
   eureka-server:
     build: ./eureka-server
+    profiles: ["apps"]
     container_name: eureka-server
     environment:
-      - EUREKA_INSTANCE_HOSTNAME=eureka-server
-      - MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      EUREKA_INSTANCE_HOSTNAME: eureka-server
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
     depends_on:
       zipkin:
         condition: service_healthy
+        required: false # zipkin fica no profile "monitoring", que é opcional
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   product-service:
     build: ./product-service
+    profiles: ["apps"]
     container_name: product-service
     environment:
-      - SPRING_MONGODB_URI=mongodb://mongo:27017/product_db
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      <<: [*app-env, *oidc-env]
+      SPRING_MONGODB_URI: ${PRODUCT_MONGODB_URI:?defina PRODUCT_MONGODB_URI}
     depends_on:
-      mongo:
-        condition: service_healthy
       eureka-server:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   inventory-service:
     build: ./inventory-service
+    profiles: ["apps"]
     container_name: inventory-service
     environment:
-      - DB_URL=jdbc:postgresql://postgres:5432/inventory_service
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=${DB_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      <<: [*app-env, *oidc-env]
+      DB_URL: ${INVENTORY_DB_URL:?defina INVENTORY_DB_URL}
+      DB_USERNAME: ${INVENTORY_DB_USERNAME:?defina INVENTORY_DB_USERNAME}
+      DB_PASSWORD: ${INVENTORY_DB_PASSWORD:?defina INVENTORY_DB_PASSWORD}
     depends_on:
-      postgres:
-        condition: service_healthy
       eureka-server:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   notification-service:
     build: ./notification-service
+    profiles: ["apps"]
     container_name: notification-service
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      <<: [*app-env, *rabbitmq-env]
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -160,21 +209,22 @@ services:
       interval: 15s
       timeout: 10s
       retries: 10
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   order-service:
     build: ./order-service
+    profiles: ["apps"]
     container_name: order-service
     environment:
-      - DB_URL=jdbc:postgresql://postgres:5432/order-service
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=${DB_PASSWORD}
-      - JWT_SECRET=${JWT_SECRET}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      <<: [*app-env, *rabbitmq-env, *oidc-env]
+      DB_URL: ${ORDER_DB_URL:?defina ORDER_DB_URL}
+      DB_USERNAME: ${ORDER_DB_USERNAME:?defina ORDER_DB_USERNAME}
+      DB_PASSWORD: ${ORDER_DB_PASSWORD:?defina ORDER_DB_PASSWORD}
+      # Token de serviço (client_credentials) para chamar o inventory.
+      OIDC_TOKEN_URI: ${OIDC_TOKEN_URI:?defina OIDC_TOKEN_URI}
+      KC_ORDER_SERVICE_CLIENT_SECRET: ${KC_ORDER_SERVICE_CLIENT_SECRET:?defina KC_ORDER_SERVICE_CLIENT_SECRET}
     depends_on:
-      postgres:
+      keycloak:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -189,52 +239,40 @@ services:
       interval: 15s
       timeout: 10s
       retries: 10
-    restart: unless-stopped
-
-  auth-service:
-    build: ./auth-service
-    container_name: auth-service
-    environment:
-      - DB_URL=jdbc:postgresql://postgres:5432/auth_service
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=${DB_PASSWORD}
-      - JWT_SECRET=${JWT_SECRET}
-      - ADMIN_EMAIL=${ADMIN_EMAIL}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
-    depends_on:
-      postgres:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
 
   api-gateway:
     build: ./api-gateway
+    profiles: ["apps"]
     container_name: api-gateway
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080" # exposto só para o nginx da própria VM
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
-      - JWT_SECRET=${JWT_SECRET}
+      <<: [*app-env, *oidc-env]
+      # BFF: login no navegador; back-channel (token, JWKs) pela rede interna.
+      OIDC_INTERNAL_ISSUER_URI: ${OIDC_INTERNAL_ISSUER_URI:?defina OIDC_INTERNAL_ISSUER_URI}
+      KC_BFF_CLIENT_SECRET: ${KC_BFF_CLIENT_SECRET:?defina KC_BFF_CLIENT_SECRET}
+      BFF_POST_LOGIN_REDIRECT_URI: ${BFF_POST_LOGIN_REDIRECT_URI:-/bff/me}
+      BFF_POST_LOGOUT_REDIRECT_URI: ${BFF_POST_LOGOUT_REDIRECT_URI:-}
+      # true em produção (HTTPS no nginx): o cookie de sessão só trafega por TLS.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD}
     depends_on:
       eureka-server:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
 
 volumes:
-  postgres-data:
-  mongo-data:
+  rabbitmq-data:
+  redis-data:
   grafana-data:

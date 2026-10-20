@@ -5,12 +5,14 @@ import com.ecommerce.product_service.dto.ProductDTO;
 import com.ecommerce.product_service.services.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -65,8 +67,9 @@ public class ProductController {
                     @ApiResponse(description = "Unprocessable Entity", responseCode = "422")
             }
     )
-    // To DO : @SecurityRequirement(name = "bearerAuth") para configurar depois.
-    //To DO: PreAuthorize para configurar depois
+
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<ProductDTO> insert(@Valid @RequestBody ProductDTO dto){
         dto = productService.insert(dto);
@@ -90,8 +93,8 @@ public class ProductController {
                     @ApiResponse(description = "Unprocessable Entity", responseCode = "422")
             }
     )
-    // To DO : @SecurityRequirement(name = "bearerAuth") para configurar depois.
-    //To DO: PreAuthorize para configurar depois
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(value = "/{id}")
     public ResponseEntity<ProductDTO> update(@PathVariable String id, @Valid @RequestBody ProductDTO dto) {
         dto = productService.update(id, dto);
@@ -112,8 +115,8 @@ public class ProductController {
                     @ApiResponse(description = "Unprocessable Entity", responseCode = "422")
             }
     )
-    // To DO : @SecurityRequirement(name = "bearerAuth") para configurar depois.
-    //To DO: PreAuthorize para configurar depois
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping(value = "/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id){
         productService.delete(id);

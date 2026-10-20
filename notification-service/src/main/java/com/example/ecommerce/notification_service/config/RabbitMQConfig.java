@@ -17,6 +17,9 @@ public class RabbitMQConfig {
     public static final String DEAD_LETTER_EXCHANGE = "order.dlx";
     public static final String DEAD_LETTER_QUEUE = "order.created.dlq";
     public static final String DEAD_LETTER_ROUTING_KEY = "order.created.dead";
+    public static final String CANCELLED_QUEUE = "order.cancelled.queue";
+    public static final String CANCELLED_DEAD_LETTER_QUEUE = "order.cancelled.dlq";
+    public static final String CANCELLED_DEAD_LETTER_ROUTING_KEY = "order.cancelled.dead";
 
     @Bean
     public Queue orderCreatedQueue() {
@@ -41,6 +44,28 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(deadLetterQueue)
                 .to(deadLetterExchange)
                 .with(DEAD_LETTER_ROUTING_KEY);
+    }
+
+    // Mesmos argumentos da declaração no order-service: o RabbitMQ recusa redeclarar uma fila
+    // com argumentos diferentes (PRECONDITION_FAILED).
+    @Bean
+    public Queue orderCancelledQueue() {
+        return QueueBuilder.durable(CANCELLED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(CANCELLED_DEAD_LETTER_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public Queue cancelledDeadLetterQueue() {
+        return QueueBuilder.durable(CANCELLED_DEAD_LETTER_QUEUE).build();
+    }
+
+    @Bean
+    public Binding cancelledDeadLetterBinding(Queue cancelledDeadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(cancelledDeadLetterQueue)
+                .to(deadLetterExchange)
+                .with(CANCELLED_DEAD_LETTER_ROUTING_KEY);
     }
 
     @Bean

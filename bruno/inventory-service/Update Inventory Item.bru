@@ -28,8 +28,8 @@ docs {
     docker exec -it <postgres-container> psql -U postgres -d inventory_service \
       -c "SELECT id, sku_code, quantity FROM tb_inventory;"
 
-  This is a real gap in the current API surface, not a Bruno limitation — flag it if
-  you're documenting inventory-service's REST contract for the TCC writeup.
+  This is a real gap in the current API surface, not a Bruno limitation — flag it when
+  documenting inventory-service's REST contract.
 
   Same ROLE_ADMIN gate as Insert Inventory Item.bru.
 

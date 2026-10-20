@@ -32,3 +32,9 @@ scrape_configs:
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: ['notification-service:8084']
+
+  # Keycloak 26 expõe métricas na porta de gerenciamento (KC_METRICS_ENABLED).
+  - job_name: 'keycloak'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['keycloak:9000']

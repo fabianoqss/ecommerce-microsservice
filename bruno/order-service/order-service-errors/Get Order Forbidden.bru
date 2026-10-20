@@ -15,16 +15,13 @@ headers {
 }
 
 docs {
-  Requires order-service/Create Order.bru (order owned by the FIRST test user, needs
-  {{orderId}}) and this folder's Register Second User.bru + Login Second User.bru
-  (needs {{secondUserAccessToken}}) to have all run first.
+  Requires order-service/Create Order.bru (pedido do PRIMEIRO usuário, precisa de
+  {{orderId}}) e um {{secondUserAccessToken}} de outro usuário sem ROLE_ADMIN.
 
-  A different, authenticated, non-admin user tries to read someone else's order by id.
+  Outro usuário autenticado tenta ler o pedido de alguém pelo id.
 
-  Expected: 403 FORBIDDEN — OrderAccessDeniedException, via ProblemDetail
-  (GlobalExceptionHandler.handleAccessDenied). Contrast with the FraudShield sibling
-  project's ledger-service/account-service, which return 403 the same way for
-  cross-user access — but note transaction-service's Get Transaction there has NO such
-  check, while order-service's Get Order DOES (findById checks ownership on every call,
-  not just at creation).
+  Expected: 404 NOT FOUND (OrderNotFoundException via ProblemDetail), a mesma resposta
+  de um id inexistente. Não é 403 de propósito: diferenciar "existe mas não é seu" de
+  "não existe" permitiria enumerar IDs de pedidos (IDOR). A busca já filtra pelo dono
+  (orderRepository.findByIdAndUserID).
 }

@@ -20,7 +20,7 @@ Fases 2–5 foram validadas manualmente ponta a ponta pelo gateway (`docker comp
 
 ## Contexto
 
-O projeto (TCC de microsserviços) tem uma base funcional, mas `PROJECT_STATUS.md` (auditoria de 2026-08-19) e `PLANO_DE_RETOMADA_ECOMMERCE.md` (Codex, 2026-09-03, na Área de Trabalho) documentam os mesmos 22 problemas de P0 como bloqueadores para considerar o MVP concluído. Verifiquei cada um diretamente no código nesta sessão — todos continuavam presentes (`OrderService.setUserID(request.userId())`, `ddl-auto: update` em auth/order, admin fixo em `DataInitializer`, todas as portas internas publicadas no host).
+O projeto de microsserviços tem uma base funcional, mas `PROJECT_STATUS.md` (auditoria de 2026-08-19) e `PLANO_DE_RETOMADA_ECOMMERCE.md` (Codex, 2026-09-03, na Área de Trabalho) documentam os mesmos 22 problemas de P0 como bloqueadores para considerar o MVP concluído. Verifiquei cada um diretamente no código nesta sessão — todos continuavam presentes (`OrderService.setUserID(request.userId())`, `ddl-auto: update` em auth/order, admin fixo em `DataInitializer`, todas as portas internas publicadas no host).
 
 O usuário quer finalizar o projeto definitivamente (não vai mexer mais depois) e **não terá frontend**. Este plano cobre a Seção 2 ("P0") dos dois documentos: identidade/autorização do pedido, estoque atômico, consistência de eventos (Outbox), validação/erros padronizados e remoção de segredos fixos. Testes automatizados extensos ficam para uma rodada seguinte (fora deste plano).
 

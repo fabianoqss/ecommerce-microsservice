@@ -1,5 +1,14 @@
 server:
   port: 8080
+  # Respeita X-Forwarded-* (nginx em produção) ao montar o redirect_uri do login.
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
 
 spring:
   application:
@@ -9,43 +18,81 @@ spring:
       server:
         webmvc:
           routes:
-            - id: auth-service
-              uri: lb://auth-service
-              predicates:
-                - Path=/auth/**
-
             - id: product-service
               uri: lb://product-service
               predicates:
                 - Path=/api/product/**
-
+              filters:
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
+                - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: product-service-root
               uri: lb://product-service
               predicates:
                 - Path=/api/product
-
+              filters:
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
+                - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: order-service
               uri: lb://order-service
               predicates:
                 - Path=/api/order/**
-
+              filters:
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
+                - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: order-service-root
               uri: lb://order-service
               predicates:
                 - Path=/api/order
-
+              filters:
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
+                - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: inventory-service
               uri: lb://inventory-service
               predicates:
                 - Path=/api/inventory/**
-
+              filters:
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
+                - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
             - id: inventory-service-root
               uri: lb://inventory-service
               predicates:
                 - Path=/api/inventory
+              filters:
+                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
+                - RemoveRequestHeader=Cookie
+                - RemoveRequestHeader=X-XSRF-TOKEN
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # issuer-uri só valida o claim iss; com jwk-set-uri presente não há discovery na subida.
+          issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/ecommerce}
+          jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
+          audiences: ${OIDC_AUDIENCE:ecommerce-api}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+  session:
+    redis:
+      namespace: ecommerce:gateway:session
 
-jwt:
-  secret: ${JWT_SECRET}
+ecommerce:
+  bff:
+    # Sem frontend, o login cai em /bff/me (JSON do usuário). Com frontend, aponte para a URL dele.
+    post-login-redirect-uri: ${BFF_POST_LOGIN_REDIRECT_URI:/bff/me}
+    post-logout-redirect-uri: ${BFF_POST_LOGOUT_REDIRECT_URI:}
+    # URL pública do IdP (navegador) e a mesma URL vista de dentro da rede do Compose.
+    issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/ecommerce}
+    internal-issuer-uri: ${OIDC_INTERNAL_ISSUER_URI:http://localhost:8180/realms/ecommerce}
+    client-id: ${OIDC_BFF_CLIENT_ID:ecommerce-bff}
+    client-secret: ${KC_BFF_CLIENT_SECRET}
 
 eureka:
   client:
@@ -56,14 +103,14 @@ eureka:
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.web.servlet.function: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.web.servlet.function: INFO
 
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics, gateway
+        include: health, info, prometheus, metrics
   metrics:
     tags:
       application: ${spring.application.name}
