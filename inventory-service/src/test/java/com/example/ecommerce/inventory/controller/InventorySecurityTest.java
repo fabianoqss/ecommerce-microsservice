@@ -1,5 +1,9 @@
 package com.example.ecommerce.inventory.controller;
 
+import com.example.ecommerce.inventory.domain.ReservationStatus;
+import com.example.ecommerce.inventory.dto.request.InventoryItemDTO;
+import com.example.ecommerce.inventory.dto.response.ReservationResponseDTO;
+import com.example.ecommerce.inventory.dto.response.ReservationResult;
 import com.example.ecommerce.inventory.infra.security.SecurityConfig;
 import com.example.ecommerce.inventory.service.InventoryService;
 import org.junit.jupiter.api.Test;
@@ -13,7 +17,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultMatcher;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -22,6 +32,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(SecurityConfig.class)
 class InventorySecurityTest {
 
+    private static final UUID RESERVATION_ID = UUID.fromString("0195f000-0000-7000-8000-000000000001");
+    private static final String RESERVATION_PATH = "/api/inventory/reservations/" + RESERVATION_ID;
     private static final String RESERVE_BODY = """
             {"items":[{"skuCode":"SKU-1","quantity":1}]}
             """;
@@ -60,19 +72,49 @@ class InventorySecurityTest {
     }
 
     @Test
-    void customerAndAdminCannotReserve() throws Exception {
+    void reservationLedgerEndpointsAllowServiceScope() throws Exception {
+        Instant now = Instant.now();
+        var dto = new ReservationResponseDTO(
+                RESERVATION_ID, ReservationStatus.RESERVED, List.of(new InventoryItemDTO("SKU-1", 1)), now, now);
+        when(inventoryService.reserve(any(UUID.class), any())).thenReturn(new ReservationResult(dto, true));
+        when(inventoryService.getReservation(RESERVATION_ID)).thenReturn(dto);
+
+        var service = jwt().authorities(new SimpleGrantedAuthority("SCOPE_inventory:reserve"));
+        mvc.perform(put(RESERVATION_PATH).with(service).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
+                .andExpect(status().isCreated());
+        mvc.perform(get(RESERVATION_PATH).with(service))
+                .andExpect(status().isOk());
+        mvc.perform(delete(RESERVATION_PATH).with(service))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void customerAndAdminCannotAccessReservationEndpoints() throws Exception {
+        // Garante que os matchers de /api/inventory/reservations/** vêm antes de GET permitAll e PUT ADMIN.
         for (String role : new String[]{"ROLE_CUSTOMER", "ROLE_ADMIN"}) {
             var user = jwt().authorities(new SimpleGrantedAuthority(role));
             mvc.perform(post("/api/inventory/reserve").with(user).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
                     .andExpect(status().isForbidden());
             mvc.perform(post("/api/inventory/release").with(user).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
                     .andExpect(status().isForbidden());
+            mvc.perform(put(RESERVATION_PATH).with(user).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
+                    .andExpect(status().isForbidden());
+            mvc.perform(delete(RESERVATION_PATH).with(user))
+                    .andExpect(status().isForbidden());
+            mvc.perform(get(RESERVATION_PATH).with(user))
+                    .andExpect(status().isForbidden());
         }
     }
 
     @Test
-    void anonymousCannotReserve() throws Exception {
+    void anonymousCannotAccessReservationEndpoints() throws Exception {
         mvc.perform(post("/api/inventory/reserve").contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(put(RESERVATION_PATH).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(delete(RESERVATION_PATH))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get(RESERVATION_PATH))
                 .andExpect(status().isUnauthorized());
     }
 

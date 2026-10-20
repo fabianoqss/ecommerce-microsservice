@@ -26,8 +26,14 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/error").permitAll()
                         // Contrato interno: só o token de serviço do order-service (client_credentials).
-                        // Precisa vir antes da regra genérica de POST.
+                        // Precisa vir antes das regras genéricas de GET/POST/PUT/DELETE de /api/inventory/**.
                         .requestMatchers(HttpMethod.POST, "/api/inventory/reserve", "/api/inventory/release")
+                            .hasAuthority("SCOPE_inventory:reserve")
+                        .requestMatchers(HttpMethod.PUT, "/api/inventory/reservations/**")
+                            .hasAuthority("SCOPE_inventory:reserve")
+                        .requestMatchers(HttpMethod.DELETE, "/api/inventory/reservations/**")
+                            .hasAuthority("SCOPE_inventory:reserve")
+                        .requestMatchers(HttpMethod.GET, "/api/inventory/reservations/**")
                             .hasAuthority("SCOPE_inventory:reserve")
                         .requestMatchers(HttpMethod.GET, "/api/inventory", "/api/inventory/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/inventory").hasRole("ADMIN")
