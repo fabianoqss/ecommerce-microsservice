@@ -159,7 +159,7 @@ docker compose --env-file <arquivo-de-ambiente> up -d --build
 
 `rabbitmq-init` é um serviço de execução única: após o broker ficar saudável, `scripts/rabbitmq-init.sh` usa a API HTTP para provisionar o vhost `ecommerce` e os usuários `order-service` e `notification-service`. A saída normal desse container é terminar com código `0`; não é um processo permanente.
 
-As aplicações usam `RABBITMQ_ORDER_PASSWORD` e `RABBITMQ_NOTIFICATION_PASSWORD`, com permissões limitadas aos recursos `^order\.` no vhost `ecommerce`. `RABBITMQ_ADMIN_USERNAME`/`RABBITMQ_ADMIN_PASSWORD` são credenciais administrativas para o console e o provisionamento, não para os microsserviços. AMQP (`5672`) só é publicado no override local, em loopback.
+As aplicações usam `RABBITMQ_ORDER_PASSWORD` e `RABBITMQ_NOTIFICATION_PASSWORD` no vhost `ecommerce` com privilégio mínimo: `order-service` (dono da topologia e produtor) tem `configure`, `write` e `read` em `^order\.`, enquanto `notification-service` (consumidor) tem `configure` e `write` em `^$` e `read` apenas em `^order\.(created|cancelled)\.queue$`. `RABBITMQ_ADMIN_USERNAME`/`RABBITMQ_ADMIN_PASSWORD` são credenciais administrativas para o console e o provisionamento, não para os microsserviços. AMQP (`5672`) só é publicado no override local, em loopback.
 
 Serviços úteis (publicados em `127.0.0.1`; na VM, acesse por túnel SSH):
 
