@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -20,6 +21,8 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.StringUtils;
 
@@ -31,6 +34,30 @@ public class SecurityConfig {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         return header != null && header.regionMatches(true, 0, "Bearer ", 0, 7);
     };
+
+    @Bean
+    @Order(0)
+    public SecurityFilterChain managementChain(HttpSecurity http, Environment environment) throws Exception {
+        var paths = PathPatternRequestMatcher.withDefaults();
+        var managementPort = GatewayAuthorizationRules.managementPort(environment);
+        var actuator = new OrRequestMatcher(paths.matcher("/actuator"), paths.matcher("/actuator/**"));
+        var publicEndpoints = new OrRequestMatcher(paths.matcher("/actuator/health"),
+                paths.matcher("/actuator/health/**"), paths.matcher("/actuator/info"),
+                paths.matcher("/actuator/prometheus"));
+
+        return http
+                // Isola também caminhos da aplicação que chegarem pela porta de gerenciamento.
+                .securityMatcher(new OrRequestMatcher(managementPort, actuator))
+                .csrf(AbstractHttpConfigurer::disable)
+                .requestCache(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(new AndRequestMatcher(managementPort, publicEndpoints)).permitAll()
+                        .anyRequest().denyAll())
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.FORBIDDEN)))
+                .build();
+    }
 
     @Bean
     @Order(1)

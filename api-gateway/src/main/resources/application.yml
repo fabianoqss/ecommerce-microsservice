@@ -21,15 +21,7 @@ spring:
             - id: product-service
               uri: lb://product-service
               predicates:
-                - Path=/api/product/**
-              filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
-                - RemoveRequestHeader=Cookie
-                - RemoveRequestHeader=X-XSRF-TOKEN
-            - id: product-service-root
-              uri: lb://product-service
-              predicates:
-                - Path=/api/product
+                - Path=/api/product,/api/product/**
               filters:
                 # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
@@ -37,15 +29,7 @@ spring:
             - id: order-service
               uri: lb://order-service
               predicates:
-                - Path=/api/order/**
-              filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
-                - RemoveRequestHeader=Cookie
-                - RemoveRequestHeader=X-XSRF-TOKEN
-            - id: order-service-root
-              uri: lb://order-service
-              predicates:
-                - Path=/api/order
+                - Path=/api/order,/api/order/**
               filters:
                 # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
@@ -53,19 +37,12 @@ spring:
             - id: inventory-service
               uri: lb://inventory-service
               predicates:
-                - Path=/api/inventory/**
+                - Path=/api/inventory,/api/inventory/**
               filters:
                 # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
                 - RemoveRequestHeader=X-XSRF-TOKEN
-            - id: inventory-service-root
-              uri: lb://inventory-service
-              predicates:
-                - Path=/api/inventory
-              filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
-                - RemoveRequestHeader=Cookie
-                - RemoveRequestHeader=X-XSRF-TOKEN
+
   security:
     oauth2:
       resourceserver:
@@ -107,16 +84,18 @@ logging:
     org.springframework.web.servlet.function: INFO
 
 management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:8090}
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics
+        include: health, info, prometheus
   metrics:
     tags:
       application: ${spring.application.name}
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
     export:
       zipkin:
         endpoint: http://localhost:9411/api/v2/spans

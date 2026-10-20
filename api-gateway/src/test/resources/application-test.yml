@@ -9,15 +9,7 @@ spring:
             - id: product-service
               uri: ${backend.url}
               predicates:
-                - Path=/api/product/**
-              filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
-                - RemoveRequestHeader=Cookie
-                - RemoveRequestHeader=X-XSRF-TOKEN
-            - id: product-service-root
-              uri: ${backend.url}
-              predicates:
-                - Path=/api/product
+                - Path=/api/product,/api/product/**
               filters:
                 # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
@@ -25,15 +17,7 @@ spring:
             - id: order-service
               uri: ${backend.url}
               predicates:
-                - Path=/api/order/**
-              filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
-                - RemoveRequestHeader=Cookie
-                - RemoveRequestHeader=X-XSRF-TOKEN
-            - id: order-service-root
-              uri: ${backend.url}
-              predicates:
-                - Path=/api/order
+                - Path=/api/order,/api/order/**
               filters:
                 # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
@@ -41,15 +25,7 @@ spring:
             - id: inventory-service
               uri: ${backend.url}
               predicates:
-                - Path=/api/inventory/**
-              filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
-                - RemoveRequestHeader=Cookie
-                - RemoveRequestHeader=X-XSRF-TOKEN
-            - id: inventory-service-root
-              uri: ${backend.url}
-              predicates:
-                - Path=/api/inventory
+                - Path=/api/inventory,/api/inventory/**
               filters:
                 # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie

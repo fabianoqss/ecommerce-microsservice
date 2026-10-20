@@ -2,6 +2,9 @@ package com.example.ecommerce.api_gateway.infra.security;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import jakarta.servlet.http.Cookie;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -73,6 +76,20 @@ class BearerChainTest extends GatewayTestSupport {
     @Test
     void anonymousCanReadCatalog() throws Exception {
         mvc.perform(get("/api/product")).andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/product", "/api/product/sku-1", "/api/order", "/api/order/123", "/api/inventory", "/api/inventory/sku-1"})
+    void rootAndChildRoutesRemoveBrowserCredentials(String path) throws Exception {
+        mvc.perform(get(path).header("Authorization", "Bearer customer-token")
+                        .cookie(new Cookie("SESSION", "browser-session"))
+                        .header("X-XSRF-TOKEN", "browser-csrf"))
+                .andExpect(status().isOk());
+
+        BACKEND.verify(getRequestedFor(urlEqualTo(path))
+                .withHeader("Authorization", equalTo("Bearer customer-token"))
+                .withoutHeader("Cookie")
+                .withoutHeader("X-XSRF-TOKEN"));
     }
 
     @Test
