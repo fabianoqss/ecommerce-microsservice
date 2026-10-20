@@ -2,6 +2,7 @@ package com.ecommerce.product_service.dto;
 
 import com.ecommerce.product_service.entities.Product;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -17,6 +18,7 @@ public class ProductDTO {
 
     @Schema(description = "Nome do produto", example = "Teclado Mecânico")
     @NotBlank(message = "O Nome do Produto não pode ser nulo ou vazio")
+    @Size(max = 255, message = "O nome do produto deve ter no máximo 255 caracteres")
     private String name;
 
     @Schema(description = "Descrição do produto (mínimo 10 caracteres)", example = "Teclado mecânico com switches blue e RGB")
@@ -25,7 +27,9 @@ public class ProductDTO {
     private String description;
 
     @Schema(description = "Preço do produto (deve ser positivo)", example = "349.90")
-    @Positive(message = "O Nome do Preco não pode ser negativo ")
+    @NotNull(message = "O preço do produto não pode ser nulo")
+    @Digits(integer = 17, fraction = 2, message = "O preço do produto deve ter no máximo 17 dígitos inteiros e 2 casas decimais")
+    @Positive(message = "O preço do produto deve ser positivo")
     private BigDecimal price;
 
     @Schema(description = "Categoria do produto", example = "Periféricos")

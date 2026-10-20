@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ProductController.class)
@@ -41,7 +42,6 @@ class ProductSecurityTest {
     @MockitoBean
     private JwtDecoder jwtDecoder;
 
-    /** Passou pela segurança: qualquer status que não seja 401/403. */
     private static ResultMatcher allowed() {
         return result -> assertThat(result.getResponse().getStatus()).isNotIn(401, 403);
     }
@@ -75,10 +75,65 @@ class ProductSecurityTest {
         when(productService.insert(any())).thenReturn(
                 new ProductDTO("Teclado", "Teclado mecânico RGB", new BigDecimal("349.90"), "Periféricos", null));
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(VALID_PRODUCT))
-                .andExpect(allowed());
+                .andExpect(status().isCreated());
         mvc.perform(put("/api/product/abc").with(admin).contentType(MediaType.APPLICATION_JSON).content(VALID_PRODUCT))
                 .andExpect(allowed());
         mvc.perform(delete("/api/product/abc").with(admin)).andExpect(allowed());
+    }
+
+    @Test
+    void adminCanCreateProductAtNameAndPriceLimits() throws Exception {
+        var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String product = VALID_PRODUCT.replace("Teclado\"", "a".repeat(255) + "\"")
+                .replace("349.90", "99999999999999999.99");
+
+        mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void adminCannotCreateProductWithNameLongerThan255Characters() throws Exception {
+        var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String product = VALID_PRODUCT.replace("Teclado\"", "a".repeat(256) + "\"");
+
+        mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.name").exists());
+    }
+
+    @Test
+    void adminCannotCreateProductWithMoreThanTwoDecimalPlaces() throws Exception {
+        var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String product = VALID_PRODUCT.replace("349.90", "10.005");
+
+        mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.price").exists());
+    }
+
+    @Test
+    void adminCannotCreateProductWithoutPrice() throws Exception {
+        var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String product = VALID_PRODUCT.replace("\"price\":349.90,", "");
+
+        mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.price").exists());
+    }
+
+    @Test
+    void adminCannotCreateProductWithMoreThan17IntegerDigitsInPrice() throws Exception {
+        var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String product = VALID_PRODUCT.replace("349.90", "100000000000000000.00");
+
+        mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.price").exists());
     }
 
     @Test
