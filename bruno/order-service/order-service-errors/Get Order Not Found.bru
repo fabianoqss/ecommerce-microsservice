@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/order/999999999
+  url: {{baseUrl}}/api/order/00000000-0000-7000-8000-000000000000
   body: none
   auth: none
 }
@@ -15,8 +15,8 @@ headers {
 }
 
 docs {
-  Requires auth-service/Login.bru to have run first (needs {{accessToken}}).
-  An id that doesn't exist in tb_order.
+  Requires {{accessToken}} (token do Keycloak).
+  Um UUID válido que não existe em tb_orders (um id que não é UUID, ex. /api/order/123, responde 400).
 
   Expected: 404 NOT FOUND — OrderNotFoundException, via ProblemDetail
   (GlobalExceptionHandler.handleOrderNotFound).

@@ -4,6 +4,7 @@ import com.example.ecommerce.order_service.config.RabbitMQConfig;
 import com.example.ecommerce.order_service.dtos.OrderEventDTO;
 import com.example.ecommerce.order_service.entities.OutboxEvent;
 import com.example.ecommerce.order_service.entities.OutboxStatus;
+import com.example.ecommerce.order_service.enums.OrderEventType;
 import com.example.ecommerce.order_service.repositories.OutboxEventRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +42,7 @@ public class OutboxDispatcher {
 
             rabbitTemplate.convertAndSend(
                     RabbitMQConfig.EXCHANGE,
-                    RabbitMQConfig.ROUTING_KEY,
+                    OrderEventType.valueOf(outbox.getEventType()).routingKey(),
                     event,
                     correlationData
             );
@@ -58,7 +59,8 @@ public class OutboxDispatcher {
             outbox.setStatus(OutboxStatus.SENT);
             outbox.setSentAt(LocalDateTime.now());
             outbox.setLastError(null);
-            log.info("Evento de pedido publicado: eventId={}, orderId={}", outbox.getEventId(), outbox.getAggregateId());
+            log.info("Evento de pedido publicado: eventId={}, type={}, orderId={}",
+                    outbox.getEventId(), outbox.getEventType(), outbox.getAggregateId());
         } catch (Exception ex) {
             int attempts = outbox.getAttempts() + 1;
             outbox.setAttempts(attempts);

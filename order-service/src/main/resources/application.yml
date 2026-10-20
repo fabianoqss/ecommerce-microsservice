@@ -20,11 +20,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true # Mostra as queries no console (bom para debug)
+    show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        # Carrega os itens de vários pedidos num único SELECT ... WHERE order_id IN (...),
+        # em vez de uma query por pedido (N+1) ao montar uma página da listagem.
+        default_batch_fetch_size: 50
 
   rabbitmq:
     host: localhost
@@ -62,8 +65,13 @@ spring:
 
   cloud:
     openfeign:
+      client:
+        config:
+          default:
+            # Evita threads e conexões presas em dependências lentas.
+            connect-timeout: 2000
+            read-timeout: 5000
       oauth2:
-        # Adiciona o token de serviço (client_credentials) em todas as chamadas Feign.
         enabled: true
         clientRegistrationId: order-service
 
@@ -71,7 +79,6 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
-  # Configuração adicional para evitar erros de inicialização caso o Eureka demore
   instance:
     prefer-ip-address: true
 

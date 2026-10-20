@@ -1,0 +1,34 @@
+meta {
+  name: Cancel Order
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/order/{{orderId}}/cancel
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+body:json {
+  {
+    "reason": "Comprei o item errado"
+  }
+}
+
+docs {
+  Requires order-service/Create Order.bru (needs {{orderId}}) e {{accessToken}} do dono do
+  pedido (ou {{adminAccessToken}}, que cancela pedido de qualquer usuário).
+
+  Fluxo: CONFIRMED -> CANCELLED, devolve o estoque no inventory (/release com token de
+  serviço) e grava ORDER_CANCELLED no outbox (publicado em order.cancelled).
+  O body é opcional; reason tem no máximo 255 caracteres (acima disso, 400).
+
+  Expected: 200 OK com status CANCELLED. Rodar de novo: 200 sem devolver estoque outra vez
+  (idempotente). Pedido COMPLETED: 409. Pedido de outro usuário: 404. Falha no inventory:
+  502 e o pedido continua CONFIRMED.
+}

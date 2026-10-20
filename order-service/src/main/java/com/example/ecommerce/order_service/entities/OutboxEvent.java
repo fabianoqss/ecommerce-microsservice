@@ -30,7 +30,7 @@ public class OutboxEvent {
     private UUID eventId;
 
     @Column(name = "aggregate_id", nullable = false)
-    private Long aggregateId;
+    private UUID aggregateId;
 
     @Column(name = "event_type", nullable = false, length = 100)
     private String eventType;
@@ -54,7 +54,7 @@ public class OutboxEvent {
     @Column(name = "last_error", length = 1000)
     private String lastError;
 
-    public static OutboxEvent pending(UUID eventId, Long aggregateId, String eventType, String payload) {
+    public static OutboxEvent pending(UUID eventId, UUID aggregateId, String eventType, String payload) {
         OutboxEvent event = new OutboxEvent();
         event.setEventId(eventId);
         event.setAggregateId(aggregateId);

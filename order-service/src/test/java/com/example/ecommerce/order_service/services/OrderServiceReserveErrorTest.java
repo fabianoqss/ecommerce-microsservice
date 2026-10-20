@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +24,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +40,9 @@ class OrderServiceReserveErrorTest {
     @Mock
     private InventoryClient inventoryClient;
 
+    @Mock
+    private TransactionTemplate transactionTemplate;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -52,6 +57,7 @@ class OrderServiceReserveErrorTest {
 
         assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub"))
                 .isInstanceOf(InsufficientStockException.class);
+        verifyNoInteractions(transactionTemplate);
     }
 
     @Test

@@ -16,9 +16,18 @@ public class NotificationService {
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE)
     public void handleOrderCreated(OrderEventDTO event) {
+        handle(event, "Notificação de pedido criada");
+    }
+
+    @RabbitListener(queues = RabbitMQConfig.CANCELLED_QUEUE)
+    public void handleOrderCancelled(OrderEventDTO event) {
+        handle(event, "Notificação de pedido cancelado");
+    }
+
+    private void handle(OrderEventDTO event, String notification) {
         if (event.eventId() == null) {
             log.warn("Evento legado sem eventId recebido; será processado sem garantia de idempotência: orderId={}", event.orderId());
-            notify(event);
+            notify(event, notification);
             return;
         }
 
@@ -28,17 +37,17 @@ public class NotificationService {
         }
 
         try {
-            notify(event);
+            notify(event, notification);
         } catch (RuntimeException ex) {
             idempotencyGuard.release(event.eventId());
             throw ex;
         }
     }
 
-    private void notify(OrderEventDTO event) {
+    private void notify(OrderEventDTO event, String notification) {
         log.info(
-                "Notificação de pedido criada: eventId={}, version={}, orderId={}, userId={}, status={}, total={}, orderTime={}",
-                event.eventId(), event.version(), event.orderId(), event.userId(), event.status(), event.totalValue(), event.orderTime()
+                "{}: eventId={}, version={}, orderId={}, userId={}, status={}, total={}, orderTime={}",
+                notification, event.eventId(), event.version(), event.orderId(), event.userId(), event.status(), event.totalValue(), event.orderTime()
         );
     }
 }
