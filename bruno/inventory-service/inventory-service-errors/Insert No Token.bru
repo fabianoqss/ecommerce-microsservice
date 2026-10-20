@@ -17,13 +17,26 @@ body:json {
   }
 }
 
-docs {
-  No Authorization header at all.
+tests {
+  test("Não envia autenticação de usuário", function () {
+    expect(req.getHeader("Authorization")).to.be.undefined;
+    expect(req.getHeader("authorization")).to.be.undefined;
+    expect(req.getHeader("Cookie")).to.be.undefined;
+    expect(req.getHeader("cookie")).to.be.undefined;
+  });
+  test("POST anônimo respeita a cadeia de segurança do ambiente", function () {
+    const expectedStatus = bru.getEnvName() === "Gateway" ? 403 : 401;
+    expect(res.getStatus()).to.equal(expectedStatus);
+  });
+}
 
-  Expected depends on environment — same known gap as
-  product-service-errors/Create Product No Token.bru (see CLAUDE.md's "Limitações de
-  segurança conhecidas"):
-  - "Gateway" (:8080): 401 UNAUTHORIZED, {"error": "Token não fornecido"}.
-  - "InventoryDirect" (:8083): 201 CREATED — inventory-service has no Spring Security
-    dependency at all, so the write goes through unauthenticated.
+docs {
+  auth: none desativa explicitamente o OAuth2 herdado da coleção; não há header
+  Authorization manual. Desative o envio de cookies no Bruno (ou limpe a sessão BFF)
+  para não autenticar pelo cookie SESSION. Na CLI, use --disable-cookies.
+  Esperado no Gateway: 403 FORBIDDEN. Sem Bearer nem cookie, este POST entra na cadeia
+  de sessão; o filtro CSRF rejeita a ausência do token CSRF antes da autorização.
+  Esperado em InventoryDirect: 401 UNAUTHORIZED; o serviço valida a autenticação por conta própria.
+  Um token válido salvo na coleção não altera o cenário, pois auth: none evita seu envio.
+  Bearer inválido é outro cenário: seleciona a cadeia Bearer do gateway e recebe 401.
 }

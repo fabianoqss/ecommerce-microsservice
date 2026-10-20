@@ -1,0 +1,31 @@
+auth {
+  mode: oauth2
+}
+
+auth:oauth2 {
+  grant_type: authorization_code
+  callback_url: https://oauth.usebruno.com/callback
+  authorization_url: {{keycloakUrl}}/realms/ecommerce/protocol/openid-connect/auth?prompt=login
+  access_token_url: {{keycloakUrl}}/realms/ecommerce/protocol/openid-connect/token
+  refresh_token_url: {{keycloakUrl}}/realms/ecommerce/protocol/openid-connect/token
+  client_id: ecommerce-dev
+  client_secret:
+  scope: openid profile email
+  state:
+  pkce: true
+  credentials_placement: body
+  credentials_id: ecommerce-user
+  token_source: access_token
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: true
+}
+
+docs {
+  Login de desenvolvimento via Keycloak, client público ecommerce-dev, Authorization Code
+  com PKCE S256. Obtenha o token na aba Auth da coleção; veja README.md nesta pasta.
+  Requests protegidos herdam a identidade selecionada. Escritas de catálogo/estoque
+  exigem ADMIN; pedidos usam o sub do usuário como dono (ADMIN acessa qualquer pedido).
+  GETs de produto/estoque e os casos No Token desativam a autenticação herdada.
+}

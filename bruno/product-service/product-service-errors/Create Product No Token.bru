@@ -20,15 +20,26 @@ body:json {
   }
 }
 
-docs {
-  No Authorization header at all — tests write access without going through login.
+tests {
+  test("Não envia autenticação de usuário", function () {
+    expect(req.getHeader("Authorization")).to.be.undefined;
+    expect(req.getHeader("authorization")).to.be.undefined;
+    expect(req.getHeader("Cookie")).to.be.undefined;
+    expect(req.getHeader("cookie")).to.be.undefined;
+  });
+  test("POST anônimo respeita a cadeia de segurança do ambiente", function () {
+    const expectedStatus = bru.getEnvName() === "Gateway" ? 403 : 401;
+    expect(res.getStatus()).to.equal(expectedStatus);
+  });
+}
 
-  Expected depends on which environment is selected — this is a KNOWN GAP, not a
-  hypothetical (see CLAUDE.md's "Limitações de segurança conhecidas"):
-  - "Gateway" (:8080): 401 UNAUTHORIZED, {"error": "Token não fornecido"} — rejected by
-    JwtAuthenticationFilter before ever reaching product-service.
-  - "ProductDirect" (:8082): 201 CREATED — product-service has no Spring Security
-    dependency/config of its own, so it accepts the write unauthenticated. Anyone who
-    can reach the container's host-published port bypasses the gateway's ROLE_ADMIN
-    check entirely. Clean up the created product afterward if you run this.
+docs {
+  auth: none desativa explicitamente o OAuth2 herdado da coleção; não há header
+  Authorization manual. Desative o envio de cookies no Bruno (ou limpe a sessão BFF)
+  para não autenticar pelo cookie SESSION. Na CLI, use --disable-cookies.
+  Esperado no Gateway: 403 FORBIDDEN. Sem Bearer nem cookie, este POST entra na cadeia
+  de sessão; o filtro CSRF rejeita a ausência do token CSRF antes da autorização.
+  Esperado em ProductDirect: 401 UNAUTHORIZED; o serviço valida a autenticação por conta própria.
+  Um token válido salvo na coleção não altera o cenário, pois auth: none evita seu envio.
+  Bearer inválido é outro cenário: seleciona a cadeia Bearer do gateway e recebe 401.
 }

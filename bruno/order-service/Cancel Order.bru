@@ -7,11 +7,7 @@ meta {
 post {
   url: {{baseUrl}}/api/order/{{orderId}}/cancel
   body: json
-  auth: none
-}
-
-headers {
-  Authorization: Bearer {{accessToken}}
+  auth: inherit
 }
 
 body:json {
@@ -21,14 +17,13 @@ body:json {
 }
 
 docs {
-  Requires order-service/Create Order.bru (needs {{orderId}}) e {{accessToken}} do dono do
-  pedido (ou {{adminAccessToken}}, que cancela pedido de qualquer usuário).
+  Execute Create Order antes ({{orderId}}). Herda o token da coleção: dono pelo sub
+  ou ADMIN pode cancelar. Outro CUSTOMER recebe 404. OrderDirect sem autenticação: 401.
+  No Gateway, POST anônimo sem Bearer/cookie/CSRF recebe 403 pelo filtro CSRF da cadeia
+  de sessão; Bearer inválido recebe 401.
 
-  Fluxo: CONFIRMED -> CANCELLED, devolve o estoque no inventory (/release com token de
-  serviço) e grava ORDER_CANCELLED no outbox (publicado em order.cancelled).
-  O body é opcional; reason tem no máximo 255 caracteres (acima disso, 400).
-
-  Expected: 200 OK com status CANCELLED. Rodar de novo: 200 sem devolver estoque outra vez
-  (idempotente). Pedido COMPLETED: 409. Pedido de outro usuário: 404. Falha no inventory:
-  502 e o pedido continua CONFIRMED.
+  CONFIRMED → CANCELLED devolve estoque com token de serviço e grava ORDER_CANCELLED
+  no outbox (publicado em order.cancelled). Body opcional; reason aceita até 255 caracteres.
+  Esperado: 200 com CANCELLED. Repetição: 200 sem nova devolução de estoque (idempotente).
+  Pedido COMPLETED: 409; falha no inventory: 502 e pedido permanece CONFIRMED.
 }

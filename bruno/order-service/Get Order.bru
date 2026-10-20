@@ -7,19 +7,13 @@ meta {
 get {
   url: {{baseUrl}}/api/order/{{orderId}}
   body: none
-  auth: none
-}
-
-headers {
-  Authorization: Bearer {{accessToken}}
+  auth: inherit
 }
 
 docs {
-  Requires order-service/Create Order.bru to have run first (needs {{orderId}}), by the
-  SAME user whose {{accessToken}} is sent here — OrderService.findById() throws
-  OrderAccessDeniedException (403) if the token's email doesn't match order.userID and
-  the token isn't ROLE_ADMIN. See order-service-errors/Get Order Forbidden.bru for the
-  denied case with a second user.
-
-  Expected: 200 OK with the order.
+  Execute Create Order antes ({{orderId}}). Herda o token da coleção: use o mesmo sub
+  que criou o pedido ou um usuário ADMIN. Gateway e OrderDirect validam o token.
+  Outro CUSTOMER recebe 404, como um id inexistente, para evitar enumeração de pedidos.
+  Veja order-service-errors/Get Order Forbidden.
+  Esperado: 200 OK com o pedido.
 }

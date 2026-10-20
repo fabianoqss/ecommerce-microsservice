@@ -11,8 +11,6 @@ get {
 }
 
 docs {
-  Public on every environment — GET /api/product is in api-gateway's permitAll list
-  and product-service has no security of its own either way.
-
-  Expected: 200 OK with the full product list (no pagination).
+  GET público no Gateway e ProductDirect; auth: none evita enviar o token da coleção.
+  Esperado: 200 OK com a lista completa de produtos (sem paginação).
 }
