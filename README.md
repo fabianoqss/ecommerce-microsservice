@@ -2,7 +2,7 @@
 
 Backend de e-commerce com Spring Boot, Spring Cloud, identidade OIDC via Keycloak, comunicação síncrona e assíncrona e observabilidade.
 
-O fluxo principal inclui estoque atômico, cancelamento de pedidos, Outbox, DLQ e autorização por dono do pedido. O gateway oferece login pelo navegador como BFF e acesso à API com Bearer token. Consulte [PROJECT_STATUS.md](PROJECT_STATUS.md) para as pendências e [docs/PLANO_EXECUCAO.md](docs/PLANO_EXECUCAO.md) para o histórico do P0.
+O fluxo principal inclui estoque atômico, cancelamento de pedidos, Outbox, DLQ e autorização por dono do pedido. O gateway oferece login pelo navegador como BFF e acesso à API com Bearer token.
 
 ## Arquitetura atual
 
@@ -213,9 +213,9 @@ Use o Maven Wrapper único, a partir da raiz:
 python3 -m unittest discover -s scripts/tests -v
 ```
 
-Há testes unitários, de autorização MVC, de sessão/Bearer no gateway e de integração do fluxo Order/Inventory. Os testes que usam Testcontainers precisam de Docker acessível. A cobertura ainda deve ser ampliada, especialmente para eventos e o fluxo ponta a ponta; veja o backlog.
+Há testes unitários, de autorização MVC, de sessão/Bearer no gateway e de integração do fluxo Order/Inventory. Os testes que usam Testcontainers precisam de Docker acessível. A cobertura ainda deve ser ampliada, especialmente para eventos e o fluxo ponta a ponta.
 
-No Bruno, abra a coleção `bruno/` e selecione `Gateway` para as chamadas externas. O login de usuário usa Authorization Code com PKCE no client público `ecommerce-dev`. As rotas internas de reserva (`/api/inventory/reservations/{reservationId}`) usam `client_credentials` do `order-service` **apenas no ambiente Direct**, com Inventory executado localmente pela IDE; essas rotas permanecem bloqueadas no gateway. Informe client secrets nas variáveis **secret** do Bruno, sem versioná-los.
+As chamadas externas passam pelo gateway; o login de usuário usa Authorization Code com PKCE. As rotas internas de reserva (`/api/inventory/reservations/{reservationId}`) usam `client_credentials` do `order-service` e permanecem bloqueadas no gateway.
 
 ## Escopo
 
