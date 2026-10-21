@@ -4,15 +4,15 @@ import com.example.ecommerce.order.domain.Order;
 import com.example.ecommerce.order.domain.OrderItem;
 import com.example.ecommerce.order.domain.OrderStatus;
 import com.example.ecommerce.order.domain.OutboxEvent;
+import com.example.ecommerce.order.domain.ReservationMode;
 import com.example.ecommerce.order.dto.request.InventoryItemDTO;
-import com.example.ecommerce.order.dto.request.InventoryReserveRequestDTO;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
 import com.example.ecommerce.order.infra.client.InventoryClient;
+import com.example.ecommerce.order.infra.messaging.OrderEventDTO;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import feign.FeignException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
@@ -36,10 +36,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -69,7 +68,7 @@ class OrderServiceCancelTest {
     private OrderService orderService;
 
     @Test
-    void ownerCancelsReleasesStockAndEnqueuesEvent() {
+    void ownerCancelsEnqueuesV3EventWithLedgerModeAndItemsWithoutHttpCall() throws Exception {
         Order order = confirmedOrder("owner-sub");
         when(orderRepository.findByIdAndUserID(ORDER_ID, "owner-sub")).thenReturn(Optional.of(order));
 
@@ -78,20 +77,27 @@ class OrderServiceCancelTest {
         assertThat(response.status()).isEqualTo("CANCELLED");
         assertThat(order.getCancelledBy()).isEqualTo("owner-sub");
         verify(orderRepository).saveAndFlush(order);
-        verify(inventoryClient).release(new InventoryReserveRequestDTO(List.of(new InventoryItemDTO("p1", 2))));
+        verifyNoInteractions(inventoryClient);
 
         ArgumentCaptor<OutboxEvent> outbox = ArgumentCaptor.forClass(OutboxEvent.class);
         verify(outboxEventRepository).save(outbox.capture());
         assertThat(outbox.getValue().getEventType()).isEqualTo("ORDER_CANCELLED");
         assertThat(outbox.getValue().getAggregateId()).isEqualTo(ORDER_ID);
-        assertThat(outbox.getValue().getPayload()).contains("\"status\":\"CANCELLED\"");
+
+        OrderEventDTO event = objectMapper.readValue(outbox.getValue().getPayload(), OrderEventDTO.class);
+        assertThat(event.version()).isEqualTo(3);
+        assertThat(event.orderId()).isEqualTo(ORDER_ID);
+        assertThat(event.status()).isEqualTo("CANCELLED");
+        assertThat(event.reservationMode()).isEqualTo(ReservationMode.LEDGER);
+        assertThat(event.items()).containsExactly(new InventoryItemDTO("p1", 2));
 
         assertThat(meterRegistry.counter("orders.cancelled", "actor", "owner").count()).isEqualTo(1.0);
     }
 
     @Test
-    void cancellationAggregatesAndSortsReleasedItems() {
+    void cancellationAggregatesAndSortsItemsInV3EventAndPreservesLegacyMode() throws Exception {
         Order order = confirmedOrder("owner-sub");
+        order.setReservationMode(ReservationMode.LEGACY);
         OrderItem p2 = new OrderItem();
         p2.setProductId("p2");
         p2.setQuantity(3);
@@ -103,8 +109,14 @@ class OrderServiceCancelTest {
 
         orderService.cancel(ORDER_ID, null, token("owner-sub", "ROLE_CUSTOMER"));
 
-        verify(inventoryClient).release(new InventoryReserveRequestDTO(List.of(
-                new InventoryItemDTO("p1", 6), new InventoryItemDTO("p2", 3))));
+        verifyNoInteractions(inventoryClient);
+        ArgumentCaptor<OutboxEvent> outbox = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository).save(outbox.capture());
+        OrderEventDTO event = objectMapper.readValue(outbox.getValue().getPayload(), OrderEventDTO.class);
+        assertThat(event.version()).isEqualTo(3);
+        assertThat(event.reservationMode()).isEqualTo(ReservationMode.LEGACY);
+        assertThat(event.items()).containsExactly(
+                new InventoryItemDTO("p1", 6), new InventoryItemDTO("p2", 3));
         assertThat(order.getItems()).hasSize(3);
     }
 
@@ -115,6 +127,7 @@ class OrderServiceCancelTest {
         var response = orderService.cancel(ORDER_ID, null, token("admin-sub", "ROLE_ADMIN"));
 
         assertThat(response.status()).isEqualTo("CANCELLED");
+        verifyNoInteractions(inventoryClient);
         assertThat(meterRegistry.counter("orders.cancelled", "actor", "admin").count()).isEqualTo(1.0);
     }
 
@@ -124,8 +137,9 @@ class OrderServiceCancelTest {
 
         orderService.cancel(ORDER_ID, null, token("admin-sub", "ROLE_ADMIN"));
 
-        verify(inventoryClient).release(any());
+        verifyNoInteractions(inventoryClient);
         verify(orderRepository, never()).findByIdAndUserID(any(), any());
+        verify(outboxEventRepository).save(any());
         assertThat(meterRegistry.counter("orders.cancelled", "actor", "admin").count()).isEqualTo(1.0);
     }
 
@@ -135,11 +149,12 @@ class OrderServiceCancelTest {
 
         assertThatThrownBy(() -> orderService.cancel(ORDER_ID, null, token("intruder-sub", "ROLE_CUSTOMER")))
                 .isInstanceOf(OrderNotFoundException.class);
-        verify(inventoryClient, never()).release(any());
+        verifyNoInteractions(inventoryClient);
+        verify(outboxEventRepository, never()).save(any());
     }
 
     @Test
-    void cancellingTwiceDoesNotReleaseStockAgain() {
+    void cancellingTwiceDoesNotEnqueueEventAgain() {
         Order order = confirmedOrder("owner-sub");
         order.cancel("owner-sub", null, LocalDateTime.now());
         when(orderRepository.findByIdAndUserID(ORDER_ID, "owner-sub")).thenReturn(Optional.of(order));
@@ -147,20 +162,8 @@ class OrderServiceCancelTest {
         var response = orderService.cancel(ORDER_ID, null, token("owner-sub", "ROLE_CUSTOMER"));
 
         assertThat(response.status()).isEqualTo("CANCELLED");
-        verify(inventoryClient, never()).release(any());
+        verifyNoInteractions(inventoryClient);
         verify(outboxEventRepository, never()).save(any());
-    }
-
-    @Test
-    void releaseFailurePropagatesWithoutEnqueuingEvent() {
-        when(orderRepository.findByIdAndUserID(ORDER_ID, "owner-sub")).thenReturn(Optional.of(confirmedOrder("owner-sub")));
-        doThrow(mock(FeignException.ServiceUnavailable.class)).when(inventoryClient).release(any());
-
-        // A exceção sai do método @Transactional, então em runtime o UPDATE do status é desfeito.
-        assertThatThrownBy(() -> orderService.cancel(ORDER_ID, null, token("owner-sub", "ROLE_CUSTOMER")))
-                .isInstanceOf(FeignException.class);
-        verify(outboxEventRepository, never()).save(any());
-        assertThat(meterRegistry.find("orders.cancelled").counter()).isNull();
     }
 
     private static Order confirmedOrder(String ownerSub) {
@@ -174,6 +177,7 @@ class OrderServiceCancelTest {
         order.setId(ORDER_ID);
         order.setUserID(ownerSub);
         order.setStatus(OrderStatus.CONFIRMED);
+        order.setReservationMode(ReservationMode.LEDGER);
         order.setOrderTime(LocalDateTime.of(2026, 10, 20, 10, 0));
         order.setTotalValue(new BigDecimal("20.00"));
         order.setItems(List.of(item));

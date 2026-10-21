@@ -33,7 +33,7 @@ sampling=$(get TRACING_SAMPLING_PROBABILITY)
 declare -A services=(
   [eureka-server]="EUREKA_USERNAME:EUREKA_USERNAME EUREKA_PASSWORD:EUREKA_PASSWORD"
   [product-service]=""
-  [inventory-service]="DB_PASSWORD:DB_PASSWORD"
+  [inventory-service]="DB_PASSWORD:DB_PASSWORD SPRING_RABBITMQ_PASSWORD:RABBITMQ_INVENTORY_PASSWORD"
   [order-service]="DB_PASSWORD:DB_PASSWORD KC_ORDER_SERVICE_CLIENT_SECRET:KC_ORDER_SERVICE_CLIENT_SECRET SPRING_RABBITMQ_PASSWORD:RABBITMQ_ORDER_PASSWORD"
   [notification-service]="SPRING_RABBITMQ_PASSWORD:RABBITMQ_NOTIFICATION_PASSWORD REDIS_PASSWORD:REDIS_PASSWORD"
   [api-gateway]="KC_BFF_CLIENT_SECRET:KC_BFF_CLIENT_SECRET REDIS_PASSWORD:REDIS_PASSWORD"
@@ -47,7 +47,7 @@ for service in eureka-server product-service inventory-service order-service not
     line+="EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=$eureka_url;"
   fi
   case "$service" in
-    order-service|notification-service)
+    order-service|notification-service|inventory-service)
       line+="SPRING_RABBITMQ_USERNAME=$service;SPRING_RABBITMQ_VIRTUAL_HOST=ecommerce;" ;;
   esac
   [[ "$service" != api-gateway ]] || line+='SESSION_COOKIE_SECURE=false;'

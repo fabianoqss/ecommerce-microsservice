@@ -27,6 +27,23 @@ spring:
       hibernate:
         format_sql: false
 
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        # O order-service é o único dono da topologia; permite subir antes dele sem falhar.
+        missing-queues-fatal: false
+        retry:
+          enabled: true
+          max-attempts: 5
+          initial-interval: 1000ms
+          multiplier: 2.0
+          max-interval: 10000ms
+        default-requeue-rejected: false
+
   security:
     oauth2:
       resourceserver:

@@ -39,8 +39,7 @@ final class GatewayAuthorizationRules {
                 .requestMatchers("/actuator/**").denyAll()
                 .requestMatchers("/error").permitAll()
                 // Contrato interno order → inventory; nunca exposto pela borda.
-                .requestMatchers("/api/inventory/reserve", "/api/inventory/release",
-                        "/api/inventory/reservations", "/api/inventory/reservations/**").denyAll()
+                .requestMatchers("/api/inventory/reservations", "/api/inventory/reservations/**").denyAll()
                 .requestMatchers(HttpMethod.GET, "/api/product", "/api/product/**", "/api/inventory", "/api/inventory/**").permitAll()
                 .requestMatchers("/api/**").authenticated();
     }

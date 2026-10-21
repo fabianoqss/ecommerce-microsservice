@@ -62,15 +62,14 @@ public class OrderController {
     }
 
     @Operation(
-            description = "Cancel an order (dono ou admin) e devolve o estoque reservado. "
-                    + "Só pedidos CONFIRMED; repetir em um pedido já cancelado responde 200 sem efeito.",
+            description = "Cancel an order (dono ou admin) e enfileira a devolução assíncrona do estoque. "
+                    + "Repetir em um pedido já cancelado responde 200 sem efeito.",
             summary = "Cancel an order",
             responses = {
                     @ApiResponse(description = "Ok", responseCode = "200"),
                     @ApiResponse(description = "Bad Request", responseCode = "400"),
                     @ApiResponse(description = "Not Found", responseCode = "404"),
-                    @ApiResponse(description = "Conflict - status não permite cancelar ou alteração concorrente", responseCode = "409"),
-                    @ApiResponse(description = "Bad Gateway - falha ao devolver o estoque", responseCode = "502")
+                    @ApiResponse(description = "Conflict - status não permite cancelar ou alteração concorrente", responseCode = "409")
             }
     )
     @PostMapping("/{id}/cancel")

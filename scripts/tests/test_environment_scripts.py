@@ -82,6 +82,7 @@ class IdeEnvTest(unittest.TestCase):
                 'DB_PASSWORD': 'db-local', 'KC_ORDER_SERVICE_CLIENT_SECRET': 'order-oidc',
                 'KC_BFF_CLIENT_SECRET': 'bff-oidc', 'RABBITMQ_ORDER_PASSWORD': 'order-amqp',
                 'RABBITMQ_NOTIFICATION_PASSWORD': 'notification-amqp', 'REDIS_PASSWORD': 'redis-local',
+                'RABBITMQ_INVENTORY_PASSWORD': 'inventory-amqp',
                 'EUREKA_USERNAME': 'discovery', 'EUREKA_PASSWORD': 'a12345',
                 'TRACING_SAMPLING_PROBABILITY': '1.0', 'IGNORADO': '$(touch arquivo-nao-deve-existir)',
             }
@@ -100,7 +101,8 @@ class IdeEnvTest(unittest.TestCase):
                 if service != 'eureka-server':
                     self.assertEqual('http://discovery:a12345@localhost:8761/eureka/',
                                      settings['EUREKA_CLIENT_SERVICEURL_DEFAULTZONE'])
-            for service, password in [('order-service', 'order-amqp'), ('notification-service', 'notification-amqp')]:
+            for service, password in [('order-service', 'order-amqp'), ('notification-service', 'notification-amqp'),
+                                      ('inventory-service', 'inventory-amqp')]:
                 self.assertEqual(service, config[service]['SPRING_RABBITMQ_USERNAME'])
                 self.assertEqual(password, config[service]['SPRING_RABBITMQ_PASSWORD'])
                 self.assertEqual('ecommerce', config[service]['SPRING_RABBITMQ_VIRTUAL_HOST'])
@@ -128,7 +130,8 @@ if os.environ['TEST_FAIL'] == 'yes':
         curl.chmod(0o700)
         secrets = {'RABBITMQ_ADMIN_USERNAME': 'console-admin', 'RABBITMQ_ADMIN_PASSWORD': 'admin-local',
                    'RABBITMQ_ORDER_PASSWORD': 'order-"\\\n\tç',
-                   'RABBITMQ_NOTIFICATION_PASSWORD': 'notification-local'}
+                   'RABBITMQ_NOTIFICATION_PASSWORD': 'notification-local',
+                   'RABBITMQ_INVENTORY_PASSWORD': 'inventory-local'}
         if missing:
             secrets['RABBITMQ_NOTIFICATION_PASSWORD'] = ''
         result = subprocess.run(['sh', str(ROOT / 'scripts/rabbitmq-init.sh')], text=True, capture_output=True,
@@ -142,10 +145,21 @@ if os.environ['TEST_FAIL'] == 'yes':
         self.assertEqual(0, result.returncode, result.stderr)
         payloads = dict(calls)
         self.assertIn('/api/vhosts/ecommerce', payloads)
-        for service, key in [('order-service', 'RABBITMQ_ORDER_PASSWORD'), ('notification-service', 'RABBITMQ_NOTIFICATION_PASSWORD')]:
+        # Produtor é dono da topologia; consumidores só leem as próprias filas.
+        expected = {
+            'order-service': ('RABBITMQ_ORDER_PASSWORD',
+                              {'configure': r'^(order|inventory)\.', 'write': r'^(order|inventory)\.',
+                               'read': r'^(order|inventory)\.'}),
+            'notification-service': ('RABBITMQ_NOTIFICATION_PASSWORD',
+                                     {'configure': '^$', 'write': '^$',
+                                      'read': r'^order\.(created|cancelled)\.queue$'}),
+            'inventory-service': ('RABBITMQ_INVENTORY_PASSWORD',
+                                  {'configure': '^$', 'write': '^$',
+                                   'read': r'^inventory\.order\.cancelled\.queue$'}),
+        }
+        for service, (key, permissions) in expected.items():
             self.assertEqual({'password': secrets[key], 'tags': ''}, payloads[f'/api/users/{service}'])
-            self.assertEqual({'configure': r'^order\.', 'write': r'^order\.', 'read': r'^order\.'},
-                             payloads[f'/api/permissions/ecommerce/{service}'])
+            self.assertEqual(permissions, payloads[f'/api/permissions/ecommerce/{service}'])
             self.assertNotIn(secrets[key], result.stdout + result.stderr)
         self.assertNotIn(secrets['RABBITMQ_ADMIN_PASSWORD'], result.stdout + result.stderr)
         self.assertIn({'configure': '(?!)', 'write': '(?!)', 'read': '(?!)'}, payloads.values())

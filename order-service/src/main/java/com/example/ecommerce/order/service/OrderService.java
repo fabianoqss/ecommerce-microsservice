@@ -69,6 +69,8 @@ public class OrderService {
     private static final Sort LATEST_FIRST = Sort.by(Sort.Direction.DESC, "orderTime", "id");
     // v2: orderId passou de número (Long) para UUID. Consumidores aceitam as duas versões.
     private static final int ORDER_EVENT_VERSION = 2;
+    // v3: ORDER_CANCELLED inclui reservationMode (LEGACY|LEDGER) e items agregados por SKU para liberação por evento.
+    private static final int ORDER_CANCELLED_EVENT_VERSION = 3;
 
     @Autowired
     private OrderRepository orderRepository;
@@ -258,8 +260,10 @@ public class OrderService {
     }
 
     /**
-     * Cancela o pedido (dono ou admin) e devolve o estoque reservado. Repetir o cancelamento de um
-     * pedido já cancelado é idempotente: responde o estado atual sem devolver estoque de novo.
+     * Cancela o pedido (dono ou admin) numa transação local (CONFIRMED -> CANCELLED + auditoria +
+     * outbox ORDER_CANCELLED v3). A devolução do estoque ocorre de forma assíncrona e idempotente
+     * no inventory-service via RabbitMQ. Repetir o cancelamento de um pedido já cancelado é
+     * idempotente: responde o estado atual sem publicar outro evento.
      */
     @Transactional
     public OrderResponseDTO cancel(UUID id, String reason, Authentication authentication) {
@@ -273,14 +277,7 @@ public class OrderService {
             return toResponseDTO(order);
         }
 
-        // Grava (e confere o @Version) ANTES de chamar o inventory: um cancelamento concorrente falha
-        // aqui com 409 sem devolver o estoque duas vezes, e a linha fica bloqueada até o commit.
         orderRepository.saveAndFlush(order);
-
-        // Se a devolução falhar, a exceção desfaz a transação local: o pedido continua CONFIRMED e
-        // o cliente pode tentar de novo (502/503 pelo GlobalExceptionHandler).
-        inventoryClient.release(new InventoryReserveRequestDTO(toInventoryItems(order)));
-
         enqueueEvent(order, OrderEventType.ORDER_CANCELLED);
 
         String actor = Objects.equals(order.getUserID(), authentication.getName()) ? "owner" : "admin";
@@ -292,14 +289,17 @@ public class OrderService {
 
     private void enqueueEvent(Order order, OrderEventType type) {
         UUID eventId = UUID.randomUUID();
+        boolean cancelled = type == OrderEventType.ORDER_CANCELLED;
         OrderEventDTO event = new OrderEventDTO(
                 eventId,
-                ORDER_EVENT_VERSION,
+                cancelled ? ORDER_CANCELLED_EVENT_VERSION : ORDER_EVENT_VERSION,
                 order.getId(),
                 order.getUserID(),
                 order.getStatus().name(),
                 order.getTotalValue(),
-                order.getOrderTime()
+                order.getOrderTime(),
+                cancelled ? order.getReservationMode() : null,
+                cancelled ? toInventoryItems(order) : null
         );
         outboxEventRepository.save(OutboxEvent.pending(eventId, order.getId(), type.name(), serializeEvent(event)));
     }

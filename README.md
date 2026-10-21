@@ -27,6 +27,7 @@ Cliente Bearer -> Gateway
                     `-> Order -> PostgreSQL (pedido + Outbox)
                           |-> Product/Inventory via OpenFeign
                           `-> RabbitMQ -> Notification -> Redis (idempotência)
+                                       `-> Inventory -> PostgreSQL (liberação idempotente no cancelamento)
 
 Eureka: descoberta interna com HTTP Basic
 Prometheus/Grafana: métricas; Zipkin: traces
@@ -71,7 +72,7 @@ O BFF mantém os tokens no servidor e usa sessão no Redis. Requisições que al
 | POST | `/api/order` | Autenticado |
 | POST | `/api/order/{id}/cancel` | Dono ou admin; cancelamento idempotente de pedido confirmado |
 
-`POST /api/inventory/reserve` e `/api/inventory/release` são contratos internos, bloqueados no gateway. O Order obtém um token com `client_credentials` e scope `inventory:reserve` para chamá-los diretamente no Inventory.
+`PUT`, `DELETE` e `GET /api/inventory/reservations/{reservationId}` são contratos internos do livro-razão de reservas, bloqueados no gateway (`denyAll`). Na criação do pedido e na reconciliação de pendentes expirados, o Order obtém um token com `client_credentials` e scope `inventory:reserve` para chamá-los diretamente no Inventory. O cancelamento de pedido confirmado grava o evento `ORDER_CANCELLED` (v3) no Outbox e o Inventory libera o estoque de forma assíncrona e idempotente via RabbitMQ (`inventory.order.cancelled.queue`).
 
 ## Execução local
 
@@ -157,9 +158,9 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 docker compose --env-file <arquivo-de-ambiente> up -d --build
 ```
 
-`rabbitmq-init` é um serviço de execução única: após o broker ficar saudável, `scripts/rabbitmq-init.sh` usa a API HTTP para provisionar o vhost `ecommerce` e os usuários `order-service` e `notification-service`. A saída normal desse container é terminar com código `0`; não é um processo permanente.
+`rabbitmq-init` é um serviço de execução única: após o broker ficar saudável, `scripts/rabbitmq-init.sh` usa a API HTTP para provisionar o vhost `ecommerce` e os usuários `order-service`, `notification-service` e `inventory-service`. A saída normal desse container é terminar com código `0`; não é um processo permanente.
 
-As aplicações usam `RABBITMQ_ORDER_PASSWORD` e `RABBITMQ_NOTIFICATION_PASSWORD` no vhost `ecommerce` com privilégio mínimo: `order-service` (dono da topologia e produtor) tem `configure`, `write` e `read` em `^order\.`, enquanto `notification-service` (consumidor) tem `configure` e `write` em `^$` e `read` apenas em `^order\.(created|cancelled)\.queue$`. `RABBITMQ_ADMIN_USERNAME`/`RABBITMQ_ADMIN_PASSWORD` são credenciais administrativas para o console e o provisionamento, não para os microsserviços. AMQP (`5672`) só é publicado no override local, em loopback.
+As aplicações usam `RABBITMQ_ORDER_PASSWORD`, `RABBITMQ_NOTIFICATION_PASSWORD` e `RABBITMQ_INVENTORY_PASSWORD` no vhost `ecommerce` com privilégio mínimo: `order-service` (único dono da topologia e produtor) tem `configure`, `write` e `read` em `^(order|inventory)\.`, `notification-service` (consumidor) tem `configure` e `write` em `^$` e `read` apenas em `^order\.(created|cancelled)\.queue$`, e `inventory-service` (consumidor do cancelamento) tem `configure` e `write` em `^$` e `read` apenas em `^inventory\.order\.cancelled\.queue$`. `RABBITMQ_ADMIN_USERNAME`/`RABBITMQ_ADMIN_PASSWORD` são credenciais administrativas para o console e o provisionamento, não para os microsserviços. AMQP (`5672`) só é publicado no override local, em loopback.
 
 Serviços úteis (publicados em `127.0.0.1`; na VM, acesse por túnel SSH):
 
@@ -214,7 +215,7 @@ python3 -m unittest discover -s scripts/tests -v
 
 Há testes unitários, de autorização MVC, de sessão/Bearer no gateway e de integração do fluxo Order/Inventory. Os testes que usam Testcontainers precisam de Docker acessível. A cobertura ainda deve ser ampliada, especialmente para eventos e o fluxo ponta a ponta; veja o backlog.
 
-No Bruno, abra a coleção `bruno/` e selecione `Gateway` para as chamadas externas. O login de usuário usa Authorization Code com PKCE no client público `ecommerce-dev`. Reserve/release usam `client_credentials` do `order-service` **apenas no ambiente Direct**, com Inventory executado localmente pela IDE; essas rotas permanecem bloqueadas no gateway. Informe client secrets nas variáveis **secret** do Bruno, sem versioná-los.
+No Bruno, abra a coleção `bruno/` e selecione `Gateway` para as chamadas externas. O login de usuário usa Authorization Code com PKCE no client público `ecommerce-dev`. As rotas internas de reserva (`/api/inventory/reservations/{reservationId}`) usam `client_credentials` do `order-service` **apenas no ambiente Direct**, com Inventory executado localmente pela IDE; essas rotas permanecem bloqueadas no gateway. Informe client secrets nas variáveis **secret** do Bruno, sem versioná-los.
 
 ## Escopo
 

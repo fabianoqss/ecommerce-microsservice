@@ -129,8 +129,8 @@ class SessionChainTest extends GatewayTestSupport {
     }
 
     @Test
-    void reserveIsDeniedEvenWithSession() throws Exception {
-        mvc.perform(post("/api/inventory/reserve").with(customer()).with(xsrf())
+    void reservationsLedgerIsDeniedEvenWithSession() throws Exception {
+        mvc.perform(post("/api/inventory/reservations/0199f5d2-0000-7000-8000-000000000001").with(customer()).with(xsrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isForbidden());
     }

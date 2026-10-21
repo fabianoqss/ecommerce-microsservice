@@ -189,7 +189,6 @@ class OrderServiceCreateTest {
         ArgumentCaptor<OutboxEvent> outbox = ArgumentCaptor.forClass(OutboxEvent.class);
         calls.verify(outboxEventRepository).save(outbox.capture());
         calls.verify(transactionManager).commit(any());
-        verify(inventoryClient, never()).release(any());
         verify(inventoryClient, never()).releaseReservation(any());
         verifyNoMoreInteractions(productClient);
 

@@ -125,41 +125,4 @@ public class InventoryController {
     public ReservationResponseDTO getReservation(@PathVariable UUID reservationId) {
         return inventoryService.getReservation(reservationId);
     }
-
-    // Mantido apenas durante transição de pedidos LEGACY; prefira PUT /api/inventory/reservations/{reservationId}.
-    @Deprecated
-    @Operation(
-            deprecated = true,
-            description = "Deprecated: use PUT /api/inventory/reservations/{reservationId}. Atomically reserve (decrement) stock for a list of items.",
-            summary = "Reserve stock for an order (deprecated)",
-            responses = {
-                    @ApiResponse(description = "No Content", responseCode = "204"),
-                    @ApiResponse(description = "Conflict - insufficient stock", responseCode = "409"),
-                    @ApiResponse(description = "Bad Request", responseCode = "400")
-            }
-    )
-    @SecurityRequirement(name = "bearerAuth")
-    @PostMapping("/reserve")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void reserve(@Valid @RequestBody InventoryReserveRequestDTO dto) {
-        inventoryService.reserve(dto.items());
-    }
-
-    // Mantido apenas durante transição de pedidos LEGACY; prefira DELETE /api/inventory/reservations/{reservationId}.
-    @Deprecated
-    @Operation(
-            deprecated = true,
-            description = "Deprecated: use DELETE /api/inventory/reservations/{reservationId}. Release (increment) previously reserved stock.",
-            summary = "Release reserved stock (deprecated)",
-            responses = {
-                    @ApiResponse(description = "No Content", responseCode = "204"),
-                    @ApiResponse(description = "Bad Request", responseCode = "400")
-            }
-    )
-    @SecurityRequirement(name = "bearerAuth")
-    @PostMapping("/release")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void release(@Valid @RequestBody InventoryReserveRequestDTO dto) {
-        inventoryService.release(dto.items());
-    }
 }

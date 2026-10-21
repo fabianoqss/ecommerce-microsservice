@@ -63,15 +63,6 @@ class InventorySecurityTest {
     }
 
     @Test
-    void reserveAndReleaseRequireServiceScope() throws Exception {
-        var service = jwt().authorities(new SimpleGrantedAuthority("SCOPE_inventory:reserve"));
-        mvc.perform(post("/api/inventory/reserve").with(service).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
-                .andExpect(allowed());
-        mvc.perform(post("/api/inventory/release").with(service).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
-                .andExpect(allowed());
-    }
-
-    @Test
     void reservationLedgerEndpointsAllowServiceScope() throws Exception {
         Instant now = Instant.now();
         var dto = new ReservationResponseDTO(
@@ -93,10 +84,6 @@ class InventorySecurityTest {
         // Garante que os matchers de /api/inventory/reservations/** vêm antes de GET permitAll e PUT ADMIN.
         for (String role : new String[]{"ROLE_CUSTOMER", "ROLE_ADMIN"}) {
             var user = jwt().authorities(new SimpleGrantedAuthority(role));
-            mvc.perform(post("/api/inventory/reserve").with(user).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
-                    .andExpect(status().isForbidden());
-            mvc.perform(post("/api/inventory/release").with(user).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
-                    .andExpect(status().isForbidden());
             mvc.perform(put(RESERVATION_PATH).with(user).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
                     .andExpect(status().isForbidden());
             mvc.perform(delete(RESERVATION_PATH).with(user))
@@ -108,8 +95,6 @@ class InventorySecurityTest {
 
     @Test
     void anonymousCannotAccessReservationEndpoints() throws Exception {
-        mvc.perform(post("/api/inventory/reserve").contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
-                .andExpect(status().isUnauthorized());
         mvc.perform(put(RESERVATION_PATH).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))
                 .andExpect(status().isUnauthorized());
         mvc.perform(delete(RESERVATION_PATH))
