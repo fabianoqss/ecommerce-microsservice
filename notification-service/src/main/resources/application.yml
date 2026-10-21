@@ -1,0 +1,55 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: notification-service
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        # O order-service é o único dono da topologia; permite subir antes dele sem falhar.
+        missing-queues-fatal: false
+        retry:
+          enabled: true
+          max-attempts: 5
+          initial-interval: 1000ms
+          multiplier: 2.0
+          max-interval: 10000ms
+        default-requeue-rejected: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+ecommerce:
+  notification:
+    idempotency:
+      processing-ttl: ${NOTIFICATION_IDEMPOTENCY_PROCESSING_TTL:5m}
+      processed-ttl: ${NOTIFICATION_IDEMPOTENCY_PROCESSED_TTL:7d}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+    export:
+      zipkin:
+        endpoint: http://localhost:9411/api/v2/spans

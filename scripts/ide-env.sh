@@ -1,42 +1,61 @@
 #!/usr/bin/env bash
-# Imprime, por serviço, as variáveis de ambiente para rodar os microsserviços
-# pela IDE, no formato do campo "Environment variables" do IntelliJ
-# (VAR=valor;VAR=valor). Só os segredos: os endereços já têm default em
-# localhost nos application.yml.
-#
-# Uso: ./scripts/ide-env.sh [arquivo-env]   (padrão: .env na raiz)
-#
-# A saída contém segredos: rode no seu terminal, não cole em chats nem em logs.
-
+# Emite configuração local por serviço no formato VAR=valor;VAR=valor do IntelliJ.
+# Uso: ./scripts/ide-env.sh [arquivo-env] (padrão: .env na raiz).
+# A saída contém segredos: use só no terminal local, nunca em chats ou logs.
 set -euo pipefail
 
 env_file="${1:-$(dirname "$0")/../.env}"
 [[ -f "$env_file" ]] || { echo "Arquivo não encontrado: $env_file" >&2; exit 1; }
 
-# Lê uma variável do .env sem executar o arquivo (source rodaria qualquer comando nele).
+# Não usa source: um .env é dado, não código executável.
 get() {
   local value
-  value=$(grep -E "^$1=" "$env_file" | tail -n1 | cut -d= -f2-) \
+  value=$(awk -v key="$1" 'index($0, key "=") == 1 { value = substr($0, length(key) + 2); found = 1 } END { if (!found) exit 1; print value }' "$env_file") \
     || { echo "Variável ausente no $env_file: $1" >&2; exit 1; }
-  value="${value%\"}"; value="${value#\"}"
+  value="${value%$'\r'}"
+  if [[ "$value" == \"*\" || "$value" == \'*\' ]]; then
+    value="${value:1:${#value}-2}"
+  fi
+  [[ -n "$value" && "$value" != *';'* && "$value" != *$'\n'* ]] \
+    || { echo "Valor vazio ou incompatível com o IntelliJ: $1" >&2; exit 1; }
   printf '%s' "$value"
 }
 
-# serviço  →  pares VAR_NA_IDE:VAR_NO_.env
-# Em dev, order e inventory entram no Postgres local com o usuário postgres,
-# cuja senha é a DB_PASSWORD (POSTGRES_PASSWORD do container).
+eureka_username=$(get EUREKA_USERNAME)
+eureka_password=$(get EUREKA_PASSWORD)
+# Credenciais entram na URL; hex gerado pelo generate-env.sh dispensa percent-encoding.
+[[ "$eureka_username" =~ ^[A-Za-z0-9._~-]+$ && "$eureka_password" =~ ^[A-Za-z0-9._~-]+$ ]] \
+  || { echo 'Credenciais Eureka devem ser URL-safe; gere a senha em hexadecimal.' >&2; exit 1; }
+eureka_url="http://$eureka_username:$eureka_password@localhost:8761/eureka/"
+sampling=$(get TRACING_SAMPLING_PROBABILITY)
+
+# Em dev os bancos usam o superusuário local, cuja senha é DB_PASSWORD.
 declare -A services=(
-  [inventory-service]="DB_PASSWORD:DB_PASSWORD"
-  [order-service]="DB_PASSWORD:DB_PASSWORD KC_ORDER_SERVICE_CLIENT_SECRET:KC_ORDER_SERVICE_CLIENT_SECRET SPRING_RABBITMQ_USERNAME:RABBITMQ_USERNAME SPRING_RABBITMQ_PASSWORD:RABBITMQ_PASSWORD"
-  [notification-service]="SPRING_RABBITMQ_USERNAME:RABBITMQ_USERNAME SPRING_RABBITMQ_PASSWORD:RABBITMQ_PASSWORD"
+  [eureka-server]="EUREKA_USERNAME:EUREKA_USERNAME EUREKA_PASSWORD:EUREKA_PASSWORD"
+  [product-service]=""
+  [inventory-service]="DB_PASSWORD:DB_PASSWORD SPRING_RABBITMQ_PASSWORD:RABBITMQ_INVENTORY_PASSWORD"
+  [order-service]="DB_PASSWORD:DB_PASSWORD KC_ORDER_SERVICE_CLIENT_SECRET:KC_ORDER_SERVICE_CLIENT_SECRET SPRING_RABBITMQ_PASSWORD:RABBITMQ_ORDER_PASSWORD"
+  [notification-service]="SPRING_RABBITMQ_PASSWORD:RABBITMQ_NOTIFICATION_PASSWORD REDIS_PASSWORD:REDIS_PASSWORD"
   [api-gateway]="KC_BFF_CLIENT_SECRET:KC_BFF_CLIENT_SECRET REDIS_PASSWORD:REDIS_PASSWORD"
 )
 
-for service in inventory-service order-service notification-service api-gateway; do
-  line=""
+# Prepara todas as linhas antes de imprimir: erro em variável não deixa configuração parcial.
+declare -A lines
+for service in eureka-server product-service inventory-service order-service notification-service api-gateway; do
+  line="TRACING_SAMPLING_PROBABILITY=$sampling;"
+  if [[ "$service" != eureka-server ]]; then
+    line+="EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=$eureka_url;"
+  fi
+  case "$service" in
+    order-service|notification-service|inventory-service)
+      line+="SPRING_RABBITMQ_USERNAME=$service;SPRING_RABBITMQ_VIRTUAL_HOST=ecommerce;" ;;
+  esac
+  [[ "$service" != api-gateway ]] || line+='SESSION_COOKIE_SECURE=false;'
   for pair in ${services[$service]}; do
     line+="${pair%%:*}=$(get "${pair##*:}");"
   done
-  printf '\n# %s\n%s\n' "$service" "${line%;}"
+  lines[$service]="${line%;}"
 done
-printf '\n# eureka-server e product-service: nenhuma variável necessária.\n'
+for service in eureka-server product-service inventory-service order-service notification-service api-gateway; do
+  printf '\n# %s\n%s\n' "$service" "${lines[$service]}"
+done

@@ -18,13 +18,14 @@ spring:
     baseline-version: 1
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+        format_sql: false
         # Carrega os itens de vários pedidos num único SELECT ... WHERE order_id IN (...),
         # em vez de uma query por pedido (N+1) ao montar uma página da listagem.
         default_batch_fetch_size: 50
@@ -71,9 +72,21 @@ spring:
             # Evita threads e conexões presas em dependências lentas.
             connect-timeout: 2000
             read-timeout: 5000
-      oauth2:
-        enabled: true
-        clientRegistrationId: order-service
+
+ecommerce:
+  order:
+    reservation:
+      max-attempts: 3
+      retry-delay: 50ms
+    reconciliation:
+      # Idade mínima muito maior que o tempo máximo do fluxo síncrono (3 tentativas x 5s read-timeout).
+      fixed-delay: 30000
+      min-age: 2m
+      batch-size: 50
+    outbox:
+      base-backoff: 5s
+      max-backoff: 30m
+      max-attempts: 100
 
 eureka:
   client:
@@ -92,8 +105,7 @@ management:
       application: ${spring.application.name}
   tracing:
     sampling:
-      probability: 1.0
-  zipkin:
-    tracing:
-      endpoint: http://localhost:9411/api/v2/spans
-
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+    export:
+      zipkin:
+        endpoint: http://localhost:9411/api/v2/spans

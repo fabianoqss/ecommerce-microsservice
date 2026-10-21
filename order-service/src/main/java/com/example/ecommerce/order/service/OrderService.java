@@ -1,0 +1,378 @@
+package com.example.ecommerce.order.service;
+
+import com.example.ecommerce.order.domain.Order;
+import com.example.ecommerce.order.domain.OrderEventType;
+import com.example.ecommerce.order.domain.OrderItem;
+import com.example.ecommerce.order.domain.OrderStatus;
+import com.example.ecommerce.order.domain.OutboxEvent;
+import com.example.ecommerce.order.domain.ReservationMode;
+import com.example.ecommerce.order.dto.request.InventoryItemDTO;
+import com.example.ecommerce.order.dto.request.InventoryReserveRequestDTO;
+import com.example.ecommerce.order.dto.request.OrderItemRequestDTO;
+import com.example.ecommerce.order.dto.request.OrderRequestDTO;
+import com.example.ecommerce.order.dto.response.OrderItemResponseDTO;
+import com.example.ecommerce.order.dto.response.OrderResponseDTO;
+import com.example.ecommerce.order.dto.response.PageResponseDTO;
+import com.example.ecommerce.order.dto.response.ProductDTO;
+import com.example.ecommerce.order.exception.InsufficientStockException;
+import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionException;
+import com.example.ecommerce.order.exception.InvalidProductDataException;
+import com.example.ecommerce.order.exception.OrderNotFoundException;
+import com.example.ecommerce.order.exception.OrderReservationException;
+import com.example.ecommerce.order.exception.ProductNotFoundException;
+import com.example.ecommerce.order.infra.client.InventoryClient;
+import com.example.ecommerce.order.infra.client.ProductClient;
+import com.example.ecommerce.order.infra.messaging.OrderEventDTO;
+import com.example.ecommerce.order.repository.OrderRepository;
+import com.example.ecommerce.order.repository.OutboxEventRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import feign.FeignException;
+import feign.RetryableException;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.TreeMap;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+public class OrderService {
+
+    private static final Sort LATEST_FIRST = Sort.by(Sort.Direction.DESC, "orderTime", "id");
+    // v2: orderId passou de número (Long) para UUID. Consumidores aceitam as duas versões.
+    private static final int ORDER_EVENT_VERSION = 2;
+    // v3: ORDER_CANCELLED inclui reservationMode (LEGACY|LEDGER) e items agregados por SKU para liberação por evento.
+    private static final int ORDER_CANCELLED_EVENT_VERSION = 3;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private ProductClient productClient;
+
+    @Autowired
+    private InventoryClient inventoryClient;
+
+    @Autowired
+    private OutboxEventRepository outboxEventRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
+
+    @Setter
+    @Value("${ecommerce.order.reservation.max-attempts:3}")
+    private int reservationMaxAttempts = 3;
+
+    @Setter
+    @Value("${ecommerce.order.reservation.retry-delay:50ms}")
+    private Duration reservationRetryDelay = Duration.ofMillis(50);
+
+    @Transactional(readOnly = true)
+    public PageResponseDTO<OrderResponseDTO> findAll(int page, int size, Authentication authentication) {
+        // Ordenação fixa no servidor: o cliente não escolhe propriedade de sort (evita erro/sort em coluna sem índice).
+        Pageable pageable = PageRequest.of(page, size, LATEST_FIRST);
+        // "Meus pedidos" do cliente exibe apenas pedidos que chegaram a ser confirmados (confirmed_at IS NOT NULL).
+        Page<Order> orders = isAdmin(authentication)
+                ? orderRepository.findAll(pageable)
+                : orderRepository.findByUserIDAndConfirmedAtIsNotNull(authentication.getName(), pageable);
+
+        return PageResponseDTO.from(orders.map(this::toResponseDTO));
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponseDTO findById(UUID id, Authentication authentication) {
+        Optional<Order> order = isAdmin(authentication)
+                ? orderRepository.findById(id)
+                : orderRepository.findByIdAndUserID(id, authentication.getName());
+
+        // Pedido de outro usuário responde 404, igual a um inexistente: um 403 revelaria quais IDs
+        // existem e permitiria enumerar pedidos (IDOR).
+        return order.map(this::toResponseDTO)
+                .orElseThrow(() -> new OrderNotFoundException(id));
+    }
+
+    public OrderResponseDTO createOrder(OrderRequestDTO request, String userId) {
+        List<String> productIds = request.items().stream()
+                .map(OrderItemRequestDTO::productId)
+                .distinct()
+                .toList();
+
+        Map<String, ProductDTO> productMap = productIds.stream()
+                .collect(Collectors.toMap(id -> id, this::fetchProduct));
+
+        List<OrderItem> orderItems = request.items().stream().map(itemDto -> {
+            ProductDTO product = productMap.get(itemDto.productId());
+            OrderItem item = new OrderItem();
+            item.setProductId(itemDto.productId());
+            item.setProductName(product.name());
+            item.setQuantity(itemDto.quantity());
+            item.setPrice(product.price());
+            return item;
+        }).toList();
+
+        BigDecimal totalValue = orderItems.stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<InventoryItemDTO> reserveItems = aggregateInventoryItems(request.items().stream()
+                .map(i -> new InventoryItemDTO(i.productId(), i.quantity()))
+                .toList());
+
+        // 1. Tx curta: grava o pedido como PENDING (LEDGER) antes do efeito remoto no inventory.
+        Order order = new Order();
+        order.setUserID(userId);
+        order.setOrderTime(LocalDateTime.now());
+        order.setStatus(OrderStatus.PENDING);
+        order.setReservationMode(ReservationMode.LEDGER);
+        order.setTotalValue(totalValue);
+        order.setItems(orderItems);
+
+        Order pendingOrder = Objects.requireNonNull(
+                transactionTemplate.execute(status -> orderRepository.saveAndFlush(order)),
+                "Falha ao persistir o pedido pendente");
+        UUID orderId = pendingOrder.getId();
+
+        // 2. Reserva idempotente por orderId fora de transação (até 2 retentativas rápidas só em timeout/IO/5xx).
+        try {
+            reserveWithRetry(orderId, new InventoryReserveRequestDTO(reserveItems));
+        } catch (FeignException.Conflict e) {
+            // 3b. 409 sem estoque => PENDING -> CANCELLED e responde 409 ao cliente.
+            cancelOrderWithoutStock(pendingOrder);
+            meterRegistry.counter("orders.created", "result", "insufficient_stock").increment();
+            log.info("Pedido cancelado por falta de estoque: orderId={}", orderId);
+            throw new InsufficientStockException("Estoque insuficiente para um ou mais itens do pedido");
+        } catch (OAuth2AuthorizationException e) {
+            meterRegistry.counter("orders.created", "result", "pending").increment();
+            log.warn("Pedido mantido PENDING por indisponibilidade do token de serviço: orderId={}", orderId);
+            throw e;
+        } catch (RuntimeException e) {
+            // 3c. Falha ambígua (timeout/5xx após retries) ou erro inesperado (410/422/401/403):
+            // mantém PENDING para o reconciliador liberar/colocar lápide no inventory e cancelar.
+            meterRegistry.counter("orders.created", "result", "pending").increment();
+            log.warn("Falha ao reservar estoque; pedido permanecerá PENDING para reconciliação: orderId={}", orderId, e);
+            throw new OrderReservationException(
+                    "Não foi possível confirmar a reserva de estoque do pedido " + orderId + "; tente novamente", e);
+        }
+
+        // 3a. Reserva confirmada (201/200) => tx curta: PENDING -> CONFIRMED + outbox ORDER_CREATED.
+        try {
+            OrderResponseDTO response = transactionTemplate.execute(status -> {
+                pendingOrder.confirm(Instant.now());
+                Order confirmedOrder = orderRepository.saveAndFlush(pendingOrder);
+                enqueueEvent(confirmedOrder, OrderEventType.ORDER_CREATED);
+                return toResponseDTO(confirmedOrder);
+            });
+            meterRegistry.counter("orders.created", "result", "confirmed").increment();
+            log.info("Pedido confirmado com sucesso: orderId={}", orderId);
+            return response;
+        } catch (OptimisticLockingFailureException | InvalidOrderStatusTransitionException ex) {
+            // O reconciliador expirou o pedido enquanto o PUT estava em voo: nunca confirma tarde.
+            meterRegistry.counter("orders.created", "result", "pending").increment();
+            log.warn("Confirmação rejeitada porque o reconciliador já expirou o pedido: orderId={}", orderId, ex);
+            throw new OrderReservationException(
+                    "O tempo limite de confirmação do pedido " + orderId + " expirou", ex);
+        }
+    }
+
+    private void reserveWithRetry(UUID orderId, InventoryReserveRequestDTO request) {
+        int maxAttempts = Math.max(1, reservationMaxAttempts);
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                inventoryClient.reserve(orderId, request);
+                return;
+            } catch (RuntimeException ex) {
+                if (attempt >= maxAttempts || !isRetryableReserveFailure(ex)) {
+                    throw ex;
+                }
+                log.warn("Falha transitória ao reservar estoque (tentativa {}/{}): orderId={}",
+                        attempt, maxAttempts, orderId, ex);
+                sleepBeforeRetry();
+            }
+        }
+    }
+
+    private static boolean isRetryableReserveFailure(Throwable ex) {
+        if (ex instanceof RetryableException) {
+            return true;
+        }
+        if (ex instanceof FeignException feignEx) {
+            return feignEx.status() >= 500 && feignEx.status() < 600;
+        }
+        return ex.getCause() instanceof IOException;
+    }
+
+    private void sleepBeforeRetry() {
+        long delayMillis = reservationRetryDelay != null ? reservationRetryDelay.toMillis() : 0L;
+        if (delayMillis <= 0L) {
+            return;
+        }
+        try {
+            Thread.sleep(delayMillis);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void cancelOrderWithoutStock(Order pendingOrder) {
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                pendingOrder.cancel("system", "Estoque insuficiente", LocalDateTime.now());
+                orderRepository.saveAndFlush(pendingOrder);
+            });
+        } catch (OptimisticLockingFailureException ex) {
+            log.debug("Pedido já alterado concorrentemente pelo reconciliador ao cancelar por falta de estoque: orderId={}",
+                    pendingOrder.getId(), ex);
+        }
+    }
+
+    /**
+     * Cancela o pedido (dono ou admin) numa transação local (CONFIRMED -> CANCELLED + auditoria +
+     * outbox ORDER_CANCELLED v3). A devolução do estoque ocorre de forma assíncrona e idempotente
+     * no inventory-service via RabbitMQ. Repetir o cancelamento de um pedido já cancelado é
+     * idempotente: responde o estado atual sem publicar outro evento.
+     */
+    @Transactional
+    public OrderResponseDTO cancel(UUID id, String reason, Authentication authentication) {
+        Optional<Order> found = isAdmin(authentication)
+                ? orderRepository.findById(id)
+                : orderRepository.findByIdAndUserID(id, authentication.getName());
+        // Mesmo critério do findById: pedido de outro usuário responde 404.
+        Order order = found.orElseThrow(() -> new OrderNotFoundException(id));
+
+        if (!order.cancel(authentication.getName(), reason, LocalDateTime.now())) {
+            return toResponseDTO(order);
+        }
+
+        orderRepository.saveAndFlush(order);
+        enqueueEvent(order, OrderEventType.ORDER_CANCELLED);
+
+        String actor = Objects.equals(order.getUserID(), authentication.getName()) ? "owner" : "admin";
+        afterCommit(() -> meterRegistry.counter("orders.cancelled", "actor", actor).increment());
+        log.info("Pedido cancelado: orderId={}, actor={}, cancelledBy={}", order.getId(), actor, order.getCancelledBy());
+
+        return toResponseDTO(order);
+    }
+
+    private void enqueueEvent(Order order, OrderEventType type) {
+        UUID eventId = UUID.randomUUID();
+        boolean cancelled = type == OrderEventType.ORDER_CANCELLED;
+        OrderEventDTO event = new OrderEventDTO(
+                eventId,
+                cancelled ? ORDER_CANCELLED_EVENT_VERSION : ORDER_EVENT_VERSION,
+                order.getId(),
+                order.getUserID(),
+                order.getStatus().name(),
+                order.getTotalValue(),
+                order.getOrderTime(),
+                cancelled ? order.getReservationMode() : null,
+                cancelled ? toInventoryItems(order) : null
+        );
+        outboxEventRepository.save(OutboxEvent.pending(eventId, order.getId(), type.name(), serializeEvent(event)));
+    }
+
+    private static List<InventoryItemDTO> toInventoryItems(Order order) {
+        return aggregateInventoryItems(order.getItems().stream()
+                .map(item -> new InventoryItemDTO(item.getProductId(), item.getQuantity()))
+                .toList());
+    }
+
+    private static List<InventoryItemDTO> aggregateInventoryItems(List<InventoryItemDTO> items) {
+        // A mesma ordem de bloqueio por SKU evita deadlocks no inventory-service.
+        Map<String, Integer> quantities = new TreeMap<>();
+        items.forEach(item -> quantities.merge(item.skuCode(), item.quantity(), Math::addExact));
+        return quantities.entrySet().stream()
+                .map(entry -> new InventoryItemDTO(entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
+    // Métrica de negócio só conta o que de fato foi persistido (não conta rollback).
+    private static void afterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
+    }
+
+    private String serializeEvent(OrderEventDTO event) {
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Não foi possível serializar o evento do pedido", ex);
+        }
+    }
+
+    private ProductDTO fetchProduct(String productId) {
+        try {
+            ProductDTO product = productClient.getProductById(productId);
+            if (product == null || product.price() == null || product.name() == null || product.name().isBlank()) {
+                throw new InvalidProductDataException(productId);
+            }
+            return product;
+        } catch (FeignException.NotFound e) {
+            throw new ProductNotFoundException(productId);
+        }
+    }
+
+    private boolean isAdmin(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_ADMIN"::equals);
+    }
+
+    private OrderResponseDTO toResponseDTO(Order order) {
+        List<OrderItemResponseDTO> items = order.getItems().stream()
+                .map(item -> new OrderItemResponseDTO(
+                        item.getProductId(),
+                        item.getProductName(),
+                        item.getQuantity(),
+                        item.getPrice()))
+                .toList();
+
+        return new OrderResponseDTO(
+                order.getId(),
+                order.getStatus().name(),
+                order.getTotalValue(),
+                order.getOrderTime(),
+                items);
+    }
+}
