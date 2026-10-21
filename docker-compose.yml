@@ -87,6 +87,7 @@ services:
       RABBITMQ_ADMIN_PASSWORD: ${RABBITMQ_ADMIN_PASSWORD:?defina RABBITMQ_ADMIN_PASSWORD}
       RABBITMQ_ORDER_PASSWORD: ${RABBITMQ_ORDER_PASSWORD:?defina RABBITMQ_ORDER_PASSWORD}
       RABBITMQ_NOTIFICATION_PASSWORD: ${RABBITMQ_NOTIFICATION_PASSWORD:?defina RABBITMQ_NOTIFICATION_PASSWORD}
+      RABBITMQ_INVENTORY_PASSWORD: ${RABBITMQ_INVENTORY_PASSWORD:?defina RABBITMQ_INVENTORY_PASSWORD}
     volumes:
       - ./scripts/rabbitmq-init.sh:/scripts/rabbitmq-init.sh:ro
     depends_on:
@@ -198,7 +199,9 @@ services:
     profiles: ["apps"]
     container_name: inventory-service
     environment:
-      <<: [*app-env, *oidc-env]
+      <<: [*app-env, *rabbitmq-env, *oidc-env]
+      SPRING_RABBITMQ_USERNAME: inventory-service
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_INVENTORY_PASSWORD:?defina RABBITMQ_INVENTORY_PASSWORD}
       DB_URL: ${INVENTORY_DB_URL:?defina INVENTORY_DB_URL}
       DB_USERNAME: ${INVENTORY_DB_USERNAME:?defina INVENTORY_DB_USERNAME}
       DB_PASSWORD: ${INVENTORY_DB_PASSWORD:?defina INVENTORY_DB_PASSWORD}
@@ -207,6 +210,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
       interval: 15s

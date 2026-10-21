@@ -36,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "eureka.client.enabled=false",
         "spring.cloud.discovery.enabled=false",
+        "spring.rabbitmq.listener.simple.auto-startup=false",
         "DB_PASSWORD=unused"
 })
 @AutoConfigureMockMvc
@@ -429,29 +430,6 @@ class StockReservationIntegrationTest {
                         .isEqualTo(100);
             }
         }
-    }
-
-    @Test
-    void deprecatedLegacyReserveAndReleaseStillWork() throws Exception {
-        String payload = """
-                {"items": [{"skuCode": "SKU-A", "quantity": 6}]}
-                """;
-
-        mvc.perform(post("/api/inventory/reserve")
-                        .with(serviceToken())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isNoContent());
-
-        assertThat(quantityOf("SKU-A")).isEqualTo(94);
-
-        mvc.perform(post("/api/inventory/release")
-                        .with(serviceToken())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isNoContent());
-
-        assertThat(quantityOf("SKU-A")).isEqualTo(100);
     }
 
     private static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor serviceToken() {

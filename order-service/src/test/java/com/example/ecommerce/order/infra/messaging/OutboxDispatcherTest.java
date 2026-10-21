@@ -97,7 +97,7 @@ class OutboxDispatcherTest {
         UUID orderId = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b");
         UUID eventId = UUID.randomUUID();
         OrderEventDTO dto = new OrderEventDTO(
-                eventId, 2, orderId, "user-sub", "CONFIRMED", BigDecimal.TEN, LocalDateTime.now());
+                eventId, 2, orderId, "user-sub", "CONFIRMED", BigDecimal.TEN, LocalDateTime.now(), null, null);
         OutboxEvent event = OutboxEvent.pending(eventId, orderId, "ORDER_CREATED", objectMapper.writeValueAsString(dto));
         event.setId(1L);
         return event;

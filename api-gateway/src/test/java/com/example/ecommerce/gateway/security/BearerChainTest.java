@@ -56,18 +56,6 @@ class BearerChainTest extends GatewayTestSupport {
     }
 
     @Test
-    void reserveAndReleaseAreDeniedAtTheEdge() throws Exception {
-        mvc.perform(post("/api/inventory/reserve").header("Authorization", "Bearer customer-token")
-                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isForbidden());
-        mvc.perform(post("/api/inventory/release").header("Authorization", "Bearer customer-token")
-                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isForbidden());
-
-        BACKEND.verify(0, postRequestedFor(urlMatching("/api/inventory/.*")));
-    }
-
-    @Test
     void reservationsLedgerIsDeniedAtTheEdgeEvenForGet() throws Exception {
         mvc.perform(get("/api/inventory/reservations/0199f5d2-0000-7000-8000-000000000001")
                         .header("Authorization", "Bearer customer-token"))

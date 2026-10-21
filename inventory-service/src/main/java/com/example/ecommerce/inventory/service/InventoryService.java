@@ -150,7 +150,7 @@ public class InventoryService {
     // (a) INSERT lápide ON CONFLICT DO NOTHING aguarda eventual PUT concorrente em voo;
     // (b) UPDATE em statement separado enxerga novo snapshot (commit do PUT) e garante devolução única.
     @Transactional
-    public void release(UUID reservationId) {
+    public String release(UUID reservationId) {
         Instant now = Instant.now();
 
         int inserted = reservationRepository.insertIfAbsent(
@@ -158,7 +158,7 @@ public class InventoryService {
         if (inserted == 1) {
             recordReleaseMetric("tombstone");
             log.info("Lápide (tombstone) de reserva criada: reservationId={}", reservationId);
-            return;
+            return "tombstone";
         }
 
         int updated = reservationRepository.transitionReservedToReleased(reservationId, now);
@@ -171,11 +171,34 @@ public class InventoryService {
             recordReleaseMetric("released");
             log.info("Reserva liberada e estoque incrementado: reservationId={}, skus={}",
                     reservationId, items.size());
-            return;
+            return "released";
         }
 
         recordReleaseMetric("noop");
         log.info("Liberação idempotente ignorada (noop, já RELEASED): reservationId={}", reservationId);
+        return "noop";
+    }
+
+    // Devolução idempotente para pedidos LEGACY (anteriores à V7, sem reserva no livro-razão):
+    // grava uma lápide RELEASED por orderId; apenas a 1ª execução incrementa os itens ordenados por SKU.
+    @Transactional
+    public String releaseLegacy(UUID orderId, List<InventoryItemDTO> items) {
+        Map<String, Integer> normalizedItems = normalizeItems(items);
+        Instant now = Instant.now();
+
+        int inserted = reservationRepository.insertIfAbsent(
+                orderId, ReservationStatus.RELEASED.name(), now);
+        if (inserted == 1) {
+            for (Map.Entry<String, Integer> entry : normalizedItems.entrySet()) {
+                inventoryRepository.increment(entry.getKey(), entry.getValue());
+            }
+            log.info("Estoque devolvido para pedido LEGACY cancelado: orderId={}, skus={}",
+                    orderId, normalizedItems.size());
+            return "released";
+        }
+
+        log.info("Cancelamento LEGACY duplicado ignorado (noop, lápide já existe): orderId={}", orderId);
+        return "noop";
     }
 
     @Transactional(readOnly = true)
@@ -194,27 +217,6 @@ public class InventoryService {
                 reservation.getCreatedAt(),
                 reservation.getUpdatedAt()
         );
-    }
-
-    // Mantido apenas para compatibilidade durante transição de pedidos LEGACY.
-    @Deprecated
-    @Transactional
-    public void reserve(List<InventoryItemDTO> items) {
-        for (InventoryItemDTO item : items) {
-            int updated = inventoryRepository.decrement(item.skuCode(), item.quantity());
-            if (updated == 0) {
-                throw new InsufficientStockException(item.skuCode());
-            }
-        }
-    }
-
-    // Mantido apenas para compatibilidade durante transição de pedidos LEGACY.
-    @Deprecated
-    @Transactional
-    public void release(List<InventoryItemDTO> items) {
-        for (InventoryItemDTO item : items) {
-            inventoryRepository.increment(item.skuCode(), item.quantity());
-        }
     }
 
     private Map<String, Integer> normalizeItems(List<InventoryItemDTO> items) {

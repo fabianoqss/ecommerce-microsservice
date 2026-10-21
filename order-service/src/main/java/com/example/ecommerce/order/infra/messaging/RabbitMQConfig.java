@@ -26,6 +26,9 @@ public class RabbitMQConfig {
     public static final String CANCELLED_ROUTING_KEY = "order.cancelled";
     public static final String CANCELLED_DEAD_LETTER_QUEUE = "order.cancelled.dlq";
     public static final String CANCELLED_DEAD_LETTER_ROUTING_KEY = "order.cancelled.dead";
+    public static final String INVENTORY_CANCELLED_QUEUE = "inventory.order.cancelled.queue";
+    public static final String INVENTORY_CANCELLED_DEAD_LETTER_QUEUE = "inventory.order.cancelled.dlq";
+    public static final String INVENTORY_CANCELLED_DEAD_LETTER_ROUTING_KEY = "inventory.order.cancelled.dead";
 
     @Bean
     public TopicExchange orderExchange() {
@@ -91,6 +94,36 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(cancelledDeadLetterQueue)
                 .to(deadLetterExchange)
                 .with(CANCELLED_DEAD_LETTER_ROUTING_KEY);
+    }
+
+    // Fila exclusiva do inventory-service declarada pelo order-service (único dono da topologia):
+    // garante entrega independente ao inventory mesmo com mandatory=true já satisfeito pela fila do notification.
+    @Bean
+    public Queue inventoryOrderCancelledQueue() {
+        return QueueBuilder.durable(INVENTORY_CANCELLED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(INVENTORY_CANCELLED_DEAD_LETTER_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public Binding inventoryCancelledBinding(Queue inventoryOrderCancelledQueue, TopicExchange orderExchange) {
+        return BindingBuilder.bind(inventoryOrderCancelledQueue)
+                .to(orderExchange)
+                .with(CANCELLED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue inventoryCancelledDeadLetterQueue() {
+        return QueueBuilder.durable(INVENTORY_CANCELLED_DEAD_LETTER_QUEUE).build();
+    }
+
+    @Bean
+    public Binding inventoryCancelledDeadLetterBinding(
+            Queue inventoryCancelledDeadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(inventoryCancelledDeadLetterQueue)
+                .to(deadLetterExchange)
+                .with(INVENTORY_CANCELLED_DEAD_LETTER_ROUTING_KEY);
     }
 
     @Bean

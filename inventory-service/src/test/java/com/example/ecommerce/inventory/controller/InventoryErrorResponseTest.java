@@ -25,7 +25,6 @@ import java.util.stream.IntStream;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -76,12 +75,12 @@ class InventoryErrorResponseTest {
                 .andExpect(jsonPath("$.detail").value("Reserva de estoque não encontrada: " + RESERVATION_ID));
     }
 
-    @SuppressWarnings("deprecation")
     @Test
     void insufficientStockReturnsConflictProblemDetail() throws Exception {
-        doThrow(new InsufficientStockException("SKU-1")).when(inventoryService).reserve(any());
+        when(inventoryService.reserve(eq(RESERVATION_ID), any()))
+                .thenThrow(new InsufficientStockException("SKU-1"));
 
-        mvc.perform(post("/api/inventory/reserve")
+        mvc.perform(put("/api/inventory/reservations/" + RESERVATION_ID)
                         .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_inventory:reserve")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"skuCode\":\"SKU-1\",\"quantity\":2}]}"))

@@ -5,6 +5,7 @@ set -eu
 : "${RABBITMQ_ADMIN_PASSWORD:?defina RABBITMQ_ADMIN_PASSWORD}"
 : "${RABBITMQ_ORDER_PASSWORD:?defina RABBITMQ_ORDER_PASSWORD}"
 : "${RABBITMQ_NOTIFICATION_PASSWORD:?defina RABBITMQ_NOTIFICATION_PASSWORD}"
+: "${RABBITMQ_INVENTORY_PASSWORD:?defina RABBITMQ_INVENTORY_PASSWORD}"
 
 api_url=${RABBITMQ_API_URL:-http://rabbitmq:15672}
 
@@ -36,17 +37,22 @@ printf '{"password":%s,"tags":"administrator"}' "$(json_string "$RABBITMQ_ADMIN_
 # O bootstrap concede acesso AMQP amplo; o administrador deve operar só pelo console/API.
 printf '%s' '{"configure":"(?!)","write":"(?!)","read":"(?!)"}' | put "permissions/ecommerce/$admin_path"
 
-for service in order-service notification-service; do
+for service in order-service notification-service inventory-service; do
   case "$service" in
     order-service)
       password=$RABBITMQ_ORDER_PASSWORD
-      # Único dono da topologia: declara exchanges, filas/DLQs e bindings order.* e publica eventos.
-      permissions='{"configure":"^order\\.","write":"^order\\.","read":"^order\\."}'
+      # Único dono da topologia: declara exchanges, filas/DLQs e bindings (order.* e inventory.*) e publica eventos.
+      permissions='{"configure":"^(order|inventory)\\.","write":"^(order|inventory)\\.","read":"^(order|inventory)\\."}'
       ;;
     notification-service)
       password=$RABBITMQ_NOTIFICATION_PASSWORD
       # Consumidor puro: apenas lê das filas de eventos de pedido, sem declarar nem publicar.
       permissions='{"configure":"^$","write":"^$","read":"^order\\.(created|cancelled)\\.queue$"}'
+      ;;
+    inventory-service)
+      password=$RABBITMQ_INVENTORY_PASSWORD
+      # Consumidor puro do cancelamento: apenas lê da própria fila de cancelamento, sem declarar nem publicar.
+      permissions='{"configure":"^$","write":"^$","read":"^inventory\\.order\\.cancelled\\.queue$"}'
       ;;
   esac
   printf '{"password":%s,"tags":""}' "$(json_string "$password")" | put "users/$service"

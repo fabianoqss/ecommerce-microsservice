@@ -78,9 +78,8 @@ class FeignClientAuthenticationTest {
 
             inventory.reserve(ORDER_ID, ITEMS);
             inventory.releaseReservation(ORDER_ID);
-            inventory.release(ITEMS);
 
-            assertThat(context.getBean(RecordingClient.class).requests).hasSize(3).allSatisfy(request ->
+            assertThat(context.getBean(RecordingClient.class).requests).hasSize(2).allSatisfy(request ->
                     assertThat(request.headers().get("Authorization")).containsExactly("Bearer svc-token"));
         });
     }
