@@ -1,41 +1,38 @@
 # Próximos passos (revisão de 2026-10-20)
 
-Estado: branch `feat/keycloak-bff`, tudo commitado e enviado. Os 6 serviços estão em Spring Boot 4.0.8 /
-Spring Cloud 2025.1.3 e todas as suítes passam. Achados abaixo já verificados no código; o que ainda
-depende de verificação está marcado.
+Estado: branch `feat/keycloak-bff`. Os lotes B–F da revisão foram concluídos em 2026-10-20, com
+`./mvnw verify` verde na raiz e teste ponta a ponta no ambiente Docker (login Keycloak → pedido →
+cancelamento por evento → estoque devolvido; 409 sem estoque; livro de reservas bloqueado na borda).
 
-## Lote B — segurança e código morto (risco baixo)
-- Apagar `product-service/infra/` (Mongo publicado em 0.0.0.0:27017 sem auth; o `docker-compose.dev.yml` da raiz já cobre).
-- order-service: OAuth2 do Feign só no `InventoryClient` (hoje `spring.cloud.openfeign.oauth2.enabled` manda o token de serviço até para o product-service).
-- Cookie de sessão do gateway com `Secure=true` por padrão no compose de produção (`false` só no override de dev).
-- Limites: paginação com teto em `GET /api/product`; `@Size(max = 50)` na lista de itens do pedido.
-- `sampling.probability` e `show-sql` por ambiente (hoje 1.0 e true em produção).
-- `/actuator/prometheus` e `/actuator/info` do gateway fora do acesso público.
-- notification-service: remover `OpenAPIConfig` + `springdoc` (não tem endpoint HTTP) e `spring-rabbit-test`; trocar o `IdempotencyGuard` em memória (cresce sem limite e perde estado no restart) por inbox persistente.
-- api-gateway: unir as rotas `-root` duplicadas no `application.yml`; remover `micrometer-tracing-bridge-brave` (transitivo) e import morto em `SessionChainTest`.
-- Construtores mortos: `Product(6 args)`, `Inventory(3 args)`.
-- Config quebrada: `open-in-view` do inventory está em `spring.jpa.properties.hibernate` (ignorado; mover para `spring.jpa.open-in-view: false`); chave antiga do Zipkin em order/notification (`management.zipkin.tracing.endpoint` -> `management.tracing.export.zipkin.endpoint`); `spring.application.name` ausente no eureka-server.
-- NÃO mudar: `spring.mongodb.uri` é a propriedade correta no Boot 4 (`spring.data.mongodb.uri` está obsoleta, nível error). `spring-dotenv` é usado em runtime para rodar pela IDE.
+## Concluído
+- **Lote B — segurança e código morto:** `product-service/infra` removido; token de serviço só no
+  `InventoryClient`; cookie `Secure` por padrão; paginação com teto e limite de itens; tracing/SQL por
+  ambiente; actuator do gateway na porta interna 8090; idempotência do notification no Redis; rotas e
+  dependências mortas removidas; configs quebradas corrigidas.
+- **Lote C — infraestrutura:** RabbitMQ 4.2.5 com vhost `ecommerce` e um usuário por serviço
+  (`rabbitmq-init`); Eureka com HTTP Basic; Keycloak 26.7.5; imagens com versão fixa;
+  `scripts/generate-env.sh`.
+- **Lote D — documentação:** README, `PROJECT_STATUS.md`, `PLANO_EXECUCAO.md` e Bruno sem auth-service;
+  `.env.example` duplicados removidos.
+- **Lote E — estrutura:** POM agregador (`ecommerce-parent`), módulo `common-security`, wrapper único,
+  Dockerfiles não-root com contexto na raiz e `.dockerignore` allowlist; pacotes
+  `com.example.ecommerce.<serviço>`; ProblemDetail; order-service único dono da topologia RabbitMQ.
+- **Lote F — reservas idempotentes** (`docs/specs/reservas-idempotentes.md`, Revisão v2): livro-razão no
+  inventory; criação com PENDING + reconciliador; cancelamento por evento v3 com transição LEGACY;
+  `/reserve` e `/release` removidos.
 
-## Lote C — infraestrutura (risco médio, exige subir o ambiente)
-- RabbitMQ: um usuário por serviço com permissão mínima (hoje order e notification usam a credencial admin).
-- Eureka com autenticação.
-- Fixar versão/digest das imagens; sair do `rabbitmq:3-management` (linha 3.13 sem suporte).
-- Keycloak 26.4.7: VERIFICAR os avisos citados na auditoria (GHSA-95cx-vmr5-3cmr, GHSA-j97h-3f8r-mrjr) e atualizar.
-- README: o comando de geração de segredos não substitui os placeholders `troque-...` do `.env.example`.
+## Permissões RabbitMQ resultantes
+| Usuário | configure | write | read |
+|---|---|---|---|
+| order-service (produtor, dono da topologia) | `^(order\|inventory)\.` | idem | idem |
+| notification-service | nada | nada | `order.created.queue`, `order.cancelled.queue` |
+| inventory-service | nada | nada | `inventory.order.cancelled.queue` |
+| admin (console) | sem acesso AMQP | | |
 
-## Lote D — documentação
-- README, `PROJECT_STATUS.md`, `docs/PLANO_EXECUCAO.md` ainda citam o auth-service; 8 arquivos `.bru` dependem dele ou dizem que os serviços "não têm segurança".
-- `.env.example` duplicados em order-service e inventory-service (o da raiz é o oficial).
-
-## Lote E — estrutura (risco alto, um serviço por vez)
-- POM agregador na raiz com versões centralizadas (`dependencyManagement`) e módulo `common-security` para o `KeycloakJwtAuthenticationConverter` (hoje copiado em 4 serviços). NÃO compartilhar DTOs de contrato entre serviços (acopla deploys); usar versionamento de evento.
-- Pacotes padronizados: raiz `com.example.ecommerce.<serviço>`; `controller/ service/ domain/ repository/ dto/{request,response}/ exception/ config/ infra/{security,exception}/`; `ProblemDetail` em todos; YAML em todos.
-- api-gateway por funcionalidade: `security/` (SecurityConfig, GatewayAuthorizationRules), `security/jwt/` (converter, absorvendo `KeycloakRoles`), `bff/` (controller, response, properties, client registration), `bff/relay/` (SessionTokenRelayFilter, BearerTokenRequestWrapper).
-- Topologia RabbitMQ declarada em duplicidade em order e notification.
-
-## Lote F — reservas de estoque idempotentes
-Desenho completo, já revisado por segunda opinião: `docs/specs/reservas-idempotentes.md` (seguir a seção "Revisão v2").
-Entregas: (1) livro de reservas no inventory com endpoints novos e testes de corrida com Testcontainers;
-(2) criação com PENDING + reconciliador no order-service; (3) cancelamento por evento + transição dos pedidos LEGACY.
-O `cancel` atual ainda chama o inventory dentro da transação de propósito: muda na entrega (3).
+## Pendências e sugestões
+- Alertas no Prometheus: profundidade > 0 nas DLQs, `orders.pending` crescendo, pedido PENDING mais
+  velho que X minutos, outbox em FAILED.
+- Expurgo periódico do livro-razão (`tb_stock_reservation` RELEASED antigas).
+- Frontend: `GET /api/product` agora é paginado (`content`, `page`, `size`, `totalElements`, `totalPages`).
+- IDE: reimportar o projeto pelo `pom.xml` da raiz (módulos e pacotes novos).
+- `.env` local: `RABBITMQ_USERNAME`/`RABBITMQ_PASSWORD` antigos não são mais usados e podem ser apagados.
