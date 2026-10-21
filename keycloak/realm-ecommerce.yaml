@@ -1,0 +1,180 @@
+# Realm "ecommerce" como código, aplicado pelo serviço keycloak-config (keycloak-config-cli) a cada
+# subida do Compose. A ferramenta reconcilia: cria o que falta e atualiza o que divergiu.
+# Segredos e endereços vêm de variáveis de ambiente (sintaxe "env:" da ferramenta); nada sensível
+# é versionado. Atenção: a substituição vale também dentro de comentários.
+# A substituição acontece antes da leitura do YAML: por isso os valores ficam entre aspas simples, e
+# secrets devem usar só caracteres seguros (A-Z, a-z, 0-9, ".", "_", "~", "-"), como os gerados
+# por scripts/generate-env.sh. Um apóstrofo no valor quebraria o arquivo.
+# Usuários não são definidos aqui: clientes se cadastram pela página de registro do Keycloak.
+realm: ecommerce
+enabled: true
+displayName: E-commerce
+
+# HTTPS obrigatório fora da rede local; em produção o TLS termina no nginx.
+sslRequired: external
+
+# Cadastro self-service com e-mail como login e verificação obrigatória.
+registrationAllowed: true
+registrationEmailAsUsername: true
+loginWithEmailAllowed: true
+duplicateEmailsAllowed: false
+editUsernameAllowed: false
+verifyEmail: true
+resetPasswordAllowed: true
+rememberMe: true
+
+internationalizationEnabled: true
+supportedLocales: [pt-BR, en]
+defaultLocale: pt-BR
+
+passwordPolicy: >-
+  length(12) and notEmail and notUsername and specialChars(1) and upperCase(1)
+  and lowerCase(1) and digits(1) and passwordHistory(3)
+
+# Força bruta: bloqueio temporário progressivo (até 15 min) após 5 falhas.
+bruteForceProtected: true
+permanentLockout: false
+failureFactor: 5
+waitIncrementSeconds: 60
+maxFailureWaitSeconds: 900
+maxDeltaTimeSeconds: 43200
+minimumQuickLoginWaitSeconds: 60
+quickLoginCheckMilliSeconds: 1000
+
+# Access token curto; a sessão expira após 30 min ociosa ou 10 h no total.
+# Sem rotação de refresh token: só o BFF (client confidencial) recebe refresh tokens, guardados no
+# servidor e usáveis apenas com o client secret (RFC 9700, 4.14.2). Com rotação de uso único,
+# duas requisições simultâneas renovando o mesmo token derrubariam a sessão do usuário.
+accessTokenLifespan: 300
+accessCodeLifespan: 60
+ssoSessionIdleTimeout: 1800
+ssoSessionMaxLifespan: 36000
+revokeRefreshToken: false
+
+# Auditoria: eventos de login e eventos administrativos, sem o corpo das requisições
+# (o corpo de uma alteração de client incluiria o secret).
+eventsEnabled: true
+eventsExpiration: 2592000
+adminEventsEnabled: true
+adminEventsDetailsEnabled: false
+
+smtpServer:
+  host: '$(env:KC_SMTP_HOST)'
+  port: '$(env:KC_SMTP_PORT)'
+  from: '$(env:KC_SMTP_FROM)'
+  fromDisplayName: E-commerce
+  ssl: "false"
+  starttls: '$(env:KC_SMTP_STARTTLS)'
+  auth: '$(env:KC_SMTP_AUTH)'
+  user: '$(env:KC_SMTP_USER)'
+  password: '$(env:KC_SMTP_PASSWORD)'
+
+roles:
+  realm:
+    - name: CUSTOMER
+      description: Cliente da loja
+    - name: ADMIN
+      description: Administrador da loja (atribuído manualmente, nunca por padrão)
+    # Todo usuário novo recebe só CUSTOMER e o acesso à própria conta; sem offline_access,
+    # ninguém obtém tokens offline de longa duração.
+    - name: default-roles-ecommerce
+      composite: true
+      composites:
+        realm: [CUSTOMER]
+        client:
+          account: [view-profile, manage-account]
+
+clientScopes:
+  # Coloca aud=ecommerce-api no access token; os serviços rejeitam tokens sem essa audience.
+  - name: ecommerce-api
+    protocol: openid-connect
+    attributes:
+      include.in.token.scope: "false"
+      display.on.consent.screen: "false"
+    protocolMappers:
+      - name: audience ecommerce-api
+        protocol: openid-connect
+        protocolMapper: oidc-audience-mapper
+        config:
+          included.custom.audience: ecommerce-api
+          access.token.claim: "true"
+          introspection.token.claim: "true"
+          id.token.claim: "false"
+          lightweight.claim: "false"
+  # Permissão de serviço a serviço para reservar/liberar estoque (SCOPE_inventory:reserve).
+  - name: inventory:reserve
+    protocol: openid-connect
+    attributes:
+      include.in.token.scope: "true"
+      display.on.consent.screen: "false"
+
+clients:
+  # Login de usuários pelo navegador via api-gateway (BFF). O navegador só recebe o cookie de sessão.
+  - clientId: ecommerce-bff
+    name: E-commerce BFF (api-gateway)
+    enabled: true
+    protocol: openid-connect
+    publicClient: false
+    clientAuthenticatorType: client-secret
+    secret: '$(env:KC_BFF_CLIENT_SECRET)'
+    standardFlowEnabled: true
+    implicitFlowEnabled: false
+    directAccessGrantsEnabled: false
+    serviceAccountsEnabled: false
+    consentRequired: false
+    frontchannelLogout: false
+    # Só as roles da loja entram nos tokens deste client (ver scopeMappings).
+    fullScopeAllowed: false
+    # URIs exatas, sem curinga: impede o desvio do authorization code para outro destino.
+    redirectUris:
+      - '$(env:GATEWAY_PUBLIC_URL)/login/oauth2/code/keycloak'
+    webOrigins: []
+    attributes:
+      pkce.code.challenge.method: S256
+      post.logout.redirect.uris: '$(env:GATEWAY_PUBLIC_URL)/'
+      oauth2.device.authorization.grant.enabled: "false"
+      oidc.ciba.grant.enabled: "false"
+      standard.token.exchange.enabled: "false"
+      backchannel.logout.session.required: "true"
+    defaultClientScopes: [basic, profile, email, roles, acr, ecommerce-api]
+    optionalClientScopes: []
+    protocolMappers:
+      # O BFF lê as roles do ID token (/bff/me); o scope "roles" só as coloca no access token.
+      - name: realm roles no ID token
+        protocol: openid-connect
+        protocolMapper: oidc-usermodel-realm-role-mapper
+        config:
+          claim.name: realm_access.roles
+          jsonType.label: String
+          multivalued: "true"
+          id.token.claim: "true"
+          access.token.claim: "false"
+          userinfo.token.claim: "true"
+          introspection.token.claim: "false"
+
+  # Conta de serviço do order-service para chamar o inventory (client_credentials).
+  - clientId: order-service
+    name: order-service (serviço a serviço)
+    enabled: true
+    protocol: openid-connect
+    publicClient: false
+    clientAuthenticatorType: client-secret
+    secret: '$(env:KC_ORDER_SERVICE_CLIENT_SECRET)'
+    standardFlowEnabled: false
+    implicitFlowEnabled: false
+    directAccessGrantsEnabled: false
+    serviceAccountsEnabled: true
+    consentRequired: false
+    fullScopeAllowed: false
+    redirectUris: []
+    webOrigins: []
+    attributes:
+      oauth2.device.authorization.grant.enabled: "false"
+      oidc.ciba.grant.enabled: "false"
+      standard.token.exchange.enabled: "false"
+    defaultClientScopes: [basic, service_account, ecommerce-api, inventory:reserve]
+    optionalClientScopes: []
+
+scopeMappings:
+  - client: ecommerce-bff
+    roles: [CUSTOMER, ADMIN]

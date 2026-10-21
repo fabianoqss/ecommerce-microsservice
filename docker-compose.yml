@@ -31,8 +31,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.5
     container_name: keycloak
-    # Realm "ecommerce" configurado manualmente pelo console e exportado depois
-    # (kc.sh export) para keycloak/realm-ecommerce.json.
+    # O realm "ecommerce" é código (keycloak/realm-ecommerce.yaml), aplicado pelo keycloak-config.
     command: ["start"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
@@ -58,6 +57,44 @@ services:
       retries: 20
       start_period: 30s
     restart: ${RESTART_POLICY:-unless-stopped}
+
+  keycloak-config:
+    image: adorsys/keycloak-config-cli:6.5.1-26.5.5
+    # Execução única a cada subida: reconcilia o realm com keycloak/realm-ecommerce.yaml.
+    # Sem cache, alterações feitas à mão no console são revertidas para o que está no git.
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?defina KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_AVAILABILITYCHECK_ENABLED: "true"
+      IMPORT_FILES_LOCATIONS: /config/*.yaml
+      IMPORT_VARSUBSTITUTION_ENABLED: "true"
+      # Um valor de variável nunca é reinterpretado como nova expressão de substituição.
+      IMPORT_VARSUBSTITUTION_NESTED: "false"
+      IMPORT_CACHE_ENABLED: "false"
+      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:?defina GATEWAY_PUBLIC_URL}
+      KC_BFF_CLIENT_SECRET: ${KC_BFF_CLIENT_SECRET:?defina KC_BFF_CLIENT_SECRET}
+      KC_ORDER_SERVICE_CLIENT_SECRET: ${KC_ORDER_SERVICE_CLIENT_SECRET:?defina KC_ORDER_SERVICE_CLIENT_SECRET}
+      KC_SMTP_HOST: ${KC_SMTP_HOST:?defina KC_SMTP_HOST}
+      KC_SMTP_PORT: ${KC_SMTP_PORT:?defina KC_SMTP_PORT}
+      KC_SMTP_FROM: ${KC_SMTP_FROM:?defina KC_SMTP_FROM}
+      KC_SMTP_STARTTLS: ${KC_SMTP_STARTTLS:?defina KC_SMTP_STARTTLS}
+      KC_SMTP_AUTH: ${KC_SMTP_AUTH:?defina KC_SMTP_AUTH}
+      KC_SMTP_USER: ${KC_SMTP_USER:-}
+      KC_SMTP_PASSWORD: ${KC_SMTP_PASSWORD:-}
+    volumes:
+      - ./keycloak:/config:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: "no"
 
   rabbitmq:
     image: rabbitmq:4.2.5-management
@@ -185,8 +222,8 @@ services:
     depends_on:
       eureka-server:
         condition: service_healthy
-      keycloak:
-        condition: service_healthy
+      keycloak-config:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
       interval: 15s
@@ -208,8 +245,8 @@ services:
     depends_on:
       eureka-server:
         condition: service_healthy
-      keycloak:
-        condition: service_healthy
+      keycloak-config:
+        condition: service_completed_successfully
       rabbitmq-init:
         condition: service_completed_successfully
     healthcheck:
@@ -258,8 +295,8 @@ services:
       OIDC_TOKEN_URI: ${OIDC_TOKEN_URI:?defina OIDC_TOKEN_URI}
       KC_ORDER_SERVICE_CLIENT_SECRET: ${KC_ORDER_SERVICE_CLIENT_SECRET:?defina KC_ORDER_SERVICE_CLIENT_SECRET}
     depends_on:
-      keycloak:
-        condition: service_healthy
+      keycloak-config:
+        condition: service_completed_successfully
       rabbitmq-init:
         condition: service_completed_successfully
       eureka-server:
@@ -296,8 +333,8 @@ services:
     depends_on:
       eureka-server:
         condition: service_healthy
-      keycloak:
-        condition: service_healthy
+      keycloak-config:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     healthcheck:

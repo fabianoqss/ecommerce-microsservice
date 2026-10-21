@@ -112,7 +112,7 @@ O Compose da raiz é o ponto de entrada oficial de toda a infraestrutura.
 
 | Profile | Serviços |
 |---|---|
-| _(nenhum)_ | `keycloak`, `rabbitmq`, `rabbitmq-init`, `redis`; em dev também `postgres`, `mongo`, `mailpit` |
+| _(nenhum)_ | `keycloak`, `keycloak-config`, `rabbitmq`, `rabbitmq-init`, `redis`; em dev também `postgres`, `mongo`, `mailpit` |
 | `monitoring` | `zipkin`, `prometheus`, `grafana` |
 | `apps` | `eureka-server`, `api-gateway`, `product-service`, `inventory-service`, `order-service`, `notification-service` |
 
@@ -134,17 +134,16 @@ O Eureka exige `EUREKA_USERNAME` e `EUREKA_PASSWORD`, sem senha padrão. Os clie
 
 ### Realm do Keycloak
 
-O realm `ecommerce` ainda é configurado manualmente pelo console. As variáveis de client secret precisam corresponder aos clients criados no realm; definir uma variável no `.env` não cria o client nem o usuário no Keycloak.
+O realm `ecommerce` é código: [`keycloak/realm-ecommerce.yaml`](keycloak/realm-ecommerce.yaml). A cada subida do Compose, o serviço de execução única `keycloak-config` ([keycloak-config-cli](https://github.com/adorsys/keycloak-config-cli)) espera o Keycloak ficar saudável e reconcilia o realm com o arquivo; as aplicações que validam tokens só iniciam depois que ele termina com código `0`. O cache de importação fica desligado, então qualquer configuração declarada no arquivo que for alterada à mão no console volta ao valor do arquivo na próxima subida: mude o realm pelo arquivo, em PR. A ferramenta só remove recursos que ela mesma criou; um client ou role criado à mão fora do arquivo continua existindo e deve ser removido manualmente.
 
-Configure as roles `CUSTOMER` e `ADMIN`, a audience `ecommerce-api` e estes clients:
+Secrets, URL pública e SMTP entram por variáveis de ambiente (`KC_BFF_CLIENT_SECRET`, `KC_ORDER_SERVICE_CLIENT_SECRET`, `GATEWAY_PUBLIC_URL`, `KC_SMTP_*`), substituídas na hora da aplicação; o mesmo valor do `.env`/Vault chega ao Keycloak e ao serviço que usa o client. Esses valores devem usar só caracteres seguros (`A–Z`, `a–z`, `0–9`, `_`, `.`, `~` e `-`), como os gerados por `scripts/generate-env.sh`. O arquivo não define usuários: clientes se cadastram pela página do Keycloak e recebem só a role `CUSTOMER`; `ADMIN` é atribuída manualmente.
 
 | Client | Configuração |
 |---|---|
-| `ecommerce-bff` | Confidencial; Authorization Code e PKCE S256; callback local `http://localhost:8080/login/oauth2/code/keycloak`; secret `KC_BFF_CLIENT_SECRET` |
-| `ecommerce-dev` | Público; Authorization Code e PKCE S256; callback `https://oauth.usebruno.com/callback`; exclusivo de desenvolvimento |
-| `order-service` | Confidencial; service account e `client_credentials`; scope `inventory:reserve`; secret `KC_ORDER_SERVICE_CLIENT_SECRET` |
+| `ecommerce-bff` | Confidencial; Authorization Code com PKCE S256; redirect exato `${GATEWAY_PUBLIC_URL}/login/oauth2/code/keycloak`; sem Password Grant, Implicit, device flow ou `offline_access`; tokens só com as roles `CUSTOMER`/`ADMIN`, também no ID token (lido pelo `/bff/me`) |
+| `order-service` | Confidencial; só service account (`client_credentials`); scope `inventory:reserve`; sem roles de usuário no token |
 
-Garanta que os access tokens tenham `aud=ecommerce-api` e as roles/scopes necessários. No ambiente local, o issuer público é `http://localhost:8180/realms/ecommerce`; containers consultam JWKs e token endpoint pela rede interna. As variáveis `OIDC_*` controlam esses endereços. Configure SMTP para `mailpit:1025` em desenvolvimento para inspecionar e-mails sem entrega externa.
+O realm exige HTTPS fora da rede local, verificação de e-mail, senha forte com histórico, bloqueio progressivo contra força bruta, access token de 5 minutos e sessão limitada a 30 minutos ociosa ou 10 horas no total, e registra eventos de login e administrativos (sem o corpo das requisições, que incluiria secrets). Os access tokens levam `aud=ecommerce-api`. No ambiente local, o issuer público é `http://localhost:8180/realms/ecommerce`; containers consultam JWKs e token endpoint pela rede interna. As variáveis `OIDC_*` controlam esses endereços. Em desenvolvimento, o SMTP aponta para o Mailpit (`http://localhost:8025`).
 
 Em produção, publique Keycloak e gateway por HTTPS atrás do nginx, configure `KEYCLOAK_HOSTNAME` e os redirects públicos, e mantenha `SESSION_COOKIE_SECURE=true` (padrão). O override de desenvolvimento usa `false` para HTTP local.
 
