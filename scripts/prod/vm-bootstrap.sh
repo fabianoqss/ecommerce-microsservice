@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Preparação base da VM de produção (Oracle Linux 9): disco, atualizações e SSH.
+# Preparação base da VM de produção (Oracle Linux 9): disco, atualizações, ferramentas, Docker e SSH.
 # Idempotente: pode ser executado de novo a qualquer momento.
 # Uso na VM: sudo ./vm-bootstrap.sh   (ao final, reinicie se o script indicar)
 set -euo pipefail
@@ -21,6 +21,31 @@ sed -i -E \
   -e 's/^apply_updates *=.*/apply_updates = yes/' \
   /etc/dnf/automatic.conf
 systemctl enable --now dnf-automatic.timer
+
+echo '==> Ferramentas do deploy: git (clone do repo público) e OCI CLI (segredos do Vault via instance principal)'
+dnf -y install git python39-oci-cli
+
+echo '==> Docker Engine e Compose (repositório oficial da Docker)'
+dnf -y install dnf-plugins-core
+[[ -f /etc/yum.repos.d/docker-ce.repo ]] \
+  || dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+# Rotação de logs (sem ela o json-file cresce até encher o disco) e containers sobrevivem ao restart do daemon.
+daemon_json=$(mktemp)
+cat > "$daemon_json" <<'EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "10m", "max-file": "5" },
+  "live-restore": true
+}
+EOF
+install -d -m 0755 /etc/docker
+if ! cmp -s "$daemon_json" /etc/docker/daemon.json; then
+  install -o root -g root -m 0644 "$daemon_json" /etc/docker/daemon.json
+  systemctl restart docker
+fi
+rm -f "$daemon_json"
+systemctl enable --now docker
 
 echo '==> SSH: só chave, sem root, poucas tentativas'
 # Arquivos em sshd_config.d são lidos em ordem e o primeiro valor vence: o prefixo 01 garante prioridade.
