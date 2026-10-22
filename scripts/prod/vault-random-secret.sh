@@ -18,7 +18,10 @@ compartment_id=$(oci kms management vault get --vault-id "$vault_id" --query 'da
 # shellcheck disable=SC2016 # crases são literais do JMESPath
 existing=$(oci vault secret list -c "$compartment_id" --vault-id "$vault_id" --name "$secret_name" --all \
   --query 'length(data[?"lifecycle-state"!=`DELETED`])' --raw-output)
-[[ $existing == 0 ]] || { echo "Segredo já existe: $secret_name (nada a fazer)." >&2; exit 0; }
+# Com lista vazia o OCI CLI não imprime nada (nem 0); erro de chamada já abortou via set -e.
+existing=${existing:-0}
+[[ $existing =~ ^[0-9]+$ ]] || { echo "Resposta inesperada ao listar segredos: $existing" >&2; exit 1; }
+(( existing == 0 )) || { echo "Segredo já existe: $secret_name (nada a fazer)." >&2; exit 0; }
 
 # O payload com a senha só existe num arquivo 600 temporário, apagado ao sair.
 payload=$(mktemp)
