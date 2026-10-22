@@ -1,0 +1,21 @@
+# Override de produção na OCI: só o que depende dessa infraestrutura fica aqui,
+# o arquivo base continua agnóstico. Na VM é ativado pelo COMPOSE_FILE do .env
+# (gerado por scripts/prod/generate-prod-env.sh), então basta "docker compose up -d".
+
+# CA público do OCI Database with PostgreSQL: as URLs JDBC usam sslmode=verify-full.
+x-oci-postgresql-ca: &oci-postgresql-ca
+  - ./scripts/prod/certs/oci-postgresql-ca.pem:/etc/ecommerce/oci-postgresql-ca.pem:ro
+
+services:
+
+  keycloak:
+    environment:
+      # Console de admin só por túnel SSH: o nginx bloqueia /admin e o realm master.
+      KC_HOSTNAME_ADMIN: http://localhost:8180
+    volumes: *oci-postgresql-ca
+
+  order-service:
+    volumes: *oci-postgresql-ca
+
+  inventory-service:
+    volumes: *oci-postgresql-ca
