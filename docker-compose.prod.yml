@@ -11,8 +11,16 @@ services:
   keycloak:
     environment:
       # Console de admin só por túnel SSH: o nginx bloqueia /admin e o realm master.
-      KC_HOSTNAME_ADMIN: http://localhost:8180
+      KC_HOSTNAME_ADMIN: &keycloak-admin-url http://localhost:8180
     volumes: *oci-postgresql-ca
+
+  keycloak-config:
+    environment:
+      # Arquivos de produção são importados depois do realm-ecommerce.yaml (frontendUrl do master).
+      IMPORT_FILES_LOCATIONS: /config/*.yaml,/config-prod/*.yaml
+      KEYCLOAK_ADMIN_URL: *keycloak-admin-url
+    volumes:
+      - ./scripts/prod/keycloak:/config-prod:ro
 
   order-service:
     volumes: *oci-postgresql-ca

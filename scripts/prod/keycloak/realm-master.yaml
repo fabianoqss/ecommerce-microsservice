@@ -1,0 +1,6 @@
+# Só produção: o realm master (administração) usa a URL do túnel SSH como frontend.
+# Sem isso, o formulário de login do console envia para o hostname público, onde o nginx bloqueia /realms/master.
+# O realm ecommerce não é afetado e continua com o issuer público (KC_HOSTNAME).
+realm: master
+attributes:
+  frontendUrl: $(env:KEYCLOAK_ADMIN_URL)
