@@ -289,11 +289,10 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
 8. **Subida.** Na VM, em `/opt/ecommerce`:
 
    ```bash
-   sudo docker compose build
-   sudo docker compose up -d --remove-orphans
+   sudo docker compose up -d --build --remove-orphans
    ```
 
-   O `.env` define `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` e `COMPOSE_PROFILES=monitoring,apps`. Na primeira aplicação do `frontendUrl` do master, `keycloak-config` pode sair com `401`: o atributo já foi gravado, mas o token do CLI ainda tem o issuer anterior (comentários em `scripts/prod/keycloak/realm-master.yaml`). Nesse caso, execute novamente e confirme saída `0`; depois retome a subida das aplicações:
+   Construa e suba no mesmo comando: um `build` separado pode gerar imagens novas sem que o `up` recrie os containers, que seguem com a imagem anterior. O `.env` define `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` e `COMPOSE_PROFILES=monitoring,apps`. Na primeira aplicação do `frontendUrl` do master, `keycloak-config` pode sair com `401`: o atributo já foi gravado, mas o token do CLI ainda tem o issuer anterior (comentários em `scripts/prod/keycloak/realm-master.yaml`). Nesse caso, execute novamente e confirme saída `0`; depois retome a subida das aplicações:
 
    ```bash
    sudo docker compose run --rm keycloak-config
@@ -314,12 +313,11 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
     ```bash
     cd /opt/ecommerce
     sudo git pull --ff-only
-    sudo docker compose build
-    sudo docker compose up -d --remove-orphans
+    sudo docker compose up -d --build --remove-orphans
     sudo docker compose ps -a
     ```
 
-    Se configuração pública ou segredos mudaram, regenere o `.env` pelo passo 7 antes do build/subida; mudanças na borda exigem reaplicar o passo 4. Alterar um segredo não rotaciona automaticamente credenciais persistidas: coordene a rotação com cada serviço/banco. Após a primeira subida e a cada atualização, aguarde os healthchecks e execute os smoke tests sem sessão (saídas esperadas: `200`, `401`, `403`):
+    Se configuração pública ou segredos mudaram, regenere o `.env` pelo passo 7 antes da subida; mudanças na borda exigem reaplicar o passo 4. Alterar um segredo não rotaciona automaticamente credenciais persistidas: coordene a rotação com cada serviço/banco. Após a primeira subida e a cada atualização, aguarde os healthchecks e execute os smoke tests sem sessão (saídas esperadas: `200`, `401`, `403`):
 
     ```bash
     curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/api/product
