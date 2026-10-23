@@ -83,7 +83,6 @@ class IdeEnvTest(unittest.TestCase):
                 'KC_BFF_CLIENT_SECRET': 'bff-oidc', 'RABBITMQ_ORDER_PASSWORD': 'order-amqp',
                 'RABBITMQ_NOTIFICATION_PASSWORD': 'notification-amqp', 'REDIS_PASSWORD': 'redis-local',
                 'RABBITMQ_INVENTORY_PASSWORD': 'inventory-amqp',
-                'EUREKA_USERNAME': 'discovery', 'EUREKA_PASSWORD': 'a12345',
                 'TRACING_SAMPLING_PROBABILITY': '1.0', 'IGNORADO': '$(touch arquivo-nao-deve-existir)',
             }
             env_file.write_text(''.join(f'{key}={value}\n' for key, value in values.items()))
@@ -92,15 +91,10 @@ class IdeEnvTest(unittest.TestCase):
             self.assertEqual(0, result.returncode, result.stderr)
             sections = re.findall(r'# ([\w-]+)\n([^\n]+)', result.stdout)
             config = {name: dict(pair.split('=', 1) for pair in line.split(';')) for name, line in sections}
-            self.assertEqual({'eureka-server', 'product-service', 'inventory-service', 'order-service',
+            self.assertEqual({'product-service', 'inventory-service', 'order-service',
                               'notification-service', 'api-gateway'}, set(config))
-            self.assertEqual('discovery', config['eureka-server']['EUREKA_USERNAME'])
-            self.assertEqual('a12345', config['eureka-server']['EUREKA_PASSWORD'])
             for service, settings in config.items():
                 self.assertEqual('1.0', settings['TRACING_SAMPLING_PROBABILITY'])
-                if service != 'eureka-server':
-                    self.assertEqual('http://discovery:a12345@localhost:8761/eureka/',
-                                     settings['EUREKA_CLIENT_SERVICEURL_DEFAULTZONE'])
             for service, password in [('order-service', 'order-amqp'), ('notification-service', 'notification-amqp'),
                                       ('inventory-service', 'inventory-amqp')]:
                 self.assertEqual(service, config[service]['SPRING_RABBITMQ_USERNAME'])

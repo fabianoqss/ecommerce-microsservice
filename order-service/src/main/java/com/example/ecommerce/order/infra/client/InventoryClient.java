@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.UUID;
 
-@FeignClient(name = "inventory-service", configuration = InventoryClientConfig.class)
+@FeignClient(name = "inventory-service", url = "${clients.inventory.url}", configuration = InventoryClientConfig.class)
 public interface InventoryClient {
 
     @PutMapping("/api/inventory/reservations/{orderId}")

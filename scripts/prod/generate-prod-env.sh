@@ -18,7 +18,6 @@ readonly SECRET_NAMES=(
   RABBITMQ_ORDER_PASSWORD
   RABBITMQ_NOTIFICATION_PASSWORD
   RABBITMQ_INVENTORY_PASSWORD
-  EUREKA_PASSWORD
   REDIS_PASSWORD
   GRAFANA_ADMIN_PASSWORD
   PRODUCT_MONGODB_PASSWORD
@@ -45,7 +44,7 @@ validate_secret() {
   [[ -n $value && $value != *$'\n'* && $value != *$'\r'* && $value != *"'"* ]] \
     || fail "Segredo inválido: $name"
   case "$name" in
-    EUREKA_PASSWORD|PRODUCT_MONGODB_PASSWORD)
+    PRODUCT_MONGODB_PASSWORD)
       [[ $value =~ ^[A-Za-z0-9._~-]+$ ]] || fail "Segredo inválido: $name"
       ;;
   esac

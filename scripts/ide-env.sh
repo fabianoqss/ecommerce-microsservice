@@ -21,17 +21,10 @@ get() {
   printf '%s' "$value"
 }
 
-eureka_username=$(get EUREKA_USERNAME)
-eureka_password=$(get EUREKA_PASSWORD)
-# Credenciais entram na URL; hex gerado pelo generate-env.sh dispensa percent-encoding.
-[[ "$eureka_username" =~ ^[A-Za-z0-9._~-]+$ && "$eureka_password" =~ ^[A-Za-z0-9._~-]+$ ]] \
-  || { echo 'Credenciais Eureka devem ser URL-safe; gere a senha em hexadecimal.' >&2; exit 1; }
-eureka_url="http://$eureka_username:$eureka_password@localhost:8761/eureka/"
 sampling=$(get TRACING_SAMPLING_PROBABILITY)
 
 # Em dev os bancos usam o superusuário local, cuja senha é DB_PASSWORD.
 declare -A services=(
-  [eureka-server]="EUREKA_USERNAME:EUREKA_USERNAME EUREKA_PASSWORD:EUREKA_PASSWORD"
   [product-service]=""
   [inventory-service]="DB_PASSWORD:DB_PASSWORD SPRING_RABBITMQ_PASSWORD:RABBITMQ_INVENTORY_PASSWORD"
   [order-service]="DB_PASSWORD:DB_PASSWORD KC_ORDER_SERVICE_CLIENT_SECRET:KC_ORDER_SERVICE_CLIENT_SECRET SPRING_RABBITMQ_PASSWORD:RABBITMQ_ORDER_PASSWORD"
@@ -41,11 +34,8 @@ declare -A services=(
 
 # Prepara todas as linhas antes de imprimir: erro em variável não deixa configuração parcial.
 declare -A lines
-for service in eureka-server product-service inventory-service order-service notification-service api-gateway; do
+for service in product-service inventory-service order-service notification-service api-gateway; do
   line="TRACING_SAMPLING_PROBABILITY=$sampling;"
-  if [[ "$service" != eureka-server ]]; then
-    line+="EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=$eureka_url;"
-  fi
   case "$service" in
     order-service|notification-service|inventory-service)
       line+="SPRING_RABBITMQ_USERNAME=$service;SPRING_RABBITMQ_VIRTUAL_HOST=ecommerce;" ;;
@@ -56,6 +46,6 @@ for service in eureka-server product-service inventory-service order-service not
   done
   lines[$service]="${line%;}"
 done
-for service in eureka-server product-service inventory-service order-service notification-service api-gateway; do
+for service in product-service inventory-service order-service notification-service api-gateway; do
   printf '\n# %s\n%s\n' "$service" "${lines[$service]}"
 done

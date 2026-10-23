@@ -9,14 +9,13 @@ O fluxo principal inclui estoque atômico, cancelamento de pedidos, Outbox, DLQ 
 | Componente | Porta no container | Persistência | Responsabilidade |
 |---|---:|---|---|
 | API Gateway | 8080; gerenciamento 8090 | Redis | BFF OIDC, sessão, token relay e autorização de borda |
-| Eureka Server | 8761 | — | Descoberta de serviços protegida por HTTP Basic |
 | Product Service | 8082 | MongoDB | Catálogo e CRUD de produtos |
 | Inventory Service | 8083 | PostgreSQL | Consulta, manutenção e reserva atômica de estoque |
 | Order Service | 8081 | PostgreSQL | Pedidos, cancelamento, compensação e Outbox |
 | Notification Service | 8084 | Redis | Consumo idempotente de eventos, retry e DLQ; notificação no log |
 | Keycloak | 8080; gerenciamento 9000 | PostgreSQL | Identidade, cadastro, login, recuperação de senha e emissão de tokens |
 
-Os seis módulos Java são gateway, Eureka, Product, Inventory, Order e Notification. Os serviços de negócio validam assinatura, issuer e audience dos tokens localmente. A identidade do pedido é o `sub` do Keycloak, e as roles de usuário são `CUSTOMER` e `ADMIN`.
+As cinco aplicações Java são Gateway, Product, Inventory, Order e Notification; o sexto módulo é a biblioteca `common-security`. Os serviços de negócio validam assinatura, issuer e audience dos tokens localmente. A identidade do pedido é o `sub` do Keycloak, e as roles de usuário são `CUSTOMER` e `ADMIN`.
 
 ```text
 Navegador -> Gateway BFF <-> Keycloak -> PostgreSQL
@@ -29,7 +28,7 @@ Cliente Bearer -> Gateway
                           `-> RabbitMQ -> Notification -> Redis (idempotência)
                                        `-> Inventory -> PostgreSQL (liberação idempotente no cancelamento)
 
-Eureka: descoberta interna com HTTP Basic
+Rede do Compose: resolução dos serviços por DNS
 Prometheus/Grafana: métricas; Zipkin: traces
 ```
 
@@ -37,14 +36,14 @@ Prometheus/Grafana: métricas; Zipkin: traces
 
 - Java 21, Spring Boot 4.0.x e Spring Cloud 2025.1.x
 - Spring MVC, Data JPA, Data MongoDB e Flyway
-- Spring Cloud Gateway Server Web MVC, Eureka e OpenFeign
+- Spring Cloud Gateway Server Web MVC e OpenFeign
 - Spring Security OAuth2/OIDC Resource Server e Client; Authorization Code com PKCE
 - PostgreSQL, MongoDB, RabbitMQ e Redis
 - Docker Compose, Actuator, Prometheus, Grafana, Zipkin e Springdoc OpenAPI
 
 ## Endpoints
 
-As chamadas externas à aplicação passam por `http://localhost:8080`. No Compose, as portas de Product, Inventory, Order, Notification, Eureka e do Actuator do gateway não são publicadas no host.
+As chamadas externas à aplicação passam por `http://localhost:8080`. No Compose, as portas de Product, Inventory, Order, Notification e do Actuator do gateway não são publicadas no host.
 
 ### Login pelo navegador
 
@@ -84,7 +83,7 @@ O BFF mantém os tokens no servidor e usa sessão no Redis. Requisições que al
 
 ### Build com Maven
 
-Importe o `pom.xml` da raiz como projeto Maven com JDK 21. O parent agrega os seis serviços e o JAR `common-security`, que concentra apenas a conversão de autoridades Keycloak. O Maven Wrapper é único na raiz (Maven 3.9.12); no Windows, use `mvnw.cmd`.
+Importe o `pom.xml` da raiz como projeto Maven com JDK 21. O parent agrega os cinco serviços e o JAR `common-security`, que concentra apenas a conversão de autoridades Keycloak. O Maven Wrapper é único na raiz (Maven 3.9.12); no Windows, use `mvnw.cmd`.
 
 Execute a partir da raiz:
 
@@ -114,7 +113,7 @@ O Compose da raiz é o ponto de entrada oficial de toda a infraestrutura.
 |---|---|
 | _(nenhum)_ | `keycloak`, `keycloak-config`, `rabbitmq`, `rabbitmq-init`, `redis`; em dev também `postgres`, `mongo`, `mailpit` |
 | `monitoring` | `zipkin`, `prometheus`, `grafana` |
-| `apps` | `eureka-server`, `api-gateway`, `product-service`, `inventory-service`, `order-service`, `notification-service` |
+| `apps` | `api-gateway`, `product-service`, `inventory-service`, `order-service`, `notification-service` |
 
 O `.env.example` da raiz é a referência oficial e define `COMPOSE_PROFILES=monitoring,apps`. Endereços e segredos são configuráveis por ambiente; variáveis obrigatórias usam `${VAR:?}` para o Compose rejeitar configuração incompleta.
 
@@ -130,7 +129,7 @@ O script cria `.env` a partir do exemplo e substitui **cada** valor `troque-...`
 
 Em desenvolvimento, Order e Inventory usam o usuário `postgres` do container local: a senha efetiva é `DB_PASSWORD`. O exemplo define `ORDER_DB_PASSWORD=${DB_PASSWORD}` e `INVENTORY_DB_PASSWORD=${DB_PASSWORD}`, referências expandidas pelo Compose. Em produção, configure usuários e senhas próprios para cada banco e gere as variáveis pelo OCI Vault. O banco do Keycloak tem usuário e senha separados.
 
-O Eureka exige `EUREKA_USERNAME` e `EUREKA_PASSWORD`, sem senha padrão. Os clientes incluem essas credenciais na URL de registro. Credenciais definidas manualmente precisam usar caracteres seguros para URL (`A–Z`, `a–z`, `0–9`, `_`, `.`, `~` e `-`); prefira a senha hexadecimal gerada pelo script.
+Os endereços dos serviços são configuração de ambiente: o gateway usa `PRODUCT_SERVICE_URL`, `ORDER_SERVICE_URL` e `INVENTORY_SERVICE_URL`; o Order usa somente `PRODUCT_SERVICE_URL` e `INVENTORY_SERVICE_URL`. No Compose, essas variáveis apontam para `http://product-service:8082`, `http://order-service:8081` e `http://inventory-service:8083`, resolvidos pelo DNS da rede dos containers. Cada consumidor aguarda os healthchecks das suas dependências. Pela IDE, os valores padrão são `http://localhost:8082`, `http://localhost:8081` e `http://localhost:8083`. A resolução de nomes fica a cargo da plataforma: Docker Compose hoje, Kubernetes Service futuramente.
 
 ### Realm do Keycloak
 
@@ -171,7 +170,7 @@ Serviços úteis (publicados em `127.0.0.1`; na VM, acesse por túnel SSH):
 - Grafana: `http://localhost:3000` (`admin` / `GRAFANA_ADMIN_PASSWORD`)
 - Zipkin: `http://localhost:9411`
 
-Eureka só fica acessível na rede interna do Compose, em `http://eureka-server:8761`, com HTTP Basic. O Actuator do gateway usa a porta interna `8090`, sem publicação no host. O Prometheus coleta as métricas pela rede interna. A amostragem de traces é `1.0` em dev e, por padrão, `0.1` em produção.
+O Actuator do gateway usa a porta interna `8090`, sem publicação no host. O Prometheus coleta as métricas pela rede interna. A amostragem de traces é `1.0` em dev e, por padrão, `0.1` em produção.
 
 ### Execução pela IDE
 
@@ -181,7 +180,7 @@ Remova `COMPOSE_PROFILES` do `.env` para subir só a infraestrutura; para manter
 ./scripts/ide-env.sh
 ```
 
-O script lê o `.env` da raiz e emite as variáveis para Eureka, Product, Inventory, Order, Notification e Gateway, incluindo os endereços locais necessários. Copie cada bloco para a configuração do módulo correspondente na IDE. **A saída contém segredos: execute apenas no seu terminal e não cole em chats, logs ou arquivos versionados.**
+O script lê o `.env` da raiz e emite as variáveis para Product, Inventory, Order, Notification e Gateway, incluindo os endereços locais necessários. Copie cada bloco para a configuração do módulo correspondente na IDE. **A saída contém segredos: execute apenas no seu terminal e não cole em chats, logs ou arquivos versionados.**
 
 ### Dados existentes e upgrades
 
@@ -208,7 +207,6 @@ Use o Maven Wrapper único, a partir da raiz:
 ```bash
 ./mvnw -pl order-service -am test
 ./mvnw -pl api-gateway -am test
-./mvnw -o -q -pl eureka-server -am test
 python3 -m unittest discover -s scripts/tests -v
 ```
 

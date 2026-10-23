@@ -49,8 +49,8 @@ class FeignClientAuthenticationTest {
                     HttpMessageConvertersAutoConfiguration.class, JacksonAutoConfiguration.class))
             .withUserConfiguration(Clients.class)
             .withPropertyValues("KC_ORDER_SERVICE_CLIENT_SECRET=test-secret", "DB_PASSWORD=unused",
-                    "spring.cloud.openfeign.client.config.inventory-service.url=http://inventory.test",
-                    "spring.cloud.openfeign.client.config.product-service.url=http://product.test");
+                    "clients.inventory.url=http://inventory.test",
+                    "clients.product.url=http://product.test");
 
     @Test
     void productClientNeverRequestsOrSendsServiceToken() {
@@ -58,8 +58,10 @@ class FeignClientAuthenticationTest {
             var product = context.getBean(ProductClient.class).getProductById("p1");
 
             assertThat(product.name()).isEqualTo("Teclado");
-            assertThat(context.getBean(RecordingClient.class).requests).singleElement().satisfies(request ->
-                    assertThat(request.headers()).doesNotContainKey("Authorization"));
+            assertThat(context.getBean(RecordingClient.class).requests).singleElement().satisfies(request -> {
+                assertThat(request.url()).isEqualTo("http://product.test/api/product/p1");
+                assertThat(request.headers()).doesNotContainKey("Authorization");
+            });
             verifyNoInteractions(context.getBean(OAuth2AuthorizedClientManager.class));
         });
     }
@@ -79,8 +81,10 @@ class FeignClientAuthenticationTest {
             inventory.reserve(ORDER_ID, ITEMS);
             inventory.releaseReservation(ORDER_ID);
 
-            assertThat(context.getBean(RecordingClient.class).requests).hasSize(2).allSatisfy(request ->
-                    assertThat(request.headers().get("Authorization")).containsExactly("Bearer svc-token"));
+            assertThat(context.getBean(RecordingClient.class).requests).hasSize(2).allSatisfy(request -> {
+                assertThat(request.url()).isEqualTo("http://inventory.test/api/inventory/reservations/" + ORDER_ID);
+                assertThat(request.headers().get("Authorization")).containsExactly("Bearer svc-token");
+            });
         });
     }
 

@@ -15,7 +15,6 @@
 	<name>ecommerce-parent</name>
 	<modules>
 		<module>common-security</module>
-		<module>eureka-server</module>
 		<module>api-gateway</module>
 		<module>product-service</module>
 		<module>inventory-service</module>

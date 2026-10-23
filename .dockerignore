@@ -6,7 +6,6 @@
 !.mvn/wrapper/
 !.mvn/wrapper/maven-wrapper.properties
 !common-security/
-!eureka-server/
 !api-gateway/
 !product-service/
 !inventory-service/
