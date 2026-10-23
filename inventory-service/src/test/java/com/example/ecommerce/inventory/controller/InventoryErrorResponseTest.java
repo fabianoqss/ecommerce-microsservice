@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.hamcrest.Matchers.contains;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -44,6 +45,79 @@ class InventoryErrorResponseTest {
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @Test
+    void missingSkuCodeReturnsBadRequestProblemDetail() throws Exception {
+        mvc.perform(get("/api/inventory"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Required parameter 'skuCode' is not present."));
+    }
+
+    @Test
+    void unsupportedMethodReturnsMethodNotAllowedProblemDetail() throws Exception {
+        mvc.perform(get("/api/inventory/1"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().string("Allow", "PUT"))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
+                .andExpect(jsonPath("$.status").value(405));
+    }
+
+    @Test
+    void missingResourceReturnsNotFoundProblemDetail() throws Exception {
+        mvc.perform(get("/api/inventory/unknown/path"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void unsupportedMediaTypeReturnsProblemDetail() throws Exception {
+        mvc.perform(post("/api/inventory")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+                        .contentType(MediaType.TEXT_PLAIN).content("invalid"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
+                .andExpect(jsonPath("$.status").value(415));
+    }
+
+    @Test
+    void unacceptableMediaTypeReturnsProblemDetail() throws Exception {
+        mvc.perform(get("/api/inventory").param("skuCode", "SKU-1").accept(MediaType.APPLICATION_XML))
+                .andExpect(status().isNotAcceptable())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
+                .andExpect(jsonPath("$.status").value(406));
+    }
+
+    @Test
+    void malformedPayloadPreservesBadRequestContract() throws Exception {
+        mvc.perform(post("/api/inventory")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Payload ou parâmetro inválido"));
+    }
+
+    @Test
+    void invalidParameterPreservesBadRequestContract() throws Exception {
+        mvc.perform(put("/api/inventory/invalid")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":1}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Payload ou parâmetro inválido"));
+    }
 
     @Test
     void missingInventoryReturnsProblemDetail() throws Exception {
@@ -163,9 +237,10 @@ class InventoryErrorResponseTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"skuCode\":\"SKU-1\",\"quantity\":-1}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Payload inválido"))
-                .andExpect(jsonPath("$.errors[0]").value("quantity: Quantidade não pode ser negativa"));
+                .andExpect(jsonPath("$.errors").value(contains("quantity: Quantidade não pode ser negativa")));
     }
 
     @Test
@@ -176,6 +251,7 @@ class InventoryErrorResponseTest {
         mvc.perform(get("/api/inventory").param("skuCode", "SKU-1"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.status").value(500))
                 .andExpect(jsonPath("$.detail").value("Erro interno inesperado"));
     }

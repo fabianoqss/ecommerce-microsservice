@@ -38,13 +38,11 @@ PRODUCT_MONGODB_PASSWORD=$(read_secret "PRODUCT_MONGODB_PASSWORD")
 export ADB_ADMIN_PASSWORD PRODUCT_MONGODB_PASSWORD
 
 echo "==> Conectando em $adb_host:27017 (TLS) e reconciliando o usuário PRODUCT_SERVICE"
-# Senhas entram só por variáveis de ambiente herdadas (nunca em argv).
-docker run --rm -i --network host \
-  -e ADB_HOST="$adb_host" \
-  -e ADB_ADMIN_PASSWORD \
-  -e PRODUCT_MONGODB_PASSWORD \
-  "$mongosh_image" \
-  mongosh --quiet --nodb --norc <<-'EOJS'
+# O JS vai como arquivo (por stdin o mongosh age como REPL e ecoa prompts); não contém segredos.
+js_file=$(mktemp --suffix=.js)
+chmod 0644 "$js_file"  # só código, sem segredos: legível pelo usuário do container
+trap 'rm -f "$js_file"' EXIT
+cat > "$js_file" <<-'EOJS'
 	const host = process.env.ADB_HOST;
 	const uri = (user, password) => 'mongodb://' + user + ':' + encodeURIComponent(password) + '@' + host +
 	  ':27017/' + user + '?authMechanism=PLAIN&authSource=$external&tls=true&retryWrites=false&loadBalanced=true';
@@ -91,3 +89,12 @@ docker run --rm -i --network host \
 	probe.drop();
 	print('==> PRODUCT_SERVICE autentica, escreve e lê pela API Mongo');
 EOJS
+
+# Senhas entram só por variáveis de ambiente herdadas (nunca em argv).
+docker run --rm --network host \
+  -v "$js_file:/bootstrap.js:ro" \
+  -e ADB_HOST="$adb_host" \
+  -e ADB_ADMIN_PASSWORD \
+  -e PRODUCT_MONGODB_PASSWORD \
+  "$mongosh_image" \
+  mongosh --quiet --nodb --norc /bootstrap.js

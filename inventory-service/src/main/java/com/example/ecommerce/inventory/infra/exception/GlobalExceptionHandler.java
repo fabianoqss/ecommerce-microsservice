@@ -5,9 +5,13 @@ import com.example.ecommerce.inventory.exception.InventoryNotFoundException;
 import com.example.ecommerce.inventory.exception.ReservationConflictException;
 import com.example.ecommerce.inventory.exception.ReservationGoneException;
 import com.example.ecommerce.inventory.exception.ReservationNotFoundException;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.TypeMismatchException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,13 +20,15 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.net.URI;
 import java.util.List;
 
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private static final URI DEFAULT_TYPE = URI.create("about:blank");
@@ -49,20 +55,37 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.GONE, ex.getMessage());
     }
 
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class, HttpMessageNotReadableException.class})
-    public ResponseEntity<ProblemDetail> handleBadRequest(Exception ex) {
-        return problem(HttpStatus.BAD_REQUEST, "Payload ou parâmetro inválido");
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(
+            TypeMismatchException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        if (ex instanceof MethodArgumentTypeMismatchException) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.BAD_REQUEST, "Payload ou parâmetro inválido");
+            problemDetail.setType(DEFAULT_TYPE);
+            return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
+        }
+        return super.handleTypeMismatch(ex, headers, status, request);
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ProblemDetail> handleValidation(MethodArgumentNotValidException ex) {
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Payload ou parâmetro inválido");
+        problemDetail.setType(DEFAULT_TYPE);
+        return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         List<String> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .toList();
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Payload inválido");
         problemDetail.setType(DEFAULT_TYPE);
         problemDetail.setProperty("errors", errors);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+        return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
     }
 
     // Relança exceções de segurança para que o filtro do Spring Security devolva 401/403.
@@ -75,6 +98,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
         log.error("Erro interno inesperado", ex);
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno inesperado");
+    }
+
+    @Override
+    protected ResponseEntity<Object> createResponseEntity(
+            @Nullable Object body, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        if (body instanceof ProblemDetail problemDetail) {
+            problemDetail.setType(DEFAULT_TYPE);
+        }
+        return super.createResponseEntity(body, headers, status, request);
     }
 
     private ResponseEntity<ProblemDetail> problem(HttpStatus status, String detail) {
