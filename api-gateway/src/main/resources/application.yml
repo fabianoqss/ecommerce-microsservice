@@ -19,7 +19,7 @@ spring:
         webmvc:
           routes:
             - id: product-service
-              uri: lb://product-service
+              uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/api/product,/api/product/**
               filters:
@@ -27,7 +27,7 @@ spring:
                 - RemoveRequestHeader=Cookie
                 - RemoveRequestHeader=X-XSRF-TOKEN
             - id: order-service
-              uri: lb://order-service
+              uri: ${ORDER_SERVICE_URL:http://localhost:8081}
               predicates:
                 - Path=/api/order,/api/order/**
               filters:
@@ -35,7 +35,7 @@ spring:
                 - RemoveRequestHeader=Cookie
                 - RemoveRequestHeader=X-XSRF-TOKEN
             - id: inventory-service
-              uri: lb://inventory-service
+              uri: ${INVENTORY_SERVICE_URL:http://localhost:8083}
               predicates:
                 - Path=/api/inventory,/api/inventory/**
               filters:
@@ -70,13 +70,6 @@ ecommerce:
     internal-issuer-uri: ${OIDC_INTERNAL_ISSUER_URI:http://localhost:8180/realms/ecommerce}
     client-id: ${OIDC_BFF_CLIENT_ID:ecommerce-bff}
     client-secret: ${KC_BFF_CLIENT_SECRET}
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
 
 logging:
   level:

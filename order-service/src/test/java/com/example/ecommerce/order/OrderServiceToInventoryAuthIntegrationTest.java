@@ -33,8 +33,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * OAuth2AuthorizedClientService e mascararia o cenário de Keycloak fora do ar.
  */
 @SpringBootTest(properties = {
-        "eureka.client.enabled=false",
-        "spring.cloud.discovery.enabled=false",
         "KC_ORDER_SERVICE_CLIENT_SECRET=order-secret-test",
         "DB_PASSWORD=unused",
         "ecommerce.order.reconciliation.fixed-delay=3600000"
@@ -72,8 +70,8 @@ class OrderServiceToInventoryAuthIntegrationTest {
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("OIDC_TOKEN_URI", () -> WIREMOCK.baseUrl() + TOKEN_PATH);
-        registry.add("spring.cloud.openfeign.client.config.inventory-service.url", WIREMOCK::baseUrl);
-        registry.add("spring.cloud.openfeign.client.config.product-service.url", WIREMOCK::baseUrl);
+        registry.add("clients.inventory.url", WIREMOCK::baseUrl);
+        registry.add("clients.product.url", WIREMOCK::baseUrl);
     }
 
     @Autowired

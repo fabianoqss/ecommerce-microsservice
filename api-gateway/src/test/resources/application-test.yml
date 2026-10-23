@@ -1,39 +1,7 @@
-spring:
-  cloud:
-    discovery:
-      enabled: false
-    gateway:
-      server:
-        webmvc:
-          routes:
-            - id: product-service
-              uri: ${backend.url}
-              predicates:
-                - Path=/api/product,/api/product/**
-              filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
-                - RemoveRequestHeader=Cookie
-                - RemoveRequestHeader=X-XSRF-TOKEN
-            - id: order-service
-              uri: ${backend.url}
-              predicates:
-                - Path=/api/order,/api/order/**
-              filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
-                - RemoveRequestHeader=Cookie
-                - RemoveRequestHeader=X-XSRF-TOKEN
-            - id: inventory-service
-              uri: ${backend.url}
-              predicates:
-                - Path=/api/inventory,/api/inventory/**
-              filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
-                - RemoveRequestHeader=Cookie
-                - RemoveRequestHeader=X-XSRF-TOKEN
-
-eureka:
-  client:
-    enabled: false
+# Exercita as rotas e os filtros reais com o backend de teste.
+PRODUCT_SERVICE_URL: ${backend.url}
+ORDER_SERVICE_URL: ${backend.url}
+INVENTORY_SERVICE_URL: ${backend.url}
 
 KC_BFF_CLIENT_SECRET: bff-secret-test
 BFF_POST_LOGOUT_REDIRECT_URI: http://localhost:3000/

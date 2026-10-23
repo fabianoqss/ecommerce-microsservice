@@ -4,7 +4,7 @@ import com.example.ecommerce.order.domain.OrderEventType;
 import com.example.ecommerce.order.domain.OutboxEvent;
 import com.example.ecommerce.order.domain.OutboxStatus;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;

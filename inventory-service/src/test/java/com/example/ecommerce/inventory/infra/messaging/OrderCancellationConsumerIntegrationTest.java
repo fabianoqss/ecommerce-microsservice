@@ -50,8 +50,6 @@ import static org.awaitility.Awaitility.await;
  * permissões mínimas (configure=^$, write=^$, read=^inventory\.order\.cancelled\.queue$).
  */
 @SpringBootTest(properties = {
-        "eureka.client.enabled=false",
-        "spring.cloud.discovery.enabled=false",
         "DB_PASSWORD=unused",
         "spring.rabbitmq.listener.simple.missing-queues-fatal=false",
         "spring.rabbitmq.listener.simple.default-requeue-rejected=false",

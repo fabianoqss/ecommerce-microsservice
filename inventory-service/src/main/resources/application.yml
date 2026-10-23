@@ -53,13 +53,6 @@ spring:
           jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
           audiences: ${OIDC_AUDIENCE:ecommerce-api}
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
-
 management:
   endpoints:
     web:

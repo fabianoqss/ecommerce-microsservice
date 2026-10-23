@@ -3,7 +3,6 @@ WORKDIR /app
 COPY mvnw pom.xml ./
 COPY .mvn ./.mvn
 COPY common-security/pom.xml ./common-security/pom.xml
-COPY eureka-server/pom.xml ./eureka-server/pom.xml
 COPY api-gateway/pom.xml ./api-gateway/pom.xml
 COPY product-service/pom.xml ./product-service/pom.xml
 COPY inventory-service/pom.xml ./inventory-service/pom.xml

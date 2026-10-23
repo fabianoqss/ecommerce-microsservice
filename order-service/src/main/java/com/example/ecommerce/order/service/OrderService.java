@@ -25,8 +25,8 @@ import com.example.ecommerce.order.infra.client.ProductClient;
 import com.example.ecommerce.order.infra.messaging.OrderEventDTO;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import feign.FeignException;
 import feign.RetryableException;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -336,7 +336,7 @@ public class OrderService {
     private String serializeEvent(OrderEventDTO event) {
         try {
             return objectMapper.writeValueAsString(event);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new IllegalStateException("Não foi possível serializar o evento do pedido", ex);
         }
     }
