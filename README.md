@@ -144,16 +144,15 @@ Secrets, URL pública e SMTP entram por variáveis de ambiente (`KC_BFF_CLIENT_S
 
 O realm exige HTTPS fora da rede local, verificação de e-mail, senha forte com histórico, bloqueio progressivo contra força bruta, access token de 5 minutos e sessão limitada a 30 minutos ociosa ou 10 horas no total, e registra eventos de login e administrativos (sem o corpo das requisições, que incluiria secrets). Os access tokens levam `aud=ecommerce-api`. No ambiente local, o issuer público é `http://localhost:8180/realms/ecommerce`; containers consultam JWKs e token endpoint pela rede interna. As variáveis `OIDC_*` controlam esses endereços. Em desenvolvimento, o SMTP aponta para o Mailpit (`http://localhost:8025`).
 
-Em produção, publique Keycloak e gateway por HTTPS atrás do nginx, configure `KEYCLOAK_HOSTNAME` e os redirects públicos, e mantenha `SESSION_COOKIE_SECURE=true` (padrão). O override de desenvolvimento usa `false` para HTTP local.
+Para produção com HTTPS, consulte [Deploy na OCI](#deploy-na-oci). O override de desenvolvimento usa `SESSION_COOKIE_SECURE=false` para HTTP local.
 
 ### Inicialização
+
+Para produção, siga [Deploy na OCI](#deploy-na-oci). Para desenvolvimento local:
 
 ```bash
 # Desenvolvimento local: infraestrutura e aplicações
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
-
-# Produção: ambiente gerado a partir do Vault
-docker compose --env-file <arquivo-de-ambiente> up -d --build
 ```
 
 `rabbitmq-init` é um serviço de execução única: após o broker ficar saudável, `scripts/rabbitmq-init.sh` usa a API HTTP para provisionar o vhost `ecommerce` e os usuários `order-service`, `notification-service` e `inventory-service`. A saída normal desse container é terminar com código `0`; não é um processo permanente.
@@ -199,6 +198,132 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
 
 O `down` respeita os profiles ativos no ambiente. Não use `down -v` se quiser preservar os dados locais.
+
+## Deploy na OCI
+
+Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina de administração para o usuário da VM com chave e sudo. Os scripts não criam os recursos OCI. Endpoints e domínios estão fixados em `scripts/prod/prod.env`, nos bootstraps dos bancos e na configuração da borda; se mudarem ao recriar a infraestrutura, atualize os arquivos no git antes do deploy. Nunca edite arquivos na VM: toda mudança de configuração passa pelo git; o `.env` é gerado.
+
+1. **Pré-requisitos na OCI.** Provisione VM Oracle Linux 9, com `firewalld` ativo, dynamic group incluindo a instância e policy permitindo ler os segredos do Vault via instance principal. Provisione PostgreSQL gerenciado (o bootstrap usa cliente 17) com endpoint privado e Autonomous JSON com endpoint privado e API Mongo habilitada. A VM precisa resolver e alcançar os bancos nas portas privadas `5432` e `27017`, além de saída para repositórios, imagens, APIs OCI, ACME e SMTP `587`.
+
+   Na Security List da VM, abra somente TCP `80`/`443` para a borda e `22` para SSH (restrito à origem administrativa). Não publique portas dos bancos ou consoles. Crie registros DNS A `loja.fabianoquirinos.com.br` e `auth.fabianoquirinos.com.br` apontando para o IP público da VM. No Email Delivery, aprove o remetente `noreply@loja.fabianoquirinos.com.br` e gere credenciais SMTP.
+
+   Crie um Vault e uma chave de criptografia. Os 15 nomes exigidos por `SECRET_NAMES` em `generate-prod-env.sh` são:
+
+   ```text
+   KEYCLOAK_ADMIN_PASSWORD       KEYCLOAK_DB_PASSWORD
+   KC_BFF_CLIENT_SECRET         KC_ORDER_SERVICE_CLIENT_SECRET
+   KC_SMTP_USER                 KC_SMTP_PASSWORD
+   ORDER_DB_PASSWORD            INVENTORY_DB_PASSWORD
+   RABBITMQ_ADMIN_PASSWORD      RABBITMQ_ORDER_PASSWORD
+   RABBITMQ_NOTIFICATION_PASSWORD  RABBITMQ_INVENTORY_PASSWORD
+   REDIS_PASSWORD               GRAFANA_ADMIN_PASSWORD
+   PRODUCT_MONGODB_PASSWORD
+   ```
+
+   Cadastre `KC_SMTP_USER` e `KC_SMTP_PASSWORD` com as credenciais reais do Email Delivery, não valores aleatórios. Cadastre também `prod-postgres-password` e `prod-mongoDB-password` com as senhas administrativas reais dos bancos; os bootstraps leem esses dois segredos adicionais. Valores não podem ser vazios nem conter quebras de linha ou aspas simples.
+
+2. **Bootstrap da VM.** Na máquina de administração, a partir de um checkout de `main`, copie o script para a VM e execute como root via sudo:
+
+   ```bash
+   scp scripts/prod/vm-bootstrap.sh ecommerce-vm:/tmp/vm-bootstrap.sh
+   ssh -t ecommerce-vm 'sudo bash /tmp/vm-bootstrap.sh'
+   ```
+
+   O script expande o disco com `oci-growfs` quando disponível, atualiza pacotes, ativa atualizações automáticas de segurança sem reboot automático e instala Git, OCI CLI, Docker Engine e Compose. Configura rotação de logs (`10m`, cinco arquivos), `live-restore` e SSH só por chave, sem login root, autenticação interativa ou X11, com três tentativas. Se indicar reinício, execute `sudo systemctl reboot` na VM e reconecte.
+
+3. **Clone como root, somente `main`.** Entre na VM; os comandos seguintes, salvo indicação contrária, rodam nela:
+
+   ```bash
+   ssh ecommerce-vm
+   sudo git clone --branch main --single-branch https://github.com/fabianoqss/ecommerce-microsservice.git /opt/ecommerce
+   cd /opt/ecommerce
+   ```
+
+   Atualizações usam `sudo git pull --ff-only`; não crie alterações locais na VM.
+
+4. **Borda HTTPS.** Com DNS propagado e porta `80` acessível:
+
+   ```bash
+   sudo ./scripts/prod/edge-setup.sh
+   ```
+
+   Instala nginx do AppStream e certbot via EPEL restrito aos pacotes do certbot e suas dependências listadas. Libera HTTP/HTTPS no `firewalld`, habilita `httpd_can_network_relay` no SELinux e rotula `8180` como `http_port_t` (`8080` já é `http_cache_port_t`). Emite certificado Let's Encrypt por HTTP-01 para os dois domínios, instala `scripts/prod/nginx/ecommerce.conf` e ativa `certbot-renew.timer`, com reload do nginx após renovação. A borda redireciona HTTP para HTTPS e usa TLS 1.2/1.3; antes da subida dos containers, os proxies ainda podem retornar `502`.
+
+5. **Segredos aleatórios.** Na máquina de administração, use OCI CLI autenticada como usuário autorizado a consultar o Vault e gerenciar segredos, além de Python 3. Na raiz do checkout, informe os OCIDs do Vault e da chave:
+
+   ```bash
+   read -r -p 'OCID do Vault: ' VAULT_ID
+   read -r -p 'OCID da chave: ' KEY_ID
+   for name in KEYCLOAK_ADMIN_PASSWORD KEYCLOAK_DB_PASSWORD \
+     KC_BFF_CLIENT_SECRET KC_ORDER_SERVICE_CLIENT_SECRET \
+     ORDER_DB_PASSWORD INVENTORY_DB_PASSWORD RABBITMQ_ADMIN_PASSWORD \
+     RABBITMQ_ORDER_PASSWORD RABBITMQ_NOTIFICATION_PASSWORD \
+     RABBITMQ_INVENTORY_PASSWORD REDIS_PASSWORD GRAFANA_ADMIN_PASSWORD \
+     PRODUCT_MONGODB_PASSWORD; do
+     ./scripts/prod/vault-random-secret.sh "$name" "$VAULT_ID" "$KEY_ID" 30
+   done
+   ```
+
+   Argumentos: `<nome> <vault-ocid> <key-ocid> [tamanho]`; padrão `30`, intervalo `12–30`. Gera senha alfanumérica com maiúscula, minúscula e dígito, sem exibir o valor; segredo existente é preservado. Não use para gerar novamente senhas administrativas de bancos já criados nem credenciais SMTP.
+
+6. **Bancos.** De volta à VM, em `/opt/ecommerce`, informe o mesmo Vault:
+
+   ```bash
+   read -r -p 'OCID do Vault: ' VAULT_ID
+   sudo ./scripts/prod/db-bootstrap.sh "$VAULT_ID"
+   sudo ./scripts/prod/adb-bootstrap.sh "$VAULT_ID"
+   ```
+
+   O primeiro lê o Vault por instance principal e usa `psql` em `postgres:17-alpine` para reconciliar os usuários `order_service`, `inventory_service` e `keycloak`, donos dos bancos `order-service`, `inventory_service` e `keycloak`, com acesso de `PUBLIC` revogado. Usa `verify-full`; `scripts/prod/certs/oci-postgresql-ca.pem` é a CA pública para validar certificado e hostname do PostgreSQL, também montada somente para leitura nos containers pelo override de produção. Ao recriar o banco, confira a CA fornecida pela OCI e atualize-a pelo git se necessário.
+
+   O segundo usa `mongosh` em `mongo:7.0`, via API Mongo com TLS na porta `27017`, autenticado como `ADMIN`. Cria/atualiza `PRODUCT_SERVICE`, cota de `5G`, privilégios de schema e habilitação ORDS com autenticação; testa escrita/leitura e remove a coleção de teste. Não usa SQL*Net `1522` nem ORDS `443`. A senha de `PRODUCT_SERVICE` deve ter `12–30` caracteres alfanuméricos, maiúscula, minúscula e dígito, sem conter o nome do usuário.
+
+7. **`.env` a partir do Vault.** Na VM:
+
+   ```bash
+   sudo ./scripts/prod/generate-prod-env.sh "$VAULT_ID"
+   ```
+
+   Usa instance principal, combina `scripts/prod/prod.env` com os 15 segredos e monta `PRODUCT_MONGODB_URI`. O template define URLs públicas HTTPS e `SESSION_COOKIE_SECURE=true`. Valida com Compose, substitui atomicamente o `.env` com dono root e modo `600`, preservando backup `600` se já existir. Não imprime segredos. Não execute o `.env` como shell nem compartilhe o arquivo ou seus backups.
+
+8. **Subida.** Na VM, em `/opt/ecommerce`:
+
+   ```bash
+   sudo docker compose up -d --build --remove-orphans
+   ```
+
+   Construa e suba no mesmo comando: um `build` separado pode gerar imagens novas sem que o `up` recrie os containers, que seguem com a imagem anterior. O `.env` define `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` e `COMPOSE_PROFILES=monitoring,apps`. Na primeira aplicação do `frontendUrl` do master, `keycloak-config` pode sair com `401`: o atributo já foi gravado, mas o token do CLI ainda tem o issuer anterior (comentários em `scripts/prod/keycloak/realm-master.yaml`). Nesse caso, execute novamente e confirme saída `0`; depois retome a subida das aplicações:
+
+   ```bash
+   sudo docker compose run --rm keycloak-config
+   sudo docker compose up -d --remove-orphans
+   sudo docker compose ps -a
+   ```
+
+9. **Acesso administrativo.** Somente por túnel SSH, iniciado na máquina de administração:
+
+   ```bash
+   ssh -o ExitOnForwardFailure=yes -L 8180:localhost:8180 ecommerce-vm
+   ```
+
+   Abra `http://localhost:8180/admin/` (`admin` / `KEYCLOAK_ADMIN_PASSWORD`). Para os demais consoles, use o mesmo comando trocando ambos os números de porta: RabbitMQ `15672`, Grafana `3000`, Prometheus `9090`, Zipkin `9411`. Todos são publicados somente em loopback. No domínio público de autenticação, nginx bloqueia `/admin` e `/realms/master` com `404`; apenas o realm de negócio e seus recursos ficam acessíveis.
+
+10. **Atualização de versão.** Publique toda mudança em `main` antes de atualizar. Na VM:
+
+    ```bash
+    cd /opt/ecommerce
+    sudo git pull --ff-only
+    sudo docker compose up -d --build --remove-orphans
+    sudo docker compose ps -a
+    ```
+
+    Se configuração pública ou segredos mudaram, regenere o `.env` pelo passo 7 antes da subida; mudanças na borda exigem reaplicar o passo 4. Alterar um segredo não rotaciona automaticamente credenciais persistidas: coordene a rotação com cada serviço/banco. Após a primeira subida e a cada atualização, aguarde os healthchecks e execute os smoke tests sem sessão (saídas esperadas: `200`, `401`, `403`):
+
+    ```bash
+    curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/api/product
+    curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/api/order
+    curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/actuator/health
+    ```
 
 ## Testes
 
