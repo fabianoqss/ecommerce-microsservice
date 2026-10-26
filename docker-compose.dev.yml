@@ -40,6 +40,35 @@ services:
       retries: 5
     restart: "no"
 
+  # ─── DADOS DE DEMONSTRAÇÃO (SÓ EM DEV) ──────────────────────────────────────
+
+  # Execução única a cada subida, idempotente e sem sobrescrever dados existentes.
+  # Recarregar sem recriar volumes: docker compose ... up seed-products seed-inventory
+  seed-products:
+    image: mongo:7.0.45
+    command: ["mongosh", "--quiet", "mongodb://mongo:27017/product_db", "/seed/products.js"]
+    volumes:
+      - ./scripts/dev/seed:/seed:ro
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+
+  seed-inventory:
+    image: postgres:16.12
+    entrypoint: ["/bin/sh", "/seed/seed-inventory.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD}
+      PGDATABASE: inventory_service
+    volumes:
+      - ./scripts/dev/seed:/seed:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   # ─── AJUSTES DE DEV NOS SERVIÇOS DO ARQUIVO BASE ────────────────────────────
 
   # SMTP falso: captura os e-mails do Keycloak (verificação, recuperação de senha)
@@ -74,6 +103,8 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+      seed-products:
+        condition: service_completed_successfully
 
   inventory-service:
     depends_on:
@@ -84,6 +115,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # Pedidos de demonstração precisam do estoque carregado.
+      seed-inventory:
+        condition: service_completed_successfully
 
 volumes:
   postgres-data:
