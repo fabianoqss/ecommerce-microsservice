@@ -22,6 +22,9 @@ updates:
       - /inventory-service
       - /order-service
       - /notification-service
+    ignore:
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]
     schedule:
       interval: monthly
     cooldown:
