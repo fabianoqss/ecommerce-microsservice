@@ -6,15 +6,46 @@
 x-oci-postgresql-ca: &oci-postgresql-ca
   - ./scripts/prod/certs/oci-postgresql-ca.pem:/etc/ecommerce/oci-postgresql-ca.pem:ro
 
+# Limites por container: um serviço que vaze memória ou CPU é reiniciado sozinho
+# em vez de levar a VM (2 OCPU/24 GB) ao OOM killer do kernel. Swap igual ao limite
+# para não trocar memória por disco. Soma dos limites ~12 GB, folga para SO e nginx.
+x-no-new-privileges: &no-new-privileges
+  security_opt:
+    - no-new-privileges:true
+
+# Microsserviços Java: o heap é 75% do limite (MaxRAMPercentage do Dockerfile),
+# o resto cobre metaspace, threads e buffers. Sem escrita fora do /tmp em memória,
+# sem capabilities do kernel e com teto de processos/threads.
+x-java-app: &java-app
+  <<: *no-new-privileges
+  mem_limit: 1280m
+  memswap_limit: 1280m
+  cpus: 2
+  pids_limit: 512
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m
+  cap_drop:
+    - ALL
+  environment:
+    # G1 explícito: abaixo de 1792 MB a JVM escolheria o SerialGC, diferente de dev/CI.
+    # Um OutOfMemoryError encerra a JVM e o Docker reinicia o container.
+    JAVA_TOOL_OPTIONS: -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+
 services:
 
   keycloak:
+    <<: *no-new-privileges
+    mem_limit: 2g
+    memswap_limit: 2g
     environment:
       # Console de admin só por túnel SSH: o nginx bloqueia /admin e o realm master.
       KC_HOSTNAME_ADMIN: &keycloak-admin-url http://localhost:8180
     volumes: *oci-postgresql-ca
 
   keycloak-config:
+    mem_limit: 768m
+    memswap_limit: 768m
     environment:
       # Arquivos de produção são importados depois do realm-ecommerce.yaml (frontendUrl do master).
       IMPORT_FILES_LOCATIONS: /config/*.yaml,/config-prod/*.yaml
@@ -22,8 +53,49 @@ services:
     volumes:
       - ./scripts/prod/keycloak:/config-prod:ro
 
-  order-service:
-    volumes: *oci-postgresql-ca
+  rabbitmq:
+    <<: *no-new-privileges
+    mem_limit: 1g
+    memswap_limit: 1g
+
+  rabbitmq-init:
+    <<: *no-new-privileges
+    mem_limit: 64m
+    memswap_limit: 64m
+
+  redis:
+    <<: *no-new-privileges
+    mem_limit: 256m
+    memswap_limit: 256m
+
+  zipkin:
+    <<: *no-new-privileges
+    mem_limit: 768m
+    memswap_limit: 768m
+
+  prometheus:
+    <<: *no-new-privileges
+    mem_limit: 512m
+    memswap_limit: 512m
+
+  grafana:
+    <<: *no-new-privileges
+    mem_limit: 512m
+    memswap_limit: 512m
+
+  product-service:
+    <<: *java-app
 
   inventory-service:
+    <<: *java-app
     volumes: *oci-postgresql-ca
+
+  notification-service:
+    <<: *java-app
+
+  order-service:
+    <<: *java-app
+    volumes: *oci-postgresql-ca
+
+  api-gateway:
+    <<: *java-app
