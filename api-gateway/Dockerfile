@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk-noble@sha256:107215954359f1ab0be058a247d7c64ed6e69c71c1682d471d38ef751ec8e964 AS build
+FROM eclipse-temurin:25-jdk-noble@sha256:ba0f0e1a33864105e1d454e88105c617ab40f71062db1f306bf58be32a3f8e5e AS build
 WORKDIR /app
 COPY mvnw pom.xml ./
 COPY .mvn ./.mvn
@@ -15,7 +15,7 @@ RUN ./mvnw -B -pl api-gateway -am package -DskipTests \
     && mv api-gateway/target/*.jar application.jar \
     && java -Djarmode=tools -jar application.jar extract --layers --destination extracted
 
-FROM eclipse-temurin:21-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c
+FROM eclipse-temurin:25-jre-noble@sha256:3f2223fe04b750aa5a8179e29b5c9a1ddf7665fc9bb08bfe11ad01d143bc13a5
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
