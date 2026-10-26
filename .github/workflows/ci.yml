@@ -100,3 +100,4 @@ jobs:
           subject-name: ${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
+          create-storage-record: false
