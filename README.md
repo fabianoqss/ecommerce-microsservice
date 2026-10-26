@@ -159,6 +159,16 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 As aplicações usam `RABBITMQ_ORDER_PASSWORD`, `RABBITMQ_NOTIFICATION_PASSWORD` e `RABBITMQ_INVENTORY_PASSWORD` no vhost `ecommerce` com privilégio mínimo: `order-service` (único dono da topologia e produtor) tem `configure`, `write` e `read` em `^(order|inventory)\.`, `notification-service` (consumidor) tem `configure` e `write` em `^$` e `read` apenas em `^order\.(created|cancelled)\.queue$`, e `inventory-service` (consumidor do cancelamento) tem `configure` e `write` em `^$` e `read` apenas em `^inventory\.order\.cancelled\.queue$`. `RABBITMQ_ADMIN_USERNAME`/`RABBITMQ_ADMIN_PASSWORD` são credenciais administrativas para o console e o provisionamento, não para os microsserviços. AMQP (`5672`) só é publicado no override local, em loopback.
 
+### Dados de demonstração (somente dev)
+
+O override de desenvolvimento inclui dois serviços de execução única que carregam um catálogo de demonstração: `seed-products` (20 produtos no MongoDB) e `seed-inventory` (estoque desses produtos no PostgreSQL, com um item esgotado e um com estoque baixo). Os scripts ficam em [`scripts/dev/seed/`](scripts/dev/seed/) e são montados **apenas** pelo `docker-compose.dev.yml`: o Compose de produção não os referencia e o `.dockerignore` os mantém fora das imagens.
+
+Os produtos têm `_id` fixo porque o estoque usa o id do produto como `sku_code`. A carga é idempotente e não destrutiva: roda a cada subida, insere só o que ainda não existe e nunca sobrescreve produtos ou quantidades alterados pela API. `product-service` e `order-service` aguardam a carga terminar. O `seed-inventory` espera a tabela criada pelo Flyway do `inventory-service`, então também funciona com o serviço rodando pela IDE. Para recarregar sem recriar volumes:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up seed-products seed-inventory
+```
+
 Serviços úteis (publicados em `127.0.0.1`; na VM, acesse por túnel SSH):
 
 - Gateway: `http://localhost:8080`
