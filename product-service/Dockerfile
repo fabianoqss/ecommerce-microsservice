@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk-jammy AS build
+FROM eclipse-temurin:21-jdk-noble@sha256:107215954359f1ab0be058a247d7c64ed6e69c71c1682d471d38ef751ec8e964 AS build
 WORKDIR /app
 COPY mvnw pom.xml ./
 COPY .mvn ./.mvn
@@ -11,15 +11,20 @@ COPY notification-service/pom.xml ./notification-service/pom.xml
 RUN chmod +x mvnw && ./mvnw -B -pl product-service -am dependency:go-offline
 COPY common-security/src ./common-security/src
 COPY product-service/src ./product-service/src
-RUN ./mvnw -B -pl product-service -am package -DskipTests
+RUN ./mvnw -B -pl product-service -am package -DskipTests \
+    && cp product-service/target/*.jar application.jar \
+    && java -Djarmode=tools -jar application.jar extract --layers --destination extracted
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:21-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 app \
     && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
-COPY --from=build --chown=10001:10001 /app/product-service/target/*.jar app.jar
+COPY --from=build --chown=10001:10001 /app/extracted/dependencies/ ./
+COPY --from=build --chown=10001:10001 /app/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=10001:10001 /app/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=10001:10001 /app/extracted/application/ ./
 USER 10001:10001
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "application.jar"]
