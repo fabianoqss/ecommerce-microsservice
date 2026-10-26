@@ -12,7 +12,7 @@ RUN chmod +x mvnw && ./mvnw -B -pl inventory-service -am dependency:go-offline
 COPY common-security/src ./common-security/src
 COPY inventory-service/src ./inventory-service/src
 RUN ./mvnw -B -pl inventory-service -am package -DskipTests \
-    && cp inventory-service/target/*.jar application.jar \
+    && mv inventory-service/target/*.jar application.jar \
     && java -Djarmode=tools -jar application.jar extract --layers --destination extracted
 
 FROM eclipse-temurin:21-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c

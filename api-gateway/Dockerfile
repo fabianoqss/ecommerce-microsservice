@@ -12,7 +12,7 @@ RUN chmod +x mvnw && ./mvnw -B -pl api-gateway -am dependency:go-offline
 COPY common-security/src ./common-security/src
 COPY api-gateway/src ./api-gateway/src
 RUN ./mvnw -B -pl api-gateway -am package -DskipTests \
-    && cp api-gateway/target/*.jar application.jar \
+    && mv api-gateway/target/*.jar application.jar \
     && java -Djarmode=tools -jar application.jar extract --layers --destination extracted
 
 FROM eclipse-temurin:21-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c

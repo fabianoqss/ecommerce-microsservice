@@ -11,7 +11,7 @@ COPY notification-service/pom.xml ./notification-service/pom.xml
 RUN chmod +x mvnw && ./mvnw -B -pl notification-service -am dependency:go-offline
 COPY notification-service/src ./notification-service/src
 RUN ./mvnw -B -pl notification-service -am package -DskipTests \
-    && cp notification-service/target/*.jar application.jar \
+    && mv notification-service/target/*.jar application.jar \
     && java -Djarmode=tools -jar application.jar extract --layers --destination extracted
 
 FROM eclipse-temurin:21-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c
