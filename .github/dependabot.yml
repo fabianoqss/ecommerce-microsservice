@@ -14,3 +14,22 @@ updates:
     commit-message:
       prefix: ci
       include: scope
+
+  - package-ecosystem: docker
+    directories:
+      - /api-gateway
+      - /product-service
+      - /inventory-service
+      - /order-service
+      - /notification-service
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      docker-base-images:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: build
+      include: scope
