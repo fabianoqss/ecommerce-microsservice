@@ -38,6 +38,10 @@
 # ===== SECRETS =====
 **/.env
 
+# ===== PYTHON =====
+__pycache__/
+*.pyc
+
 # ===== PROJETO =====
 CLAUDE.md
 docker-compose-monitoring.yml
