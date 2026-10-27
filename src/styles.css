@@ -5,5 +5,9 @@
 @import 'tailwindcss-primeui';
 @import 'primeicons/primeicons.css';
 
+@theme {
+  --font-sans: 'Open Sans', Arial, sans-serif;
+}
+
 /* O variant dark: do Tailwind usa a mesma classe do PrimeNG (darkModeSelector). */
 @custom-variant dark (&:where(.p-dark, .p-dark *));
