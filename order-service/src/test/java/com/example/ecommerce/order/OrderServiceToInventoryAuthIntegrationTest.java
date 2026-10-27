@@ -20,7 +20,18 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import java.util.UUID;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.putRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -87,6 +98,7 @@ class OrderServiceToInventoryAuthIntegrationTest {
                 """)));
 
         mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .with(jwt().jwt(j -> j.subject("user-sub")).authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
                 .andExpect(status().isCreated());
@@ -104,6 +116,7 @@ class OrderServiceToInventoryAuthIntegrationTest {
         WIREMOCK.stubFor(WireMock.post(TOKEN_PATH).willReturn(serverError()));
 
         mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .with(jwt().jwt(j -> j.subject("user-sub")).authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
                 .andExpect(status().isServiceUnavailable());

@@ -33,7 +33,13 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.putRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -123,7 +129,9 @@ class OrderCreateCompensationIntegrationTest {
         WIREMOCK.stubFor(WireMock.put(urlPathMatching(RESERVATION_URL_PATTERN))
                 .willReturn(aResponse().withStatus(201)));
 
-        String body = mvc.perform(post("/api/order").with(user("owner-sub"))
+        String body = mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .with(user("owner-sub"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"items":[{"productId":"p1","quantity":1}]}
@@ -154,7 +162,9 @@ class OrderCreateCompensationIntegrationTest {
                         .withHeader("Content-Type", "application/problem+json")
                         .withBody("{\"status\":409,\"detail\":\"Sem estoque\"}")));
 
-        mvc.perform(post("/api/order").with(user("owner-sub"))
+        mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .with(user("owner-sub"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"items":[{"productId":"p1","quantity":1}]}
@@ -188,7 +198,9 @@ class OrderCreateCompensationIntegrationTest {
         WIREMOCK.stubFor(WireMock.delete(urlPathMatching(RESERVATION_URL_PATTERN))
                 .willReturn(aResponse().withStatus(204)));
 
-        mvc.perform(post("/api/order").with(user("owner-sub"))
+        mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .with(user("owner-sub"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"items":[{"productId":"p1","quantity":1}]}
@@ -242,7 +254,9 @@ class OrderCreateCompensationIntegrationTest {
             }
         });
 
-        mvc.perform(post("/api/order").with(user("owner-sub"))
+        mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .with(user("owner-sub"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"items":[{"productId":"p1","quantity":1}]}
@@ -262,7 +276,9 @@ class OrderCreateCompensationIntegrationTest {
                 {"id":"p1","name":"%s","price":10.00}
                 """.formatted("x".repeat(300)))));
 
-        var response = mvc.perform(post("/api/order").with(user("owner-sub"))
+        var response = mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .with(user("owner-sub"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"items":[{"productId":"p1","quantity":1}]}
