@@ -1,7 +1,7 @@
 package com.example.ecommerce.order.infra.client;
 
-import com.example.ecommerce.order.dto.request.InventoryReserveRequestDTO;
-import com.example.ecommerce.order.dto.response.InventoryReservationResponseDTO;
+import com.example.ecommerce.order.dto.client.inventory.InventoryReservationResponseDTO;
+import com.example.ecommerce.order.dto.client.inventory.InventoryReserveRequestDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -1,14 +1,14 @@
 package com.example.ecommerce.order.service;
 
 import com.example.ecommerce.order.domain.entity.Order;
-import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.domain.entity.OutboxEvent;
+import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.domain.enums.ReservationMode;
-import com.example.ecommerce.order.dto.request.InventoryItemDTO;
-import com.example.ecommerce.order.dto.request.InventoryReserveRequestDTO;
+import com.example.ecommerce.order.dto.client.inventory.InventoryItemDTO;
+import com.example.ecommerce.order.dto.client.inventory.InventoryReserveRequestDTO;
+import com.example.ecommerce.order.dto.client.product.ProductDTO;
 import com.example.ecommerce.order.dto.request.OrderItemRequestDTO;
 import com.example.ecommerce.order.dto.request.OrderRequestDTO;
-import com.example.ecommerce.order.dto.response.ProductDTO;
 import com.example.ecommerce.order.exception.InvalidProductDataException;
 import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.infra.client.InventoryClient;

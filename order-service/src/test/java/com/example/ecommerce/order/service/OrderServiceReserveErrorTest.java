@@ -2,9 +2,9 @@ package com.example.ecommerce.order.service;
 
 import com.example.ecommerce.order.domain.entity.Order;
 import com.example.ecommerce.order.domain.enums.OrderStatus;
+import com.example.ecommerce.order.dto.client.product.ProductDTO;
 import com.example.ecommerce.order.dto.request.OrderItemRequestDTO;
 import com.example.ecommerce.order.dto.request.OrderRequestDTO;
-import com.example.ecommerce.order.dto.response.ProductDTO;
 import com.example.ecommerce.order.exception.InsufficientStockException;
 import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.infra.client.InventoryClient;

@@ -1,7 +1,7 @@
 package com.example.ecommerce.order.infra.client;
 
-import com.example.ecommerce.order.dto.request.InventoryItemDTO;
-import com.example.ecommerce.order.dto.request.InventoryReserveRequestDTO;
+import com.example.ecommerce.order.dto.client.inventory.InventoryItemDTO;
+import com.example.ecommerce.order.dto.client.inventory.InventoryReserveRequestDTO;
 import feign.Client;
 import feign.Request;
 import feign.Response;
