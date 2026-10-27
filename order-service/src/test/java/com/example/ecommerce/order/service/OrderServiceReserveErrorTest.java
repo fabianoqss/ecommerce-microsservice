@@ -9,6 +9,7 @@ import com.example.ecommerce.order.exception.InsufficientStockException;
 import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.infra.client.InventoryClient;
 import com.example.ecommerce.order.infra.client.ProductClient;
+import com.example.ecommerce.order.infra.tracing.OutboxTraceContext;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import feign.FeignException;
@@ -16,6 +17,8 @@ import feign.Request;
 import feign.RetryableException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,6 +76,9 @@ class OrderServiceReserveErrorTest {
 
     @Spy
     private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    @Spy
+    private OutboxTraceContext outboxTraceContext = new OutboxTraceContext(Tracer.NOOP, Propagator.NOOP);
 
     @InjectMocks
     private OrderService orderService;

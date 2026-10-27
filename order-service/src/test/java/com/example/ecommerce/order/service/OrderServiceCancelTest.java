@@ -9,12 +9,15 @@ import com.example.ecommerce.order.dto.client.inventory.InventoryItemDTO;
 import com.example.ecommerce.order.dto.event.OrderEventDTO;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
 import com.example.ecommerce.order.infra.client.InventoryClient;
+import com.example.ecommerce.order.infra.tracing.OutboxTraceContext;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -63,6 +66,9 @@ class OrderServiceCancelTest {
 
     @Spy
     private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    @Spy
+    private OutboxTraceContext outboxTraceContext = new OutboxTraceContext(Tracer.NOOP, Propagator.NOOP);
 
     @InjectMocks
     private OrderService orderService;

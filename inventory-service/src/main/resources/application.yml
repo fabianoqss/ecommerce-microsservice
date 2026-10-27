@@ -34,6 +34,7 @@ spring:
     password: ${SPRING_RABBITMQ_PASSWORD:guest}
     listener:
       simple:
+        observation-enabled: true
         missing-queues-fatal: false
         retry:
           enabled: true

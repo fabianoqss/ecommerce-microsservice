@@ -65,6 +65,8 @@ spring:
 
   cloud:
     openfeign:
+      micrometer:
+        enabled: true
       client:
         config:
           default:

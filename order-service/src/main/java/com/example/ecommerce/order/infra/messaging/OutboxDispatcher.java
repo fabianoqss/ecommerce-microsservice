@@ -4,6 +4,7 @@ import com.example.ecommerce.order.domain.entity.OutboxEvent;
 import com.example.ecommerce.order.domain.enums.OrderEventType;
 import com.example.ecommerce.order.domain.enums.OutboxStatus;
 import com.example.ecommerce.order.dto.event.OrderEventDTO;
+import com.example.ecommerce.order.infra.tracing.OutboxTraceContext;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import tools.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -32,6 +33,7 @@ public class OutboxDispatcher {
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
+    private final OutboxTraceContext outboxTraceContext;
 
     @Setter
     @Value("${ecommerce.order.outbox.base-backoff:5s}")
@@ -52,46 +54,49 @@ public class OutboxDispatcher {
             return;
         }
 
-        try {
-            OrderEventDTO event = objectMapper.readValue(outbox.getPayload(), OrderEventDTO.class);
-            CorrelationData correlationData = new CorrelationData(outbox.getEventId().toString());
+        try (var traceScope = outboxTraceContext.restore(outbox.getTraceparent())) {
+            try {
+                OrderEventDTO event = objectMapper.readValue(outbox.getPayload(), OrderEventDTO.class);
+                CorrelationData correlationData = new CorrelationData(outbox.getEventId().toString());
 
-            rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.EXCHANGE,
-                    OrderEventType.valueOf(outbox.getEventType()).routingKey(),
-                    event,
-                    correlationData
-            );
+                rabbitTemplate.convertAndSend(
+                        RabbitMQConfig.EXCHANGE,
+                        OrderEventType.valueOf(outbox.getEventType()).routingKey(),
+                        event,
+                        correlationData
+                );
 
-            CorrelationData.Confirm confirm = correlationData.getFuture()
-                    .get(CONFIRM_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            if (!confirm.ack()) {
-                throw new IllegalStateException("RabbitMQ rejeitou o evento: " + confirm.reason());
-            }
-            if (correlationData.getReturned() != null) {
-                throw new IllegalStateException("Evento não roteado: " + correlationData.getReturned().getReplyText());
-            }
+                CorrelationData.Confirm confirm = correlationData.getFuture()
+                        .get(CONFIRM_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                if (!confirm.ack()) {
+                    throw new IllegalStateException("RabbitMQ rejeitou o evento: " + confirm.reason());
+                }
+                if (correlationData.getReturned() != null) {
+                    throw new IllegalStateException("Evento não roteado: " + correlationData.getReturned().getReplyText());
+                }
 
-            outbox.setStatus(OutboxStatus.SENT);
-            outbox.setSentAt(LocalDateTime.now());
-            outbox.setLastError(null);
-            log.info("Evento de pedido publicado: eventId={}, type={}, orderId={}",
-                    outbox.getEventId(), outbox.getEventType(), outbox.getAggregateId());
-        } catch (Exception ex) {
-            int attempts = outbox.getAttempts() + 1;
-            outbox.setAttempts(attempts);
-            outbox.setLastError(limit(ex.getMessage()));
-            if (attempts >= maxAttempts) {
-                outbox.setStatus(OutboxStatus.FAILED);
-                meterRegistry.counter("outbox.failed", "type", outbox.getEventType()).increment();
-                log.error("Evento movido para FAILED após {} tentativas: eventId={}, orderId={}",
-                        attempts, outbox.getEventId(), outbox.getAggregateId(), ex);
-            } else {
-                Duration backoff = computeBackoff(attempts);
-                Instant nextAttempt = Instant.now().plus(backoff);
-                outbox.setNextAttemptAt(nextAttempt);
-                log.warn("Falha ao publicar evento (tentativa {}/{}), próxima em {}: eventId={}, orderId={}",
-                        attempts, maxAttempts, nextAttempt, outbox.getEventId(), outbox.getAggregateId(), ex);
+                outbox.setStatus(OutboxStatus.SENT);
+                outbox.setSentAt(LocalDateTime.now());
+                outbox.setLastError(null);
+                log.info("Evento de pedido publicado: eventId={}, type={}, orderId={}",
+                        outbox.getEventId(), outbox.getEventType(), outbox.getAggregateId());
+            } catch (Exception ex) {
+                traceScope.error(ex);
+                int attempts = outbox.getAttempts() + 1;
+                outbox.setAttempts(attempts);
+                outbox.setLastError(limit(ex.getMessage()));
+                if (attempts >= maxAttempts) {
+                    outbox.setStatus(OutboxStatus.FAILED);
+                    meterRegistry.counter("outbox.failed", "type", outbox.getEventType()).increment();
+                    log.error("Evento movido para FAILED após {} tentativas: eventId={}, orderId={}",
+                            attempts, outbox.getEventId(), outbox.getAggregateId(), ex);
+                } else {
+                    Duration backoff = computeBackoff(attempts);
+                    Instant nextAttempt = Instant.now().plus(backoff);
+                    outbox.setNextAttemptAt(nextAttempt);
+                    log.warn("Falha ao publicar evento (tentativa {}/{}), próxima em {}: eventId={}, orderId={}",
+                            attempts, maxAttempts, nextAttempt, outbox.getEventId(), outbox.getAggregateId(), ex);
+                }
             }
         }
     }

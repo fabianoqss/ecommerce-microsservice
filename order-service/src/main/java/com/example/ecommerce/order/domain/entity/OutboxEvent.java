@@ -59,6 +59,9 @@ public class OutboxEvent {
     @Column(name = "last_error", length = 1000)
     private String lastError;
 
+    @Column(name = "traceparent", columnDefinition = "TEXT")
+    private String traceparent;
+
     public static OutboxEvent pending(UUID eventId, UUID aggregateId, String eventType, String payload) {
         OutboxEvent event = new OutboxEvent();
         event.setEventId(eventId);

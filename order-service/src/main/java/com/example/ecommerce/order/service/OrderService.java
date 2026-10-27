@@ -26,6 +26,7 @@ import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.exception.ProductNotFoundException;
 import com.example.ecommerce.order.infra.client.InventoryClient;
 import com.example.ecommerce.order.infra.client.ProductClient;
+import com.example.ecommerce.order.infra.tracing.OutboxTraceContext;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import tools.jackson.core.JacksonException;
@@ -33,10 +34,9 @@ import tools.jackson.databind.ObjectMapper;
 import feign.FeignException;
 import feign.RetryableException;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -72,32 +72,28 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class OrderService {
 
     private static final Sort LATEST_FIRST = Sort.by(Sort.Direction.DESC, "orderTime", "id");
     private static final int ORDER_EVENT_VERSION = 2;
     private static final int ORDER_CANCELLED_EVENT_VERSION = 3;
 
-    @Autowired
-    private OrderRepository orderRepository;
+    private final OrderRepository orderRepository;
 
-    @Autowired
-    private ProductClient productClient;
+    private final ProductClient productClient;
 
-    @Autowired
-    private InventoryClient inventoryClient;
+    private final InventoryClient inventoryClient;
 
-    @Autowired
-    private OutboxEventRepository outboxEventRepository;
+    private final OutboxEventRepository outboxEventRepository;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
 
-    @Autowired
-    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    private final MeterRegistry meterRegistry;
 
-    @Autowired
-    private TransactionTemplate transactionTemplate;
+    private final OutboxTraceContext outboxTraceContext;
+
+    private final TransactionTemplate transactionTemplate;
 
     @Setter
     @Value("${ecommerce.order.reservation.max-attempts:3}")
@@ -303,7 +299,9 @@ public class OrderService {
                 cancelled ? order.getReservationMode() : null,
                 cancelled ? toInventoryItems(order) : null
         );
-        outboxEventRepository.save(OutboxEvent.pending(eventId, order.getId(), type.name(), serializeEvent(event)));
+        OutboxEvent outbox = OutboxEvent.pending(eventId, order.getId(), type.name(), serializeEvent(event));
+        outbox.setTraceparent(outboxTraceContext.capture());
+        outboxEventRepository.save(outbox);
     }
 
     private static List<InventoryItemDTO> toInventoryItems(Order order) {

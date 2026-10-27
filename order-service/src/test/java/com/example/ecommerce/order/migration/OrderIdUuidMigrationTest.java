@@ -144,6 +144,34 @@ class OrderIdUuidMigrationTest {
         }
     }
 
+    @Test
+    void v10PreservesV9OutboxRowsAndAddsNullableTraceContext() throws Exception {
+        migrateTo("9");
+        UUID eventId = UUID.randomUUID();
+        try (Connection connection = connect(); Statement sql = connection.createStatement()) {
+            sql.execute("INSERT INTO tb_outbox_event "
+                    + "(event_id, aggregate_id, event_type, payload, status, attempts, created_at, next_attempt_at) "
+                    + "VALUES ('" + eventId + "', '" + UUID.randomUUID() + "', 'ORDER_CREATED', '{}', 'PENDING', 0, now(), now())");
+        }
+
+        migrateTo("10");
+
+        try (Connection connection = connect(); Statement sql = connection.createStatement()) {
+            try (ResultSet event = sql.executeQuery("SELECT event_id, status, traceparent FROM tb_outbox_event")) {
+                assertThat(event.next()).isTrue();
+                assertThat(event.getObject("event_id", UUID.class)).isEqualTo(eventId);
+                assertThat(event.getString("status")).isEqualTo("PENDING");
+                assertThat(event.getString("traceparent")).isNull();
+            }
+            String traceparent = "00-463ac35c9f6413ad48485a3953bb6124-a2fb4a1d1a96d312-01";
+            sql.execute("UPDATE tb_outbox_event SET traceparent = '" + traceparent + "'");
+            try (ResultSet event = sql.executeQuery("SELECT traceparent FROM tb_outbox_event")) {
+                assertThat(event.next()).isTrue();
+                assertThat(event.getString("traceparent")).isEqualTo(traceparent);
+            }
+        }
+    }
+
     private static UUID singleUuid(Statement sql, String query) throws Exception {
         ResultSet result = sql.executeQuery(query);
         assertThat(result.next()).isTrue();
