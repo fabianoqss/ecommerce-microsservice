@@ -33,7 +33,6 @@ public class Order {
     @Column(name = "idempotency_key", updatable = false)
     private UUID idempotencyKey;
 
-    // CHAR(64) na V8: SHA-256 em hex tem tamanho fixo; sem o JdbcTypeCode o validate espera VARCHAR.
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "request_hash", length = 64, updatable = false)
     private String requestHash;
