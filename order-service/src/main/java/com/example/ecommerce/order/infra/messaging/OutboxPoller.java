@@ -1,6 +1,6 @@
 package com.example.ecommerce.order.infra.messaging;
 
-import com.example.ecommerce.order.domain.OutboxStatus;
+import com.example.ecommerce.order.domain.enums.OutboxStatus;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;

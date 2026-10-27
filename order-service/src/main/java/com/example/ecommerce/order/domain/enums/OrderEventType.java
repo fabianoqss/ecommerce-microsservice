@@ -1,4 +1,4 @@
-package com.example.ecommerce.order.domain;
+package com.example.ecommerce.order.domain.enums;
 
 import com.example.ecommerce.order.infra.messaging.RabbitMQConfig;
 

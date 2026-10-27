@@ -1,7 +1,7 @@
 package com.example.ecommerce.order.service;
 
-import com.example.ecommerce.order.domain.Order;
-import com.example.ecommerce.order.domain.OrderStatus;
+import com.example.ecommerce.order.domain.entity.Order;
+import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.dto.request.OrderItemRequestDTO;
 import com.example.ecommerce.order.dto.request.OrderRequestDTO;
 import com.example.ecommerce.order.dto.response.ProductDTO;
