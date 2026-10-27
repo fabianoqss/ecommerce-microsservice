@@ -4,9 +4,9 @@ import java.util.UUID;
 
 public interface ProcessedEventStore {
 
-    boolean tryAcquire(UUID eventId);
+    AcquireResult tryAcquire(UUID eventId);
 
-    void markProcessed(UUID eventId);
+    boolean markProcessed(UUID eventId, UUID ownerToken);
 
-    void release(UUID eventId);
+    void release(UUID eventId, UUID ownerToken);
 }

@@ -2,6 +2,8 @@ package com.example.ecommerce.notification.infra.messaging;
 
 import com.example.ecommerce.notification.dto.event.OrderEventDTO;
 import com.example.ecommerce.notification.service.NotificationService;
+import com.example.ecommerce.notification.service.port.AcquireResult;
+import com.example.ecommerce.notification.service.port.AcquireStatus;
 import com.example.ecommerce.notification.service.port.NotificationSender;
 import com.example.ecommerce.notification.service.port.ProcessedEventStore;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -10,6 +12,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.amqp.AmqpIOException;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -49,6 +53,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,7 +64,7 @@ import static org.mockito.Mockito.when;
                 "spring.rabbitmq.listener.simple.missing-queues-fatal=false",
                 "spring.rabbitmq.listener.simple.default-requeue-rejected=false",
                 "spring.rabbitmq.listener.simple.retry.enabled=true",
-                "spring.rabbitmq.listener.simple.retry.max-attempts=2",
+                "spring.rabbitmq.listener.simple.retry.max-retries=1",
                 "spring.rabbitmq.listener.simple.retry.initial-interval=50ms",
                 "spring.rabbitmq.listener.simple.retry.multiplier=1.0",
                 "spring.rabbitmq.listener.simple.retry.max-interval=50ms"
@@ -68,6 +74,7 @@ import static org.mockito.Mockito.when;
 @DirtiesContext
 class RabbitMQConsumerPermissionsIntegrationTest {
 
+    private static final UUID OWNER_TOKEN = UUID.randomUUID();
     private static final String VHOST = "ecommerce";
     private static final String CONSUMER_USER = "notification-service";
     private static final String CONSUMER_PASS = "notification-secret";
@@ -156,7 +163,8 @@ class RabbitMQConsumerPermissionsIntegrationTest {
     @BeforeEach
     void resetMocks() {
         reset(processedEventStore, notificationSender);
-        when(processedEventStore.tryAcquire(any())).thenReturn(true);
+        when(processedEventStore.tryAcquire(any())).thenReturn(new AcquireResult(AcquireStatus.ACQUIRED, OWNER_TOKEN));
+        when(processedEventStore.markProcessed(any(), any())).thenReturn(true);
         producerTemplate = new RabbitTemplate(producerConnectionFactory);
         producerTemplate.setMessageConverter(messageConverter);
         producerTemplate.setMandatory(true);
@@ -184,10 +192,45 @@ class RabbitMQConsumerPermissionsIntegrationTest {
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
             verify(notificationSender).send(eq(createdEvent), anyString());
-            verify(processedEventStore).markProcessed(createdEvent.eventId());
+            verify(processedEventStore).markProcessed(createdEvent.eventId(), OWNER_TOKEN);
             verify(notificationSender).send(eq(cancelledEvent), anyString());
-            verify(processedEventStore).markProcessed(cancelledEvent.eventId());
+            verify(processedEventStore).markProcessed(cancelledEvent.eventId(), OWNER_TOKEN);
         });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"created", "cancelled"})
+    void inProgressEventIsDeadLetteredAfterRetries(String type) {
+        var event = event(UUID.randomUUID(), type.equals("created") ? "CONFIRMED" : "CANCELLED");
+        when(processedEventStore.tryAcquire(event.eventId()))
+                .thenReturn(new AcquireResult(AcquireStatus.IN_PROGRESS, null));
+
+        producerTemplate.convertAndSend(EXCHANGE, "order." + type, event);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            OrderEventDTO deadLettered = producerTemplate.receiveAndConvert(
+                    "order." + type + ".dlq", ParameterizedTypeReference.forType(OrderEventDTO.class));
+            assertThat(deadLettered).isNotNull();
+            assertThat(deadLettered.eventId()).isEqualTo(event.eventId());
+        });
+        verify(processedEventStore, times(2)).tryAcquire(event.eventId());
+        verifyNoInteractions(notificationSender);
+    }
+
+    @Test
+    void inProgressEventCanRecoverDuringListenerRetry() {
+        var event = event(UUID.randomUUID(), "CONFIRMED");
+        when(processedEventStore.tryAcquire(event.eventId()))
+                .thenReturn(new AcquireResult(AcquireStatus.IN_PROGRESS, null),
+                        new AcquireResult(AcquireStatus.ACQUIRED, OWNER_TOKEN));
+
+        producerTemplate.convertAndSend(EXCHANGE, CREATED_ROUTING_KEY, event);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                verify(processedEventStore).markProcessed(event.eventId(), OWNER_TOKEN));
+        verify(processedEventStore, times(2)).tryAcquire(event.eventId());
+        verify(notificationSender).send(eq(event), anyString());
+        assertThat(producerTemplate.receive(CREATED_DLQ)).isNull();
     }
 
     @Test
