@@ -10,13 +10,16 @@ import com.example.ecommerce.order.dto.request.InventoryItemDTO;
 import com.example.ecommerce.order.dto.request.InventoryReserveRequestDTO;
 import com.example.ecommerce.order.dto.request.OrderItemRequestDTO;
 import com.example.ecommerce.order.dto.request.OrderRequestDTO;
+import com.example.ecommerce.order.dto.response.CreateOrderResult;
 import com.example.ecommerce.order.dto.response.OrderItemResponseDTO;
 import com.example.ecommerce.order.dto.response.OrderResponseDTO;
 import com.example.ecommerce.order.dto.response.PageResponseDTO;
 import com.example.ecommerce.order.dto.response.ProductDTO;
+import com.example.ecommerce.order.exception.IdempotencyKeyReuseException;
 import com.example.ecommerce.order.exception.InsufficientStockException;
 import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionException;
 import com.example.ecommerce.order.exception.InvalidProductDataException;
+import com.example.ecommerce.order.exception.OrderInProgressException;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
 import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.exception.ProductNotFoundException;
@@ -35,6 +38,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -51,9 +55,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -119,7 +127,17 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(id));
     }
 
-    public OrderResponseDTO createOrder(OrderRequestDTO request, String userId) {
+    public CreateOrderResult createOrder(OrderRequestDTO request, String userId, UUID idempotencyKey) {
+        List<InventoryItemDTO> reserveItems = aggregateInventoryItems(request.items().stream()
+                .map(i -> new InventoryItemDTO(i.productId(), i.quantity()))
+                .toList());
+        String requestHash = hashOf(reserveItems);
+
+        Optional<CreateOrderResult> replay = findReplay(userId, idempotencyKey, requestHash);
+        if (replay.isPresent()) {
+            return replay.get();
+        }
+
         List<String> productIds = request.items().stream()
                 .map(OrderItemRequestDTO::productId)
                 .distinct()
@@ -142,21 +160,25 @@ public class OrderService {
                 .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<InventoryItemDTO> reserveItems = aggregateInventoryItems(request.items().stream()
-                .map(i -> new InventoryItemDTO(i.productId(), i.quantity()))
-                .toList());
-
         Order order = new Order();
         order.setUserID(userId);
+        order.setIdempotencyKey(idempotencyKey);
+        order.setRequestHash(requestHash);
         order.setOrderTime(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING);
         order.setReservationMode(ReservationMode.LEDGER);
         order.setTotalValue(totalValue);
         order.setItems(orderItems);
 
-        Order pendingOrder = Objects.requireNonNull(
-                transactionTemplate.execute(status -> orderRepository.saveAndFlush(order)),
-                "Falha ao persistir o pedido pendente");
+        Order pendingOrder;
+        try {
+            pendingOrder = Objects.requireNonNull(
+                    transactionTemplate.execute(status -> orderRepository.saveAndFlush(order)),
+                    "Falha ao persistir o pedido pendente");
+        } catch (DataIntegrityViolationException e) {
+            meterRegistry.counter("orders.idempotency", "result", "race").increment();
+            return findReplay(userId, idempotencyKey, requestHash).orElseThrow(() -> e);
+        }
         UUID orderId = pendingOrder.getId();
 
         try {
@@ -174,7 +196,7 @@ public class OrderService {
             meterRegistry.counter("orders.created", "result", "pending").increment();
             log.warn("Falha ao reservar estoque; pedido permanecerá PENDING para reconciliação: orderId={}", orderId, e);
             throw new OrderReservationException(
-                    "Não foi possível confirmar a reserva de estoque do pedido " + orderId + "; tente novamente", e);
+                    "Não foi possível confirmar a reserva de estoque do pedido " + orderId + "; consulte o status do pedido", e);
         }
 
         try {
@@ -186,7 +208,7 @@ public class OrderService {
             });
             meterRegistry.counter("orders.created", "result", "confirmed").increment();
             log.info("Pedido confirmado com sucesso: orderId={}", orderId);
-            return response;
+            return new CreateOrderResult(response, false);
         } catch (OptimisticLockingFailureException | InvalidOrderStatusTransitionException ex) {
             meterRegistry.counter("orders.created", "result", "pending").increment();
             log.warn("Confirmação rejeitada porque o reconciliador já expirou o pedido: orderId={}", orderId, ex);
@@ -288,6 +310,38 @@ public class OrderService {
         return aggregateInventoryItems(order.getItems().stream()
                 .map(item -> new InventoryItemDTO(item.getProductId(), item.getQuantity()))
                 .toList());
+    }
+
+    private Optional<CreateOrderResult> findReplay(String userId, UUID idempotencyKey, String requestHash) {
+        return transactionTemplate.execute(status -> orderRepository
+                .findByUserIDAndIdempotencyKey(userId, idempotencyKey)
+                .map(existing -> toReplay(existing, requestHash)));
+    }
+
+    private CreateOrderResult toReplay(Order existing, String requestHash) {
+        if (!existing.getRequestHash().equals(requestHash)) {
+            meterRegistry.counter("orders.idempotency", "result", "payload_mismatch").increment();
+            throw new IdempotencyKeyReuseException("A chave de idempotência já foi usada com outro conteúdo de pedido");
+        }
+        if (existing.getStatus() == OrderStatus.PENDING) {
+            meterRegistry.counter("orders.idempotency", "result", "in_progress").increment();
+            throw new OrderInProgressException(existing.getId());
+        }
+        meterRegistry.counter("orders.idempotency", "result", "replayed").increment();
+        log.info("Requisição repetida devolvida pela chave de idempotência: orderId={}", existing.getId());
+        return new CreateOrderResult(toResponseDTO(existing), true);
+    }
+
+    private static String hashOf(List<InventoryItemDTO> items) {
+        String canonical = items.stream()
+                .map(item -> item.skuCode() + ":" + item.quantity())
+                .collect(Collectors.joining(";"));
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 indisponível na JVM", e);
+        }
     }
 
     private static List<InventoryItemDTO> aggregateInventoryItems(List<InventoryItemDTO> items) {

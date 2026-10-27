@@ -2,10 +2,13 @@ package com.example.ecommerce.order.controller;
 
 import com.example.ecommerce.order.dto.request.CancelOrderRequestDTO;
 import com.example.ecommerce.order.dto.request.OrderRequestDTO;
+import com.example.ecommerce.order.dto.response.CreateOrderResult;
 import com.example.ecommerce.order.dto.response.OrderResponseDTO;
 import com.example.ecommerce.order.dto.response.PageResponseDTO;
 import com.example.ecommerce.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -80,17 +83,26 @@ public class OrderController {
     }
 
     @Operation(
-            description = "Create a new order for the authenticated user",
+            description = "Create a new order for the authenticated user. Repetir a requisição com o mesmo "
+                    + "Idempotency-Key devolve o pedido já criado, sem nova reserva de estoque.",
             summary = "Create a new order",
             responses = {
-                    @ApiResponse(description = "Created", responseCode = "201"),
-                    @ApiResponse(description = "Bad Request", responseCode = "400"),
-                    @ApiResponse(description = "Unprocessable Entity", responseCode = "422")
+                    @ApiResponse(description = "Created (ou replay de um pedido já criado com a mesma chave)", responseCode = "201"),
+                    @ApiResponse(description = "Bad Request - payload inválido ou Idempotency-Key ausente/inválido", responseCode = "400"),
+                    @ApiResponse(description = "Conflict - pedido com esta chave ainda em processamento ou sem estoque", responseCode = "409"),
+                    @ApiResponse(description = "Unprocessable Content - chave reutilizada com outro conteúdo", responseCode = "422")
             }
     )
     @PostMapping
-    public ResponseEntity<OrderResponseDTO> createOrder(@Valid @RequestBody OrderRequestDTO request, Authentication authentication) {
-        OrderResponseDTO response = orderService.createOrder(request, authentication.getName());
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    public ResponseEntity<OrderResponseDTO> createOrder(
+            @Parameter(in = ParameterIn.HEADER, name = "Idempotency-Key", required = true,
+                    description = "UUID gerado pelo cliente por tentativa de checkout e reenviado nas retentativas")
+            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @Valid @RequestBody OrderRequestDTO request,
+            Authentication authentication) {
+        CreateOrderResult result = orderService.createOrder(request, authentication.getName(), idempotencyKey);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .header("Idempotent-Replayed", String.valueOf(result.replayed()))
+                .body(result.orderResponseDTO());
     }
 }
