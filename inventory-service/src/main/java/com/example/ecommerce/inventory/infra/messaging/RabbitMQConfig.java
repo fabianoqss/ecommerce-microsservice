@@ -5,7 +5,6 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-// O order-service é o único dono da topologia; este consumidor só referencia a fila por nome.
 @Configuration
 public class RabbitMQConfig {
 

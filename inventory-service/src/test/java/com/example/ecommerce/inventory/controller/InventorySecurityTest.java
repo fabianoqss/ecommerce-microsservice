@@ -81,7 +81,6 @@ class InventorySecurityTest {
 
     @Test
     void customerAndAdminCannotAccessReservationEndpoints() throws Exception {
-        // Garante que os matchers de /api/inventory/reservations/** vêm antes de GET permitAll e PUT ADMIN.
         for (String role : new String[]{"ROLE_CUSTOMER", "ROLE_ADMIN"}) {
             var user = jwt().authorities(new SimpleGrantedAuthority(role));
             mvc.perform(put(RESERVATION_PATH).with(user).contentType(MediaType.APPLICATION_JSON).content(RESERVE_BODY))

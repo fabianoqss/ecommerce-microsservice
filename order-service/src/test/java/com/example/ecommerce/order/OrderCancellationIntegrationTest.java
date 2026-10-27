@@ -52,7 +52,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "KC_ORDER_SERVICE_CLIENT_SECRET=order-secret-test",
         "DB_PASSWORD=unused",
-        // Poller e reconciliador desligados na prática: o teste inspeciona o banco antes de jobs em background.
         "app.outbox.fixed-delay=3600000",
         "ecommerce.order.reconciliation.fixed-delay=3600000"
 })
@@ -135,7 +134,6 @@ class OrderCancellationIntegrationTest {
         assertThat(cancelled.getCancellationReason()).isEqualTo("Comprei errado");
         assertThat(cancelled.getCancelledAt()).isNotNull();
 
-        // Cancelamento de pedido CONFIRMED é só transação local + outbox, sem chamada HTTP ao inventory.
         WIREMOCK.verify(0, anyRequestedFor(urlMatching("/api/inventory/.*")));
 
         List<OutboxEvent> orderEvents = outboxEventRepository.findAll().stream()
@@ -157,7 +155,6 @@ class OrderCancellationIntegrationTest {
         assertThat((String) JsonPath.read(payload, "$.items[0].skuCode")).isEqualTo("p1");
         assertThat((Integer) JsonPath.read(payload, "$.items[0].quantity")).isEqualTo(2);
 
-        // Publica via OutboxDispatcher e confirma que chega tanto na fila do notification quanto na do inventory.
         outboxDispatcher.dispatch(cancelledOutbox.getId());
         OrderEventDTO inventoryMsg = rabbitTemplate.receiveAndConvert(
                 RabbitMQConfig.INVENTORY_CANCELLED_QUEUE,
@@ -175,7 +172,6 @@ class OrderCancellationIntegrationTest {
         assertThat(notificationMsg).isNotNull();
         assertThat(notificationMsg.eventId()).isEqualTo(cancelledOutbox.getEventId());
 
-        // Repetir cancelamento é idempotente: responde 200 sem criar novo evento.
         mvc.perform(post("/api/order/{id}/cancel", orderId).with(user("owner-sub")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));

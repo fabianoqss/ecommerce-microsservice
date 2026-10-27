@@ -26,12 +26,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Sobe o order-service com Postgres e RabbitMQ reais; Keycloak, product e inventory são simulados
- * pelo WireMock. Prova que a chamada ao inventory leva o token obtido via client_credentials.
- * O contexto é recriado a cada teste porque o token de serviço fica em cache no
- * OAuth2AuthorizedClientService e mascararia o cenário de Keycloak fora do ar.
- */
 @SpringBootTest(properties = {
         "KC_ORDER_SERVICE_CLIENT_SECRET=order-secret-test",
         "DB_PASSWORD=unused",

@@ -11,7 +11,6 @@ spring:
     password: ${SPRING_RABBITMQ_PASSWORD:guest}
     listener:
       simple:
-        # O order-service é o único dono da topologia; permite subir antes dele sem falhar.
         missing-queues-fatal: false
         retry:
           enabled: true

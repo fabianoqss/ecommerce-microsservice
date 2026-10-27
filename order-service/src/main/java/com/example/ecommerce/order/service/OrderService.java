@@ -67,9 +67,7 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private static final Sort LATEST_FIRST = Sort.by(Sort.Direction.DESC, "orderTime", "id");
-    // v2: orderId passou de número (Long) para UUID. Consumidores aceitam as duas versões.
     private static final int ORDER_EVENT_VERSION = 2;
-    // v3: ORDER_CANCELLED inclui reservationMode (LEGACY|LEDGER) e items agregados por SKU para liberação por evento.
     private static final int ORDER_CANCELLED_EVENT_VERSION = 3;
 
     @Autowired
@@ -103,9 +101,7 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public PageResponseDTO<OrderResponseDTO> findAll(int page, int size, Authentication authentication) {
-        // Ordenação fixa no servidor: o cliente não escolhe propriedade de sort (evita erro/sort em coluna sem índice).
         Pageable pageable = PageRequest.of(page, size, LATEST_FIRST);
-        // "Meus pedidos" do cliente exibe apenas pedidos que chegaram a ser confirmados (confirmed_at IS NOT NULL).
         Page<Order> orders = isAdmin(authentication)
                 ? orderRepository.findAll(pageable)
                 : orderRepository.findByUserIDAndConfirmedAtIsNotNull(authentication.getName(), pageable);
@@ -119,8 +115,6 @@ public class OrderService {
                 ? orderRepository.findById(id)
                 : orderRepository.findByIdAndUserID(id, authentication.getName());
 
-        // Pedido de outro usuário responde 404, igual a um inexistente: um 403 revelaria quais IDs
-        // existem e permitiria enumerar pedidos (IDOR).
         return order.map(this::toResponseDTO)
                 .orElseThrow(() -> new OrderNotFoundException(id));
     }
@@ -152,7 +146,6 @@ public class OrderService {
                 .map(i -> new InventoryItemDTO(i.productId(), i.quantity()))
                 .toList());
 
-        // 1. Tx curta: grava o pedido como PENDING (LEDGER) antes do efeito remoto no inventory.
         Order order = new Order();
         order.setUserID(userId);
         order.setOrderTime(LocalDateTime.now());
@@ -166,11 +159,9 @@ public class OrderService {
                 "Falha ao persistir o pedido pendente");
         UUID orderId = pendingOrder.getId();
 
-        // 2. Reserva idempotente por orderId fora de transação (até 2 retentativas rápidas só em timeout/IO/5xx).
         try {
             reserveWithRetry(orderId, new InventoryReserveRequestDTO(reserveItems));
         } catch (FeignException.Conflict e) {
-            // 3b. 409 sem estoque => PENDING -> CANCELLED e responde 409 ao cliente.
             cancelOrderWithoutStock(pendingOrder);
             meterRegistry.counter("orders.created", "result", "insufficient_stock").increment();
             log.info("Pedido cancelado por falta de estoque: orderId={}", orderId);
@@ -180,15 +171,12 @@ public class OrderService {
             log.warn("Pedido mantido PENDING por indisponibilidade do token de serviço: orderId={}", orderId);
             throw e;
         } catch (RuntimeException e) {
-            // 3c. Falha ambígua (timeout/5xx após retries) ou erro inesperado (410/422/401/403):
-            // mantém PENDING para o reconciliador liberar/colocar lápide no inventory e cancelar.
             meterRegistry.counter("orders.created", "result", "pending").increment();
             log.warn("Falha ao reservar estoque; pedido permanecerá PENDING para reconciliação: orderId={}", orderId, e);
             throw new OrderReservationException(
                     "Não foi possível confirmar a reserva de estoque do pedido " + orderId + "; tente novamente", e);
         }
 
-        // 3a. Reserva confirmada (201/200) => tx curta: PENDING -> CONFIRMED + outbox ORDER_CREATED.
         try {
             OrderResponseDTO response = transactionTemplate.execute(status -> {
                 pendingOrder.confirm(Instant.now());
@@ -200,7 +188,6 @@ public class OrderService {
             log.info("Pedido confirmado com sucesso: orderId={}", orderId);
             return response;
         } catch (OptimisticLockingFailureException | InvalidOrderStatusTransitionException ex) {
-            // O reconciliador expirou o pedido enquanto o PUT estava em voo: nunca confirma tarde.
             meterRegistry.counter("orders.created", "result", "pending").increment();
             log.warn("Confirmação rejeitada porque o reconciliador já expirou o pedido: orderId={}", orderId, ex);
             throw new OrderReservationException(
@@ -259,18 +246,11 @@ public class OrderService {
         }
     }
 
-    /**
-     * Cancela o pedido (dono ou admin) numa transação local (CONFIRMED -> CANCELLED + auditoria +
-     * outbox ORDER_CANCELLED v3). A devolução do estoque ocorre de forma assíncrona e idempotente
-     * no inventory-service via RabbitMQ. Repetir o cancelamento de um pedido já cancelado é
-     * idempotente: responde o estado atual sem publicar outro evento.
-     */
     @Transactional
     public OrderResponseDTO cancel(UUID id, String reason, Authentication authentication) {
         Optional<Order> found = isAdmin(authentication)
                 ? orderRepository.findById(id)
                 : orderRepository.findByIdAndUserID(id, authentication.getName());
-        // Mesmo critério do findById: pedido de outro usuário responde 404.
         Order order = found.orElseThrow(() -> new OrderNotFoundException(id));
 
         if (!order.cancel(authentication.getName(), reason, LocalDateTime.now())) {
@@ -311,7 +291,6 @@ public class OrderService {
     }
 
     private static List<InventoryItemDTO> aggregateInventoryItems(List<InventoryItemDTO> items) {
-        // A mesma ordem de bloqueio por SKU evita deadlocks no inventory-service.
         Map<String, Integer> quantities = new TreeMap<>();
         items.forEach(item -> quantities.merge(item.skuCode(), item.quantity(), Math::addExact));
         return quantities.entrySet().stream()
@@ -319,7 +298,6 @@ public class OrderService {
                 .toList();
     }
 
-    // Métrica de negócio só conta o que de fato foi persistido (não conta rollback).
     private static void afterCommit(Runnable action) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             action.run();

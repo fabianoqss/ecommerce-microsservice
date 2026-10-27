@@ -14,7 +14,6 @@ import org.testcontainers.containers.GenericContainer;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
-/** Gateway completo com Redis real (sessões) e WireMock no lugar dos microsserviços. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -26,8 +25,6 @@ abstract class GatewayTestSupport {
 
     static final WireMockServer BACKEND = new WireMockServer(wireMockConfig().dynamicPort());
 
-    // Compartilhados por todas as classes de teste do gateway (mesmo contexto Spring em cache);
-    // o Ryuk do Testcontainers encerra o Redis e a JVM de teste encerra o WireMock.
     static {
         REDIS.start();
         BACKEND.start();

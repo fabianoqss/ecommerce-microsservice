@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Provisionamento idempotente do usuário do product-service no Autonomous JSON Database (API Mongo).
-# A porta SQL*Net (1522) e o ORDS (443) ficam fechados: o SQL administrativo vai pela própria API Mongo
-# (porta 27017, estágio $sql), autenticado como ADMIN. Senhas vêm do OCI Vault (instance principal).
-# Uso na VM: sudo ./scripts/prod/adb-bootstrap.sh <OCID-do-vault> (ou variável VAULT_ID)
 set -euo pipefail
 umask 077
 
@@ -38,25 +34,20 @@ PRODUCT_MONGODB_PASSWORD=$(read_secret "PRODUCT_MONGODB_PASSWORD")
 export ADB_ADMIN_PASSWORD PRODUCT_MONGODB_PASSWORD
 
 echo "==> Conectando em $adb_host:27017 (TLS) e reconciliando o usuário PRODUCT_SERVICE"
-# O JS vai como arquivo (por stdin o mongosh age como REPL e ecoa prompts); não contém segredos.
 js_file=$(mktemp --suffix=.js)
-chmod 0644 "$js_file"  # só código, sem segredos: legível pelo usuário do container
+chmod 0644 "$js_file"
 trap 'rm -f "$js_file"' EXIT
 cat > "$js_file" <<-'EOJS'
 	const host = process.env.ADB_HOST;
 	const uri = (user, password) => 'mongodb://' + user + ':' + encodeURIComponent(password) + '@' + host +
 	  ':27017/' + user + '?authMechanism=PLAIN&authSource=$external&tls=true&retryWrites=false&loadBalanced=true';
 
-	// A senha é concatenada no DDL (CREATE USER não aceita bind), então só passa se for estritamente alfanumérica.
 	const password = process.env.PRODUCT_MONGODB_PASSWORD;
 	if (!/^[A-Za-z0-9]{12,30}$/.test(password) || !/[A-Z]/.test(password) || !/[a-z]/.test(password) ||
 	    !/[0-9]/.test(password) || password.toUpperCase().includes('PRODUCT_SERVICE')) {
 	  throw new Error('Segredo inválido: PRODUCT_MONGODB_PASSWORD');
 	}
 
-	// Mínimo privilégio: só o necessário para a API Mongo criar e usar coleções no próprio schema,
-	// cota limitada (em vez de UNLIMITED TABLESPACE) e sem acesso a outros schemas.
-	// ORDS habilitado com auto_rest_auth: a API Mongo do ADB exige o schema REST-enabled; AutoREST exige login.
 	const admin = connect(uri('ADMIN', process.env.ADB_ADMIN_PASSWORD));
 	admin.aggregate([{ $sql: `
 	  DECLARE
@@ -81,7 +72,6 @@ cat > "$js_file" <<-'EOJS'
 	  SELECT granted_role FROM dba_role_privs WHERE grantee = 'PRODUCT_SERVICE'
 	  ORDER BY 1` }]).forEach(r => print('  ' + (r.GRANT_NAME ?? r.grant_name)));
 
-	// Teste de ponta a ponta com o próprio usuário: cria, lê e remove uma coleção descartável.
 	const app = connect(uri('PRODUCT_SERVICE', password));
 	const probe = app.getCollection('bootstrap_probe');
 	probe.insertOne({ ok: true });
@@ -90,7 +80,6 @@ cat > "$js_file" <<-'EOJS'
 	print('==> PRODUCT_SERVICE autentica, escreve e lê pela API Mongo');
 EOJS
 
-# Senhas entram só por variáveis de ambiente herdadas (nunca em argv).
 docker run --rm --network host \
   -v "$js_file:/bootstrap.js:ro" \
   -e ADB_HOST="$adb_host" \

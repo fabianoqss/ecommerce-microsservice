@@ -17,15 +17,12 @@ import java.util.UUID;
 public interface OrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findByUserID(String userID, Pageable pageable);
 
-    // "Meus pedidos" oculta tentativas que nunca chegaram a confirmar (confirmed_at IS NULL).
     Page<Order> findByUserIDAndConfirmedAtIsNotNull(String userID, Pageable pageable);
 
     Optional<Order> findByIdAndUserID(UUID id, String userID);
 
     long countByStatusIn(Collection<OrderStatus> statuses);
 
-    // SKIP LOCKED permite múltiplas instâncias do reconciliador sem disputar os mesmos pedidos.
-    // Inclui EXPIRED para retentar a liberação caso o DELETE no inventory tenha falhado na rodada anterior.
     @Query(value = """
             SELECT * FROM tb_orders
             WHERE (status = 'PENDING' AND order_time < :cutoff)

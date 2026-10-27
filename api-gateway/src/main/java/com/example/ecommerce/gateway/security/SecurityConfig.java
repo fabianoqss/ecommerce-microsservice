@@ -49,7 +49,6 @@ public class SecurityConfig {
                 paths.matcher("/actuator/prometheus"));
 
         return http
-                // Isola também caminhos da aplicação que chegarem pela porta de gerenciamento.
                 .securityMatcher(new OrRequestMatcher(managementPort, actuator))
                 .csrf(AbstractHttpConfigurer::disable)
                 .requestCache(AbstractHttpConfigurer::disable)
@@ -70,7 +69,6 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> GatewayAuthorizationRules.apply(authorize)
-                        // /bff/** é só para o navegador (sessão).
                         .requestMatchers("/bff/**").denyAll()
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(oauth2 -> oauth2
@@ -85,12 +83,10 @@ public class SecurityConfig {
                                             BffProperties properties) throws Exception {
         var authorizationRequestResolver =
                 new DefaultOAuth2AuthorizationRequestResolver(clientRegistrations, "/oauth2/authorization");
-        // O client ecommerce-bff é confidencial, mas o realm exige PKCE S256 em todos os clients de usuário.
         authorizationRequestResolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
 
         var logoutSuccessHandler = new OidcClientInitiatedLogoutSuccessHandler(clientRegistrations);
         if (StringUtils.hasText(properties.postLogoutRedirectUri())) {
-            // Precisa estar em "Valid post logout redirect URIs" do client no IdP.
             logoutSuccessHandler.setPostLogoutRedirectUri(properties.postLogoutRedirectUri());
         }
 
@@ -105,7 +101,6 @@ public class SecurityConfig {
                         .authorizationEndpoint(endpoint -> endpoint.authorizationRequestResolver(authorizationRequestResolver))
                         .defaultSuccessUrl(properties.postLoginRedirectUri(), true))
                 .logout(logout -> logout.logoutSuccessHandler(logoutSuccessHandler))
-                // Cookie XSRF-TOKEN legível pelo JS + header X-XSRF-TOKEN (padrão do Spring Security para SPA).
                 .csrf(csrf -> csrf.spa())
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(unauthorized, paths.matcher("/api/**"))
@@ -117,7 +112,6 @@ public class SecurityConfig {
     public FilterRegistrationBean<SessionTokenRelayFilter> sessionTokenRelayFilter(
             OAuth2AuthorizedClientManager authorizedClientManager) {
         var registration = new FilterRegistrationBean<>(new SessionTokenRelayFilter(authorizedClientManager));
-        // Depois do springSecurityFilterChain (ordem -100), para enxergar a autenticação da sessão.
         registration.setOrder(Ordered.LOWEST_PRECEDENCE - 10);
         return registration;
     }

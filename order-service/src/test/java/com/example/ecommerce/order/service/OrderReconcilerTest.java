@@ -78,14 +78,11 @@ class OrderReconcilerTest {
         reconciler.reconcile();
 
         InOrder inOrder = inOrder(transactionManager, orderRepository, inventoryClient);
-        // 1ª transação: seleciona, transiciona PENDING -> EXPIRED e comita ANTES do DELETE.
         inOrder.verify(transactionManager).getTransaction(any());
         inOrder.verify(orderRepository).findReconcilableOrdersForUpdate(any(), anyInt());
         inOrder.verify(orderRepository).saveAndFlush(pending);
         inOrder.verify(transactionManager).commit(any());
-        // Fora de transação: DELETE idempotente no inventory.
         inOrder.verify(inventoryClient).releaseReservation(ORDER_ID);
-        // 2ª transação: EXPIRED -> CANCELLED.
         inOrder.verify(transactionManager).getTransaction(any());
         inOrder.verify(orderRepository).saveAndFlush(pending);
         inOrder.verify(transactionManager).commit(any());

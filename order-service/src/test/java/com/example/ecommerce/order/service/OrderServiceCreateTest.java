@@ -175,15 +175,12 @@ class OrderServiceCreateTest {
         var calls = inOrder(productClient, transactionManager, orderRepository, inventoryClient, outboxEventRepository);
         calls.verify(productClient).getProductById("p2");
         calls.verify(productClient).getProductById("p1");
-        // 1ª transação: persiste PENDING e comita antes do PUT remoto.
         calls.verify(transactionManager).getTransaction(any());
         ArgumentCaptor<Order> pendingCaptor = ArgumentCaptor.forClass(Order.class);
         calls.verify(orderRepository).saveAndFlush(pendingCaptor.capture());
         calls.verify(transactionManager).commit(any());
-        // Fora de transação: PUT /api/inventory/reservations/{orderId}
         calls.verify(inventoryClient).reserve(eq(ORDER_ID), eq(new InventoryReserveRequestDTO(List.of(
                 new InventoryItemDTO("p1", 4), new InventoryItemDTO("p2", 2)))));
-        // 2ª transação: PENDING -> CONFIRMED + outbox ORDER_CREATED.
         calls.verify(transactionManager).getTransaction(any());
         calls.verify(orderRepository).saveAndFlush(any());
         ArgumentCaptor<OutboxEvent> outbox = ArgumentCaptor.forClass(OutboxEvent.class);
@@ -274,7 +271,6 @@ class OrderServiceCreateTest {
             }
             var items = order.getItems();
             var persisted = spy(order);
-            // Simula uma associação que não pode ser acessada após fechar a sessão da 2ª transação.
             doAnswer(call -> {
                 if (confirmationCommitted.get()) {
                     throw new org.hibernate.LazyInitializationException("Sessão encerrada");

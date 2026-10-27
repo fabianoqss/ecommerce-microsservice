@@ -56,8 +56,6 @@ public class OrderReconciler {
     public void reconcile() {
         LocalDateTime cutoff = LocalDateTime.now().minus(minAge);
 
-        // 1. Seleciona com FOR UPDATE SKIP LOCKED e comita PENDING -> EXPIRED ANTES do DELETE remoto:
-        // garante que uma resposta tardia do PUT no createOrder falhe no @Version e nunca confirme o pedido.
         List<Order> expiredOrders = transactionTemplate.execute(status -> {
             List<Order> candidates = orderRepository.findReconcilableOrdersForUpdate(cutoff, batchSize);
             return candidates.stream().map(order -> {
@@ -73,8 +71,6 @@ public class OrderReconciler {
             return;
         }
 
-        // 2. Fora de transação: DELETE idempotente da reserva (libera estoque ou cria lápide RELEASED)
-        // e em seguida transiciona EXPIRED -> CANCELLED. Se o DELETE falhar, permanece EXPIRED para a próxima rodada.
         for (Order expiredOrder : expiredOrders) {
             reconcileSingleOrder(expiredOrder);
         }

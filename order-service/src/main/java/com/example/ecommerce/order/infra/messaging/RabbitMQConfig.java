@@ -67,8 +67,6 @@ public class RabbitMQConfig {
                 .with(ROUTING_KEY);
     }
 
-    // A fila de cancelamento é declarada aqui (como a de criação) porque o template publica com
-    // mandatory=true: sem fila ligada à routing key, o evento volta e o outbox fica re-tentando.
     @Bean
     public Queue orderCancelledQueue() {
         return QueueBuilder.durable(CANCELLED_QUEUE)
@@ -96,8 +94,6 @@ public class RabbitMQConfig {
                 .with(CANCELLED_DEAD_LETTER_ROUTING_KEY);
     }
 
-    // Fila exclusiva do inventory-service declarada pelo order-service (único dono da topologia):
-    // garante entrega independente ao inventory mesmo com mandatory=true já satisfeito pela fila do notification.
     @Bean
     public Queue inventoryOrderCancelledQueue() {
         return QueueBuilder.durable(INVENTORY_CANCELLED_QUEUE)

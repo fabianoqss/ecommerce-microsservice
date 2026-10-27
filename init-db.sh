@@ -1,5 +1,4 @@
 #!/bin/bash
-# Executado pelo entrypoint do Postgres apenas na criação do volume (só dev).
 set -euo pipefail
 : "${KEYCLOAK_DB_PASSWORD:?defina KEYCLOAK_DB_PASSWORD}"
 

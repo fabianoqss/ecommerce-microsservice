@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 
-// Entidade do livro-razão de reservas (status RESERVED ou RELEASED).
 @Entity
 @Table(name = "tb_stock_reservation")
 public class StockReservation {

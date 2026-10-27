@@ -51,11 +51,6 @@ class SessionChainTest extends GatewayTestSupport {
                         .claim("realm_access", Map.of("roles", List.of("CUSTOMER"))));
     }
 
-    /**
-     * Fluxo real de um cliente de navegador: /bff/me grava o cookie XSRF-TOKEN e o cliente devolve o
-     * valor no header X-XSRF-TOKEN. Não usamos o csrf() do spring-security-test: ele troca o repositório
-     * de CSRF do contexto compartilhado (deixa de gravar o cookie) e afeta os outros testes.
-     */
     private org.springframework.test.web.servlet.request.RequestPostProcessor xsrf() throws Exception {
         Cookie cookie = mvc.perform(get("/bff/me").with(customer())).andReturn().getResponse().getCookie("XSRF-TOKEN");
         assertThat(cookie).isNotNull();

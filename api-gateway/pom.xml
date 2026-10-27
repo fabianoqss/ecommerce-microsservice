@@ -38,7 +38,6 @@
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-gateway-server-webmvc</artifactId>
 		</dependency>
-		<!-- Cliente HTTP do proxy (pool de conexões, HTTP/1.1); sem ele o Spring cairia no HttpClient do JDK. -->
 		<dependency>
 			<groupId>org.apache.httpcomponents.client5</groupId>
 			<artifactId>httpclient5</artifactId>

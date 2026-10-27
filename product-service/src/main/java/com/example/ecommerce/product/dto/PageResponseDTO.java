@@ -5,7 +5,6 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-// Mantém o contrato da API independente da serialização interna do Spring Data.
 @Schema(name = "PageResponseDTO", description = "Página de resultados")
 public record PageResponseDTO<T>(
         List<T> content,

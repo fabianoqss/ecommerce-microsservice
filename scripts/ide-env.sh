@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
-# Emite configuração local por serviço no formato VAR=valor;VAR=valor do IntelliJ.
-# Uso: ./scripts/ide-env.sh [arquivo-env] (padrão: .env na raiz).
-# A saída contém segredos: use só no terminal local, nunca em chats ou logs.
 set -euo pipefail
 
 env_file="${1:-$(dirname "$0")/../.env}"
 [[ -f "$env_file" ]] || { echo "Arquivo não encontrado: $env_file" >&2; exit 1; }
 
-# Não usa source: um .env é dado, não código executável.
 get() {
   local value
   value=$(awk -v key="$1" 'index($0, key "=") == 1 { value = substr($0, length(key) + 2); found = 1 } END { if (!found) exit 1; print value }' "$env_file") \
@@ -23,7 +19,6 @@ get() {
 
 sampling=$(get TRACING_SAMPLING_PROBABILITY)
 
-# Em dev os bancos usam o superusuário local, cuja senha é DB_PASSWORD.
 declare -A services=(
   [product-service]=""
   [inventory-service]="DB_PASSWORD:DB_PASSWORD SPRING_RABBITMQ_PASSWORD:RABBITMQ_INVENTORY_PASSWORD"
@@ -32,7 +27,6 @@ declare -A services=(
   [api-gateway]="KC_BFF_CLIENT_SECRET:KC_BFF_CLIENT_SECRET REDIS_PASSWORD:REDIS_PASSWORD"
 )
 
-# Prepara todas as linhas antes de imprimir: erro em variável não deixa configuração parcial.
 declare -A lines
 for service in product-service inventory-service order-service notification-service api-gateway; do
   line="TRACING_SAMPLING_PROBABILITY=$sampling;"

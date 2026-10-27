@@ -13,10 +13,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Converte o JWT do Keycloak em autenticação do Spring: scopes viram SCOPE_*, realm roles
- * (claim realm_access.roles) viram ROLE_*, e o nome da autenticação é o sub (UUID imutável).
- */
 public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
     private final JwtGrantedAuthoritiesConverter scopesConverter = new JwtGrantedAuthoritiesConverter();
@@ -30,10 +26,6 @@ public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Abstra
         return new JwtAuthenticationToken(jwt, authorities, jwt.getSubject());
     }
 
-    /**
-     * Também atende ao BFF, que lê roles sem prefixo dos claims do ID token.
-     * Formatos inesperados não concedem autoridades.
-     */
     public static Set<String> realmRoles(Map<String, Object> claims) {
         Set<String> roles = new HashSet<>();
         if (claims.get("realm_access") instanceof Map<?, ?> realmAccess

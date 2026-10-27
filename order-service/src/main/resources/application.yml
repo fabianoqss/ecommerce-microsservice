@@ -26,8 +26,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
-        # Carrega os itens de vários pedidos num único SELECT ... WHERE order_id IN (...),
-        # em vez de uma query por pedido (N+1) ao montar uma página da listagem.
         default_batch_fetch_size: 50
 
   rabbitmq:
@@ -49,7 +47,6 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # issuer-uri só valida o claim iss; com jwk-set-uri presente não há discovery na subida.
           issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/ecommerce}
           jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
           audiences: ${OIDC_AUDIENCE:ecommerce-api}
@@ -69,7 +66,6 @@ spring:
       client:
         config:
           default:
-            # Evita threads e conexões presas em dependências lentas.
             connect-timeout: 2000
             read-timeout: 5000
 
@@ -85,7 +81,6 @@ ecommerce:
       max-attempts: 3
       retry-delay: 50ms
     reconciliation:
-      # Idade mínima muito maior que o tempo máximo do fluxo síncrono (3 tentativas x 5s read-timeout).
       fixed-delay: 30000
       min-age: 2m
       batch-size: 50

@@ -44,11 +44,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
-/**
- * Testa o consumidor de ORDER_CANCELLED no inventory-service com PostgreSQL 16.12 e RabbitMQ 4.2.5
- * reais, topologia declarada pelo produtor (order-service) e usuário inventory-service restrito às
- * permissões mínimas (configure=^$, write=^$, read=^inventory\.order\.cancelled\.queue$).
- */
 @SpringBootTest(properties = {
         "DB_PASSWORD=unused",
         "spring.rabbitmq.listener.simple.missing-queues-fatal=false",
@@ -106,7 +101,6 @@ class OrderCancellationConsumerIntegrationTest {
         execRabbitCtl("add_vhost", VHOST);
         execRabbitCtl("set_permissions", "-p", VHOST, RABBIT.getAdminUsername(), ".*", ".*", ".*");
         execRabbitCtl("add_user", CONSUMER_USER, CONSUMER_PASS);
-        // Exatamente as permissões de scripts/rabbitmq-init.sh para o inventory-service.
         execRabbitCtl("set_permissions", "-p", VHOST, CONSUMER_USER,
                 "^$", "^$", "^inventory\\.order\\.cancelled\\.queue$");
 
@@ -115,7 +109,6 @@ class OrderCancellationConsumerIntegrationTest {
         producerConnectionFactory.setUsername(RABBIT.getAdminUsername());
         producerConnectionFactory.setPassword(RABBIT.getAdminPassword());
 
-        // Declara a topologia exatamente como o order-service faz em RabbitMQConfig.
         var admin = new RabbitAdmin(producerConnectionFactory);
         var orderExchange = new TopicExchange(EXCHANGE);
         var dlx = new DirectExchange(DLX);
@@ -191,7 +184,6 @@ class OrderCancellationConsumerIntegrationTest {
                 }
                 """.formatted(UUID.randomUUID(), orderId);
 
-        // Publica 2x o mesmo cancelamento (simulando reentrega at-least-once).
         publishJson(payload);
         publishJson(payload);
 
@@ -322,7 +314,6 @@ class OrderCancellationConsumerIntegrationTest {
                 .rootCause()
                 .hasMessageContaining("ACCESS_REFUSED");
 
-        // Evento v3 malformado (sem orderId) esgota as tentativas e vai para a DLQ sem travar o consumidor.
         UUID badEventId = UUID.randomUUID();
         publishJson("""
                 {"eventId":"%s","version":3,"reservationMode":"LEDGER"}

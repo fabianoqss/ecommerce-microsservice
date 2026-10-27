@@ -1,8 +1,3 @@
-# Só produção: o realm master (administração) usa a URL do túnel SSH como frontend.
-# Sem isso, o formulário de login do console envia para o hostname público, onde o nginx bloqueia /realms/master.
-# Na PRIMEIRA aplicação o import sai com 401 (o token do próprio CLI foi emitido com o issuer antigo),
-# mas o atributo já foi gravado: basta rodar o keycloak-config de novo, que sai com 0.
-# O realm ecommerce não é afetado e continua com o issuer público (KC_HOSTNAME).
 realm: master
 attributes:
   frontendUrl: $(env:KEYCLOAK_ADMIN_URL)

@@ -1,8 +1,3 @@
-// Catálogo de demonstração, SÓ EM DEV (montado apenas pelo docker-compose.dev.yml).
-// Idempotente e não destrutivo: insere o produto só se o _id ainda não existir,
-// então edições feitas pela API nunca são sobrescritas.
-// O _id é fixo porque o estoque (inventory.sql) usa o id do produto como sku_code.
-
 const catalog = db.getSiblingDB('product_db');
 
 const products = [

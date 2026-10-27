@@ -80,7 +80,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
     }
 
-    // Preserva o contrato de validação de @RequestParam/@PathVariable (ex.: size acima do máximo).
     @Override
     protected ResponseEntity<Object> handleHandlerMethodValidationException(
             HandlerMethodValidationException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {

@@ -18,7 +18,6 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
-// Padroniza respostas de erro HTTP com ProblemDetail (RFC 9457), incluindo falhas de binding e paginação.
 @RestControllerAdvice
 public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
 

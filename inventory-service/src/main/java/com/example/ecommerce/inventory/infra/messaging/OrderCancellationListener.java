@@ -25,7 +25,6 @@ public class OrderCancellationListener {
 
     @RabbitListener(queues = RabbitMQConfig.ORDER_CANCELLED_QUEUE)
     public void handleOrderCancelled(OrderCancelledEventDTO event) {
-        // Eventos anteriores à v3 já tiveram o estoque liberado via HTTP síncrono antes do upgrade.
         if (event == null || event.version() == null || event.version() < MIN_SUPPORTED_VERSION) {
             recordMetric("ignored", "ignored");
             log.info("Evento ORDER_CANCELLED ignorado por versão anterior à v3: eventId={}, orderId={}, version={}",

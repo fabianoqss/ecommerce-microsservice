@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Gera o .env de produção com configuração pública e segredos do OCI Vault.
-# Uso na VM: sudo ./scripts/prod/generate-prod-env.sh <OCID-do-vault>
 set +xv
 set -euo pipefail
 umask 077
@@ -28,7 +26,6 @@ fail() {
   exit 1
 }
 
-# O comando de leitura pode repetir o segredo nos diagnósticos.
 fetch_secret() {
   if [[ -n ${OCI_SECRET_CMD:-} ]]; then
     "$OCI_SECRET_CMD" "$1"
@@ -62,8 +59,7 @@ write_env() {
     printf "%s='%s'\n" "$name" "${values[$name]}"
   done
 
-  # Aspas simples no .env preservam o $external literal e desativam interpolação.
-  # shellcheck disable=SC2016 # $external é literal do formato de URI da OCI
+  # shellcheck disable=SC2016
   printf -v mongodb_uri \
     'mongodb://%s:%s@%s:27017/%s?authMechanism=PLAIN&authSource=$external&ssl=true&retryWrites=false&loadBalanced=true' \
     "$mongodb_username" "${values[PRODUCT_MONGODB_PASSWORD]}" "$mongodb_host" "$mongodb_username"
@@ -94,7 +90,6 @@ main() {
     command -v oci >/dev/null 2>&1 || fail 'OCI CLI não encontrado.'
   fi
 
-  # O template é um .env do Compose; nunca executar como código shell.
   while IFS='=' read -r name value || [[ -n $name ]]; do
     case "$name" in
       PRODUCT_MONGODB_HOST) mongodb_host=$value ;;
@@ -111,24 +106,21 @@ main() {
 
   echo '==> Lendo segredos do OCI Vault'
   for name in "${SECRET_NAMES[@]}"; do
-    # O marcador preserva quebras de linha finais para que a validação as rejeite.
     if ! secret=$(fetch_secret "$name" && printf '.'); then
       fail "Falha ao ler segredo: $name"
     fi
     secret=${secret%.}
     validate_secret "$name" "$secret"
-    # shellcheck disable=SC2034 # lido por write_env via nameref (local -n)
+    # shellcheck disable=SC2034
     secret_values[$name]=$secret
   done
   write_env "$template" "$mongodb_username" "$mongodb_host" secret_values > "$temp_file"
 
   if command -v docker >/dev/null 2>&1; then
-    # Valida o temporário antes de substituir o .env atual; diagnósticos do Compose podem repetir valores.
     docker compose --project-directory "$root_dir" --env-file "$temp_file" config --quiet >/dev/null 2>&1 \
       || fail 'Falha ao validar .env com Docker Compose.'
   fi
 
-  # Revalidar o destino antes do backup e da substituição atômica.
   [[ ! -L $env_file && ( ! -e $env_file || -f $env_file ) ]] \
     || fail '.env deve ser um arquivo regular, sem link simbólico.'
   if [[ -e $env_file ]]; then

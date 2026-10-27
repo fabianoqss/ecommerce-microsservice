@@ -7,7 +7,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 import java.util.UUID;
 
-// DTO próprio do inventory-service; ignora campos do evento de pedido irrelevantes ao estoque.
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record OrderCancelledEventDTO(
         UUID eventId,

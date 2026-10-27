@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Gera segredos locais sem executar o template nem enviar valores para o terminal.
 set -euo pipefail
 umask 077
 
@@ -21,7 +20,6 @@ if [[ -e "$env_file" && "$force" != true ]]; then
   exit 1
 fi
 
-# O arquivo só aparece no destino depois de todos os segredos serem gerados.
 temp_file=$(mktemp "$root_dir/.env.tmp-XXXXXXXX")
 trap 'rm -f -- "$temp_file"' EXIT
 while IFS= read -r line || [[ -n "$line" ]]; do
@@ -43,7 +41,6 @@ if [[ "$force" == true ]]; then
   fi
   mv -- "$temp_file" "$env_file"
 else
-  # ln falha se outro processo criar .env durante a geração.
   ln -- "$temp_file" "$env_file"
 fi
 echo '.env criado com permissão 600. Nenhum segredo foi impresso.'

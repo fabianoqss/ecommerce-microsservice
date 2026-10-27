@@ -198,7 +198,6 @@ class InventoryErrorResponseTest {
     void reservationValidationRejectsInvalidQuantityBlankSkuAndTooManyItems() throws Exception {
         var service = jwt().authorities(new SimpleGrantedAuthority("SCOPE_inventory:reserve"));
 
-        // quantity > 10000
         mvc.perform(put("/api/inventory/reservations/" + RESERVATION_ID)
                         .with(service)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -207,7 +206,6 @@ class InventoryErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400));
 
-        // skuCode em branco
         mvc.perform(put("/api/inventory/reservations/" + RESERVATION_ID)
                         .with(service)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -216,7 +214,6 @@ class InventoryErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400));
 
-        // > 50 itens
         String fiftyOneItems = IntStream.rangeClosed(1, 51)
                 .mapToObj(i -> "{\"skuCode\":\"SKU-" + i + "\",\"quantity\":1}")
                 .collect(Collectors.joining(",", "{\"items\":[", "]}"));

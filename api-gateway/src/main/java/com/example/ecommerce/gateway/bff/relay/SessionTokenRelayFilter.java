@@ -18,11 +18,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * BFF: para requisições /api/** autenticadas por sessão, injeta o access token guardado na sessão
- * (renovando com o refresh token quando expira). Requisições Bearer passam intactas.
- * Roda depois do springSecurityFilterChain (registrado em SecurityConfig).
- */
 public class SessionTokenRelayFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(SessionTokenRelayFilter.class);
@@ -49,7 +44,6 @@ public class SessionTokenRelayFilter extends OncePerRequestFilter {
 
         OAuth2AuthorizedClient client = authorize(oauth2, request, response);
         if (client == null) {
-            // Refresh token expirado/revogado: a sessão não serve mais; o cliente deve refazer o login.
             HttpSession session = request.getSession(false);
             if (session != null) {
                 session.invalidate();
