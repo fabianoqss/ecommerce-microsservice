@@ -1,4 +1,4 @@
-package com.example.ecommerce.notification.service;
+package com.example.ecommerce.notification.service.port;
 
 import java.util.UUID;
 

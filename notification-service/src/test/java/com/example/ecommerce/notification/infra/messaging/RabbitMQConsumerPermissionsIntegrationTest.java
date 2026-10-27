@@ -1,8 +1,9 @@
 package com.example.ecommerce.notification.infra.messaging;
 
-import com.example.ecommerce.notification.dto.OrderEventDTO;
-import com.example.ecommerce.notification.service.NotificationSender;
-import com.example.ecommerce.notification.service.ProcessedEventStore;
+import com.example.ecommerce.notification.dto.event.OrderEventDTO;
+import com.example.ecommerce.notification.service.NotificationService;
+import com.example.ecommerce.notification.service.port.NotificationSender;
+import com.example.ecommerce.notification.service.port.ProcessedEventStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterAll;
@@ -229,7 +230,7 @@ class RabbitMQConsumerPermissionsIntegrationTest {
 
     @Configuration(proxyBeanMethods = false)
     @ImportAutoConfiguration(RabbitAutoConfiguration.class)
-    @Import({RabbitMQConfig.class, NotificationService.class})
+    @Import({RabbitMQConfig.class, OrderEventListener.class, NotificationService.class})
     static class TestConfig {
 
         @Bean

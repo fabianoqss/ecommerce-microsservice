@@ -1,7 +1,7 @@
-package com.example.ecommerce.notification.infra.notification;
+package com.example.ecommerce.notification.infra.log;
 
-import com.example.ecommerce.notification.dto.OrderEventDTO;
-import com.example.ecommerce.notification.service.NotificationSender;
+import com.example.ecommerce.notification.dto.event.OrderEventDTO;
+import com.example.ecommerce.notification.service.port.NotificationSender;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
