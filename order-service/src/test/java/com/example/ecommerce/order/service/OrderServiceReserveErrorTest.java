@@ -48,6 +48,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class OrderServiceReserveErrorTest {
 
+    private static final UUID IDEMPOTENCY_KEY = UUID.fromString("a4ee662f-e404-4cf5-afc0-d837d0beaf82");
     private static final UUID ORDER_ID = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b");
     private static final Request RESERVE = Request.create(Request.HttpMethod.PUT,
             "/api/inventory/reservations/" + ORDER_ID, Map.of(), null, StandardCharsets.UTF_8, null);
@@ -97,7 +98,7 @@ class OrderServiceReserveErrorTest {
         doThrow(new FeignException.Conflict("conflict", RESERVE, null, null))
                 .when(inventoryClient).reserve(eq(ORDER_ID), any());
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(InsufficientStockException.class);
 
         verify(inventoryClient, times(1)).reserve(eq(ORDER_ID), any());
@@ -113,7 +114,7 @@ class OrderServiceReserveErrorTest {
         doThrow(new FeignException.ServiceUnavailable("503", RESERVE, null, null))
                 .when(inventoryClient).reserve(eq(ORDER_ID), any());
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(OrderReservationException.class);
 
         verify(inventoryClient, times(3)).reserve(eq(ORDER_ID), any());
@@ -128,7 +129,7 @@ class OrderServiceReserveErrorTest {
                 -1, "Read timed out", Request.HttpMethod.PUT, (Date) null, RESERVE))
                 .when(inventoryClient).reserve(eq(ORDER_ID), any());
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(OrderReservationException.class);
 
         verify(inventoryClient, times(3)).reserve(eq(ORDER_ID), any());
@@ -142,7 +143,7 @@ class OrderServiceReserveErrorTest {
         doThrow(new FeignException.Gone("already released", RESERVE, null, null))
                 .when(inventoryClient).reserve(eq(ORDER_ID), any());
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(OrderReservationException.class);
 
         verify(inventoryClient, times(1)).reserve(eq(ORDER_ID), any());
@@ -156,7 +157,7 @@ class OrderServiceReserveErrorTest {
         doThrow(new FeignException.UnprocessableEntity("divergent items", RESERVE, null, null))
                 .when(inventoryClient).reserve(eq(ORDER_ID), any());
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(OrderReservationException.class);
 
         verify(inventoryClient, times(1)).reserve(eq(ORDER_ID), any());
@@ -170,7 +171,7 @@ class OrderServiceReserveErrorTest {
         doThrow(new FeignException.Forbidden("forbidden", RESERVE, null, null))
                 .when(inventoryClient).reserve(eq(ORDER_ID), any());
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(OrderReservationException.class)
                 .hasCauseInstanceOf(FeignException.Forbidden.class);
 
@@ -183,7 +184,7 @@ class OrderServiceReserveErrorTest {
         doThrow(new FeignException.Unauthorized("unauthorized", RESERVE, null, null))
                 .when(inventoryClient).reserve(eq(ORDER_ID), any());
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(OrderReservationException.class)
                 .hasCauseInstanceOf(FeignException.Unauthorized.class);
 
