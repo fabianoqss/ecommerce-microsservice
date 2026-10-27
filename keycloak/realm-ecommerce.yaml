@@ -175,6 +175,12 @@ clients:
     defaultClientScopes: [basic, service_account, ecommerce-api, inventory:reserve]
     optionalClientScopes: []
 
+  # Client embutido que o Keycloak cria em todo realm. Por padrão aceita o password grant, que
+  # permitiria testar senhas da loja sem passar pela página de login. Nada no projeto o usa neste
+  # realm: a ferramenta de configuração autentica pelo realm master.
+  - clientId: admin-cli
+    directAccessGrantsEnabled: false
+
 scopeMappings:
   - client: ecommerce-bff
     roles: [CUSTOMER, ADMIN]
