@@ -11,7 +11,7 @@ import java.time.Duration;
 @Validated
 @ConfigurationProperties("ecommerce.notification.idempotency")
 public record IdempotencyProperties(
-        @NotNull @DurationMin(millis = 1) @DefaultValue("5m") Duration processingTtl,
+        @NotNull @DurationMin(millis = 1) @DefaultValue("30s") Duration processingTtl,
         @NotNull @DurationMin(millis = 1) @DefaultValue("7d") Duration processedTtl
 ) {
 }

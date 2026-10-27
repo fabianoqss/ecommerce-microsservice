@@ -24,7 +24,7 @@ class IdempotencyPropertiesTest {
         runner.run(context -> {
             assertThat(context).hasNotFailed();
             var properties = context.getBean(IdempotencyProperties.class);
-            assertThat(properties.processingTtl()).isEqualTo(Duration.ofMinutes(5));
+            assertThat(properties.processingTtl()).isEqualTo(Duration.ofSeconds(30));
             assertThat(properties.processedTtl()).isEqualTo(Duration.ofDays(7));
         });
     }

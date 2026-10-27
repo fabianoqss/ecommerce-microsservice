@@ -1,6 +1,8 @@
 package com.example.ecommerce.notification.service;
 
 import com.example.ecommerce.notification.dto.event.OrderEventDTO;
+import com.example.ecommerce.notification.exception.EventInProgressException;
+import com.example.ecommerce.notification.service.port.AcquireStatus;
 import com.example.ecommerce.notification.service.port.NotificationSender;
 import com.example.ecommerce.notification.service.port.ProcessedEventStore;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -33,22 +35,35 @@ public class NotificationService {
             return;
         }
 
-        if (!processedEventStore.tryAcquire(event.eventId())) {
+        var acquisition = processedEventStore.tryAcquire(event.eventId());
+        if (acquisition.status() == AcquireStatus.ALREADY_PROCESSED) {
             log.info("Evento duplicado ignorado: eventId={}, orderId={}", event.eventId(), event.orderId());
             meterRegistry.counter("ecommerce.notification.events.duplicates", "event_type", eventType).increment();
             return;
         }
 
+        if (acquisition.status() == AcquireStatus.IN_PROGRESS) {
+            log.warn("Reentrega de evento em processamento rejeitada para nova tentativa: eventId={}, orderId={}, event_type={}",
+                    event.eventId(), event.orderId(), eventType);
+            meterRegistry.counter("ecommerce.notification.events.in_progress", "event_type", eventType).increment();
+            throw new EventInProgressException(event.eventId());
+        }
+
         try {
             notificationSender.send(event, notification);
-            processedEventStore.markProcessed(event.eventId());
         } catch (RuntimeException ex) {
             try {
-                processedEventStore.release(event.eventId());
+                processedEventStore.release(event.eventId(), acquisition.ownerToken());
             } catch (RuntimeException releaseFailure) {
                 ex.addSuppressed(releaseFailure);
             }
             throw ex;
+        }
+
+        if (!processedEventStore.markProcessed(event.eventId(), acquisition.ownerToken())) {
+            log.warn("Notificação enviada, mas o lease foi assumido por outro consumidor; pode haver envio duplicado: eventId={}, orderId={}, event_type={}",
+                    event.eventId(), event.orderId(), eventType);
+            meterRegistry.counter("ecommerce.notification.events.lease_lost", "event_type", eventType).increment();
         }
         processed(eventType);
     }
