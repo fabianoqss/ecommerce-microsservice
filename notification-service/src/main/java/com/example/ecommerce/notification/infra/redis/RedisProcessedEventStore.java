@@ -1,7 +1,7 @@
 package com.example.ecommerce.notification.infra.redis;
 
 import com.example.ecommerce.notification.config.IdempotencyProperties;
-import com.example.ecommerce.notification.service.ProcessedEventStore;
+import com.example.ecommerce.notification.service.port.ProcessedEventStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;

@@ -1,6 +1,6 @@
 package com.example.ecommerce.product.controller;
 
-import com.example.ecommerce.product.domain.Product;
+import com.example.ecommerce.product.domain.entity.Product;
 import com.example.ecommerce.product.infra.security.SecurityConfig;
 import com.example.ecommerce.product.repository.ProductRepository;
 import com.example.ecommerce.product.service.ProductService;

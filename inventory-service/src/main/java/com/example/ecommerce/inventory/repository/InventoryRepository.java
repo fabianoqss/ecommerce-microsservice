@@ -1,6 +1,6 @@
 package com.example.ecommerce.inventory.repository;
 
-import com.example.ecommerce.inventory.domain.Inventory;
+import com.example.ecommerce.inventory.domain.entity.Inventory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

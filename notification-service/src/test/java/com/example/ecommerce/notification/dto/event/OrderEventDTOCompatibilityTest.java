@@ -1,4 +1,4 @@
-package com.example.ecommerce.notification.dto;
+package com.example.ecommerce.notification.dto.event;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;

@@ -2,13 +2,13 @@ package com.example.ecommerce.order.service;
 
 import com.example.ecommerce.order.domain.entity.Order;
 import com.example.ecommerce.order.domain.entity.OrderItem;
-import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.domain.entity.OutboxEvent;
+import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.domain.enums.ReservationMode;
-import com.example.ecommerce.order.dto.request.InventoryItemDTO;
+import com.example.ecommerce.order.dto.client.inventory.InventoryItemDTO;
+import com.example.ecommerce.order.dto.event.OrderEventDTO;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
 import com.example.ecommerce.order.infra.client.InventoryClient;
-import com.example.ecommerce.order.infra.messaging.OrderEventDTO;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import tools.jackson.databind.ObjectMapper;

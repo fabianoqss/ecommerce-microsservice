@@ -1,6 +1,7 @@
 package com.example.ecommerce.product.controller;
 
-import com.example.ecommerce.product.dto.ProductDTO;
+import com.example.ecommerce.product.dto.request.ProductRequestDTO;
+import com.example.ecommerce.product.dto.response.ProductResponseDTO;
 import com.example.ecommerce.product.infra.security.SecurityConfig;
 import com.example.ecommerce.product.service.ProductService;
 import org.junit.jupiter.api.Test;
@@ -84,7 +85,7 @@ class ProductSecurityTest {
     void adminCanWrite() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
         when(productService.insert(any())).thenReturn(
-                new ProductDTO("Teclado", "Teclado mecânico RGB", new BigDecimal("349.90"), "Periféricos", null));
+                new ProductResponseDTO("abc", "Teclado", "Teclado mecânico RGB", new BigDecimal("349.90"), "Periféricos", null));
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(VALID_PRODUCT))
                 .andExpect(status().isCreated());
         mvc.perform(put("/api/product/abc").with(admin).contentType(MediaType.APPLICATION_JSON).content(VALID_PRODUCT))
@@ -95,7 +96,7 @@ class ProductSecurityTest {
     @Test
     void adminCanCreateProductAtNameAndPriceLimits() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
-        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productService.insert(any())).thenAnswer(invocation -> created(invocation.getArgument(0)));
         String product = VALID_PRODUCT.replace("Teclado\"", "a".repeat(255) + "\"")
                 .replace("349.90", "99999999999999999.99");
 
@@ -106,7 +107,7 @@ class ProductSecurityTest {
     @Test
     void adminCannotCreateProductWithNameLongerThan255Characters() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
-        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productService.insert(any())).thenAnswer(invocation -> created(invocation.getArgument(0)));
         String product = VALID_PRODUCT.replace("Teclado\"", "a".repeat(256) + "\"");
 
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
@@ -117,7 +118,7 @@ class ProductSecurityTest {
     @Test
     void adminCannotCreateProductWithMoreThanTwoDecimalPlaces() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
-        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productService.insert(any())).thenAnswer(invocation -> created(invocation.getArgument(0)));
         String product = VALID_PRODUCT.replace("349.90", "10.005");
 
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
@@ -128,7 +129,7 @@ class ProductSecurityTest {
     @Test
     void adminCannotCreateProductWithoutPrice() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
-        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productService.insert(any())).thenAnswer(invocation -> created(invocation.getArgument(0)));
         String product = VALID_PRODUCT.replace("\"price\":349.90,", "");
 
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
@@ -139,7 +140,7 @@ class ProductSecurityTest {
     @Test
     void adminCannotCreateProductWithMoreThan17IntegerDigitsInPrice() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
-        when(productService.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productService.insert(any())).thenAnswer(invocation -> created(invocation.getArgument(0)));
         String product = VALID_PRODUCT.replace("349.90", "100000000000000000.00");
 
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
@@ -165,5 +166,10 @@ class ProductSecurityTest {
         mvc.perform(get("/actuator/health")).andExpect(allowed());
         mvc.perform(get("/actuator/env").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isForbidden());
+    }
+
+    private static ProductResponseDTO created(ProductRequestDTO request) {
+        return new ProductResponseDTO("abc", request.name(), request.description(), request.price(),
+                request.category(), request.imageUrl());
     }
 }

@@ -1,12 +1,11 @@
-package com.example.ecommerce.notification.infra.messaging;
+package com.example.ecommerce.notification.service;
 
-import com.example.ecommerce.notification.dto.OrderEventDTO;
-import com.example.ecommerce.notification.service.NotificationSender;
-import com.example.ecommerce.notification.service.ProcessedEventStore;
+import com.example.ecommerce.notification.dto.event.OrderEventDTO;
+import com.example.ecommerce.notification.service.port.NotificationSender;
+import com.example.ecommerce.notification.service.port.ProcessedEventStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -18,12 +17,10 @@ public class NotificationService {
     private final NotificationSender notificationSender;
     private final MeterRegistry meterRegistry;
 
-    @RabbitListener(queues = RabbitMQConfig.QUEUE)
     public void handleOrderCreated(OrderEventDTO event) {
         handle(event, "created", "Notificação de pedido criada");
     }
 
-    @RabbitListener(queues = RabbitMQConfig.CANCELLED_QUEUE)
     public void handleOrderCancelled(OrderEventDTO event) {
         handle(event, "cancelled", "Notificação de pedido cancelado");
     }

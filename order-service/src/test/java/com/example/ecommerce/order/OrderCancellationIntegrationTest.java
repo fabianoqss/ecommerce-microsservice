@@ -2,11 +2,11 @@ package com.example.ecommerce.order;
 
 import com.example.ecommerce.order.domain.entity.Order;
 import com.example.ecommerce.order.domain.entity.OrderItem;
-import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.domain.entity.OutboxEvent;
+import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.domain.enums.ReservationMode;
-import com.example.ecommerce.order.dto.request.InventoryItemDTO;
-import com.example.ecommerce.order.infra.messaging.OrderEventDTO;
+import com.example.ecommerce.order.dto.client.inventory.InventoryItemDTO;
+import com.example.ecommerce.order.dto.event.OrderEventDTO;
 import com.example.ecommerce.order.infra.messaging.OutboxDispatcher;
 import com.example.ecommerce.order.infra.messaging.RabbitMQConfig;
 import com.example.ecommerce.order.repository.OrderRepository;

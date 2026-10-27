@@ -2,6 +2,7 @@ package com.example.ecommerce.order.infra.messaging;
 
 import com.example.ecommerce.order.domain.entity.OutboxEvent;
 import com.example.ecommerce.order.domain.enums.OutboxStatus;
+import com.example.ecommerce.order.dto.event.OrderEventDTO;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;

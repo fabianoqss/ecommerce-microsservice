@@ -1,4 +1,4 @@
-package com.example.ecommerce.order.dto.request;
+package com.example.ecommerce.order.dto.client.inventory;
 
 import java.util.List;
 

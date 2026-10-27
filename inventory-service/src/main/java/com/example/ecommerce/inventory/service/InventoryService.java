@@ -1,9 +1,9 @@
 package com.example.ecommerce.inventory.service;
 
-import com.example.ecommerce.inventory.domain.Inventory;
-import com.example.ecommerce.inventory.domain.ReservationStatus;
-import com.example.ecommerce.inventory.domain.StockReservation;
-import com.example.ecommerce.inventory.domain.StockReservationItem;
+import com.example.ecommerce.inventory.domain.entity.Inventory;
+import com.example.ecommerce.inventory.domain.entity.StockReservation;
+import com.example.ecommerce.inventory.domain.entity.StockReservationItem;
+import com.example.ecommerce.inventory.domain.enums.ReservationStatus;
 import com.example.ecommerce.inventory.dto.request.InventoryItemDTO;
 import com.example.ecommerce.inventory.dto.request.InventoryRequestDTO;
 import com.example.ecommerce.inventory.dto.request.InventoryUpdateDTO;

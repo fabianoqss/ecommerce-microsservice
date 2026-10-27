@@ -1,11 +1,12 @@
 package com.example.ecommerce.product.service;
 
 
-import com.example.ecommerce.product.dto.ProductDTO;
-import com.example.ecommerce.product.dto.PageResponseDTO;
-import com.example.ecommerce.product.domain.Product;
-import com.example.ecommerce.product.repository.ProductRepository;
+import com.example.ecommerce.product.domain.entity.Product;
+import com.example.ecommerce.product.dto.request.ProductRequestDTO;
+import com.example.ecommerce.product.dto.response.PageResponseDTO;
+import com.example.ecommerce.product.dto.response.ProductResponseDTO;
 import com.example.ecommerce.product.exception.ResourceNotFoundException;
+import com.example.ecommerce.product.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -20,28 +21,28 @@ public class ProductService {
     private ProductRepository repository;
 
 
-    public ProductDTO findByID(String id){
+    public ProductResponseDTO findByID(String id){
         Product product = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado através do id: " + id));
 
 
-        return new ProductDTO(product);
+        return ProductResponseDTO.from(product);
     }
 
 
-    public PageResponseDTO<ProductDTO> findAll(int page, int size) {
+    public PageResponseDTO<ProductResponseDTO> findAll(int page, int size) {
         var pageable = PageRequest.of(page, size, Sort.by("id"));
-        return PageResponseDTO.from(repository.findAll(pageable).map(ProductDTO::new));
+        return PageResponseDTO.from(repository.findAll(pageable).map(ProductResponseDTO::from));
     }
 
-    public ProductDTO insert(ProductDTO dto){
+    public ProductResponseDTO insert(ProductRequestDTO dto){
         Product product = new Product();
         copyDtoToEntity(dto, product);
         product = repository.save(product);
-        return new ProductDTO(product);
+        return ProductResponseDTO.from(product);
     }
 
-    public ProductDTO update(String id, ProductDTO dto){
+    public ProductResponseDTO update(String id, ProductRequestDTO dto){
 
         Product product = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
@@ -50,7 +51,7 @@ public class ProductService {
 
         product = repository.save(product);
 
-        return new ProductDTO(product);
+        return ProductResponseDTO.from(product);
     }
 
     public void delete(String id){
@@ -61,11 +62,11 @@ public class ProductService {
     }
 
 
-    private void copyDtoToEntity(ProductDTO dto, Product entity){
-        entity.setName(dto.getName());
-        entity.setCategory(dto.getCategory());
-        entity.setDescription(dto.getDescription());
-        entity.setPrice(dto.getPrice());
-        entity.setImageUrl(dto.getImageUrl());
+    private void copyDtoToEntity(ProductRequestDTO dto, Product entity){
+        entity.setName(dto.name());
+        entity.setCategory(dto.category());
+        entity.setDescription(dto.description());
+        entity.setPrice(dto.price());
+        entity.setImageUrl(dto.imageUrl());
     }
 }

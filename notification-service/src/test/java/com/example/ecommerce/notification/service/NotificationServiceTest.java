@@ -1,8 +1,8 @@
-package com.example.ecommerce.notification.infra.messaging;
+package com.example.ecommerce.notification.service;
 
-import com.example.ecommerce.notification.dto.OrderEventDTO;
-import com.example.ecommerce.notification.service.NotificationSender;
-import com.example.ecommerce.notification.service.ProcessedEventStore;
+import com.example.ecommerce.notification.dto.event.OrderEventDTO;
+import com.example.ecommerce.notification.service.port.NotificationSender;
+import com.example.ecommerce.notification.service.port.ProcessedEventStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

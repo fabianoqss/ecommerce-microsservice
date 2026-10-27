@@ -1,4 +1,4 @@
-package com.example.ecommerce.product.dto;
+package com.example.ecommerce.product.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.data.domain.Page;

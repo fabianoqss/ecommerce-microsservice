@@ -1,7 +1,7 @@
-package com.example.ecommerce.order.infra.messaging;
+package com.example.ecommerce.order.dto.event;
 
 import com.example.ecommerce.order.domain.enums.ReservationMode;
-import com.example.ecommerce.order.dto.request.InventoryItemDTO;
+import com.example.ecommerce.order.dto.client.inventory.InventoryItemDTO;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 

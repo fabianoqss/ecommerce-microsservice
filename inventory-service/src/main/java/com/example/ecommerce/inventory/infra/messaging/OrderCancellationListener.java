@@ -1,6 +1,7 @@
 package com.example.ecommerce.inventory.infra.messaging;
 
-import com.example.ecommerce.inventory.domain.ReservationMode;
+import com.example.ecommerce.inventory.domain.enums.ReservationMode;
+import com.example.ecommerce.inventory.dto.event.OrderCancelledEventDTO;
 import com.example.ecommerce.inventory.service.InventoryService;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;

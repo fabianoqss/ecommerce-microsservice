@@ -1,4 +1,4 @@
-package com.example.ecommerce.product.domain;
+package com.example.ecommerce.product.domain.entity;
 
 
 import org.springframework.data.annotation.Id;

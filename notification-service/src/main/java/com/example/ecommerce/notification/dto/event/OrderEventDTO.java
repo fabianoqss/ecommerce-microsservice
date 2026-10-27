@@ -1,4 +1,4 @@
-package com.example.ecommerce.notification.dto;
+package com.example.ecommerce.notification.dto.event;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
