@@ -1,6 +1,6 @@
 package com.example.ecommerce.order.exception;
 
-import com.example.ecommerce.order.domain.OrderStatus;
+import com.example.ecommerce.order.domain.enums.OrderStatus;
 
 import java.util.UUID;
 

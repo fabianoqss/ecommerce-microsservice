@@ -1,8 +1,8 @@
 package com.example.ecommerce.order.infra.messaging;
 
-import com.example.ecommerce.order.domain.OrderEventType;
-import com.example.ecommerce.order.domain.OutboxEvent;
-import com.example.ecommerce.order.domain.OutboxStatus;
+import com.example.ecommerce.order.domain.enums.OrderEventType;
+import com.example.ecommerce.order.domain.entity.OutboxEvent;
+import com.example.ecommerce.order.domain.enums.OutboxStatus;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import tools.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;

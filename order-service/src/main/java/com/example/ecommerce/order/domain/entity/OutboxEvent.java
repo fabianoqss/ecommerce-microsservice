@@ -1,5 +1,6 @@
-package com.example.ecommerce.order.domain;
+package com.example.ecommerce.order.domain.entity;
 
+import com.example.ecommerce.order.domain.enums.OutboxStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

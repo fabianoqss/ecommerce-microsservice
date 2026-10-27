@@ -1,5 +1,7 @@
-package com.example.ecommerce.order.domain;
+package com.example.ecommerce.order.domain.entity;
 
+import com.example.ecommerce.order.domain.enums.OrderStatus;
+import com.example.ecommerce.order.domain.enums.ReservationMode;
 import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionException;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

@@ -1,7 +1,7 @@
 package com.example.ecommerce.order.repository;
 
-import com.example.ecommerce.order.domain.OutboxEvent;
-import com.example.ecommerce.order.domain.OutboxStatus;
+import com.example.ecommerce.order.domain.entity.OutboxEvent;
+import com.example.ecommerce.order.domain.enums.OutboxStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.Instant;
