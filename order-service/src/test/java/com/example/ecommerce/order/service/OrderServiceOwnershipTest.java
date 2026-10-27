@@ -6,6 +6,8 @@ import com.example.ecommerce.order.exception.OrderNotFoundException;
 import com.example.ecommerce.order.repository.OrderRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -76,17 +78,18 @@ class OrderServiceOwnershipTest {
                 .isEqualTo(Sort.by(Sort.Direction.DESC, "orderTime", "id"));
     }
 
-    @Test
-    void customerCanGetOwnPendingOrderByIdEvenBeforeConfirmation() {
+    @ParameterizedTest
+    @EnumSource(value = OrderStatus.class, names = {"PENDING", "EXPIRED", "RECONCILIATION_FAILED"})
+    void customerCanGetOwnUnconfirmedOrderById(OrderStatus status) {
         Order pending = order("owner-sub");
-        pending.setStatus(OrderStatus.PENDING);
+        pending.setStatus(status);
         pending.setConfirmedAt(null);
         when(orderRepository.findByIdAndUserID(ORDER_ID, "owner-sub")).thenReturn(Optional.of(pending));
 
         var dto = orderService.findById(ORDER_ID, token("owner-sub", "ROLE_CUSTOMER"));
 
         assertThat(dto.id()).isEqualTo(ORDER_ID);
-        assertThat(dto.status()).isEqualTo("PENDING");
+        assertThat(dto.status()).isEqualTo(status.name());
     }
 
     @Test

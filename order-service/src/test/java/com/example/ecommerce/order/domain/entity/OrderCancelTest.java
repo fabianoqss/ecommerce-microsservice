@@ -28,7 +28,7 @@ class OrderCancelTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OrderStatus.class, names = {"CONFIRMED", "EXPIRED", "CANCELLED", "COMPLETED"})
+    @EnumSource(value = OrderStatus.class, names = {"CONFIRMED", "EXPIRED", "CANCELLED", "COMPLETED", "RECONCILIATION_FAILED"})
     void nonPendingOrderCannotBeConfirmed(OrderStatus currentStatus) {
         Order order = order(currentStatus);
 
@@ -49,7 +49,7 @@ class OrderCancelTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OrderStatus.class, names = {"CONFIRMED", "EXPIRED", "CANCELLED", "COMPLETED"})
+    @EnumSource(value = OrderStatus.class, names = {"CONFIRMED", "EXPIRED", "CANCELLED", "COMPLETED", "RECONCILIATION_FAILED"})
     void nonPendingOrderCannotExpire(OrderStatus currentStatus) {
         Order order = order(currentStatus);
 
@@ -89,6 +89,26 @@ class OrderCancelTest {
         assertThatThrownBy(() -> order.cancel("actor-sub", null, NOW))
                 .isInstanceOf(InvalidOrderStatusTransitionException.class);
         assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+    }
+
+    @Test
+    void reconciliationFailedOrderCannotBeCancelled() {
+        Order order = order(OrderStatus.RECONCILIATION_FAILED);
+
+        assertThatThrownBy(() -> order.cancel("actor-sub", null, NOW))
+                .isInstanceOf(InvalidOrderStatusTransitionException.class);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.RECONCILIATION_FAILED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = OrderStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "EXPIRED")
+    void onlyExpiredOrdersCanRecordReconciliationFailure(OrderStatus status) {
+        Order order = order(status);
+
+        assertThatThrownBy(() -> order.recordReconciliationFailure(CONFIRMED_AT, 3))
+                .isInstanceOf(InvalidOrderStatusTransitionException.class);
+        assertThat(order.getStatus()).isEqualTo(status);
+        assertThat(order.getReconciliationAttempts()).isZero();
     }
 
     private static Order order(OrderStatus status) {
