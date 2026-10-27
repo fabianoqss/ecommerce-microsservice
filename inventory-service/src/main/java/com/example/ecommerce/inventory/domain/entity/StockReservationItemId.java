@@ -1,4 +1,4 @@
-package com.example.ecommerce.inventory.domain;
+package com.example.ecommerce.inventory.domain.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;

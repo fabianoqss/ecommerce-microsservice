@@ -1,6 +1,6 @@
 package com.example.ecommerce.inventory.dto.response;
 
-import com.example.ecommerce.inventory.domain.ReservationStatus;
+import com.example.ecommerce.inventory.domain.enums.ReservationStatus;
 import com.example.ecommerce.inventory.dto.request.InventoryItemDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 

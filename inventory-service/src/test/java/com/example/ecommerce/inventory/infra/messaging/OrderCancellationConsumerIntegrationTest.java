@@ -1,8 +1,8 @@
 package com.example.ecommerce.inventory.infra.messaging;
 
-import com.example.ecommerce.inventory.domain.Inventory;
-import com.example.ecommerce.inventory.domain.ReservationStatus;
-import com.example.ecommerce.inventory.domain.StockReservation;
+import com.example.ecommerce.inventory.domain.entity.Inventory;
+import com.example.ecommerce.inventory.domain.entity.StockReservation;
+import com.example.ecommerce.inventory.domain.enums.ReservationStatus;
 import com.example.ecommerce.inventory.dto.request.InventoryItemDTO;
 import com.example.ecommerce.inventory.repository.InventoryRepository;
 import com.example.ecommerce.inventory.repository.StockReservationItemRepository;

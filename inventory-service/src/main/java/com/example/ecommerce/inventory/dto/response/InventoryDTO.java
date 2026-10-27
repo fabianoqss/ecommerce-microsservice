@@ -1,6 +1,6 @@
 package com.example.ecommerce.inventory.dto.response;
 
-import com.example.ecommerce.inventory.domain.Inventory;
+import com.example.ecommerce.inventory.domain.entity.Inventory;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(name = "InventoryDTO", description = "Dados de estoque de um produto")

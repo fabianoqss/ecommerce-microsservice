@@ -1,7 +1,7 @@
 package com.example.ecommerce.inventory.repository;
 
-import com.example.ecommerce.inventory.domain.StockReservationItem;
-import com.example.ecommerce.inventory.domain.StockReservationItemId;
+import com.example.ecommerce.inventory.domain.entity.StockReservationItem;
+import com.example.ecommerce.inventory.domain.entity.StockReservationItemId;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

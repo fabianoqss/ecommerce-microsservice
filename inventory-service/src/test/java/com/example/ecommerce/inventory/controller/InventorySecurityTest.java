@@ -1,6 +1,6 @@
 package com.example.ecommerce.inventory.controller;
 
-import com.example.ecommerce.inventory.domain.ReservationStatus;
+import com.example.ecommerce.inventory.domain.enums.ReservationStatus;
 import com.example.ecommerce.inventory.dto.request.InventoryItemDTO;
 import com.example.ecommerce.inventory.dto.response.ReservationResponseDTO;
 import com.example.ecommerce.inventory.dto.response.ReservationResult;

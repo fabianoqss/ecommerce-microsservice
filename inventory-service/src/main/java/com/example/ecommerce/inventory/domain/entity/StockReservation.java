@@ -1,5 +1,6 @@
-package com.example.ecommerce.inventory.domain;
+package com.example.ecommerce.inventory.domain.entity;
 
+import com.example.ecommerce.inventory.domain.enums.ReservationStatus;
 import jakarta.persistence.*;
 
 import java.time.Instant;
