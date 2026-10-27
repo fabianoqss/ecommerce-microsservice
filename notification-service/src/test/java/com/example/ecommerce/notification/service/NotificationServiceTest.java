@@ -1,6 +1,9 @@
 package com.example.ecommerce.notification.service;
 
 import com.example.ecommerce.notification.dto.event.OrderEventDTO;
+import com.example.ecommerce.notification.exception.EventInProgressException;
+import com.example.ecommerce.notification.service.port.AcquireResult;
+import com.example.ecommerce.notification.service.port.AcquireStatus;
 import com.example.ecommerce.notification.service.port.NotificationSender;
 import com.example.ecommerce.notification.service.port.ProcessedEventStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -19,10 +22,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class NotificationServiceTest {
 
+    private final UUID ownerToken = UUID.randomUUID();
     private final ProcessedEventStore store = mock(ProcessedEventStore.class);
     private final NotificationSender sender = mock(NotificationSender.class);
     private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -30,7 +40,8 @@ class NotificationServiceTest {
 
     @BeforeEach
     void acquire() {
-        when(store.tryAcquire(any())).thenReturn(true);
+        when(store.tryAcquire(any())).thenReturn(new AcquireResult(AcquireStatus.ACQUIRED, ownerToken));
+        when(store.markProcessed(any(), any())).thenReturn(true);
     }
 
     @ParameterizedTest
@@ -43,24 +54,40 @@ class NotificationServiceTest {
         var order = inOrder(store, sender);
         order.verify(store).tryAcquire(event.eventId());
         order.verify(sender).send(eq(event), anyString());
-        order.verify(store).markProcessed(event.eventId());
+        order.verify(store).markProcessed(event.eventId(), ownerToken);
         assertThat(count("ecommerce.notification.events.processed", type)).isEqualTo(1);
         assertThat(count("ecommerce.notification.events.duplicates", type)).isZero();
-        verify(store, never()).release(any());
+        verify(store, never()).release(any(), any());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"created", "cancelled"})
     void duplicateIsIgnoredAndCounted(String type) {
         var event = event(UUID.randomUUID());
-        when(store.tryAcquire(event.eventId())).thenReturn(false);
+        when(store.tryAcquire(event.eventId())).thenReturn(new AcquireResult(AcquireStatus.ALREADY_PROCESSED, null));
 
         handle(type, event);
 
         verifyNoInteractions(sender);
-        verify(store, never()).markProcessed(any());
-        verify(store, never()).release(any());
+        verify(store, never()).markProcessed(any(), any());
+        verify(store, never()).release(any(), any());
         assertThat(count("ecommerce.notification.events.duplicates", type)).isEqualTo(1);
+        assertThat(count("ecommerce.notification.events.processed", type)).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"created", "cancelled"})
+    void inProgressEventIsRejectedForRetry(String type) {
+        var event = event(UUID.randomUUID());
+        when(store.tryAcquire(event.eventId())).thenReturn(new AcquireResult(AcquireStatus.IN_PROGRESS, null));
+
+        assertThatThrownBy(() -> handle(type, event)).isInstanceOf(EventInProgressException.class);
+
+        verifyNoInteractions(sender);
+        verify(store, never()).markProcessed(any(), any());
+        verify(store, never()).release(any(), any());
+        assertThat(count("ecommerce.notification.events.in_progress", type)).isEqualTo(1);
+        assertThat(count("ecommerce.notification.events.duplicates", type)).isZero();
         assertThat(count("ecommerce.notification.events.processed", type)).isZero();
     }
 
@@ -72,20 +99,33 @@ class NotificationServiceTest {
 
         assertThatThrownBy(() -> service.handleOrderCreated(event)).isSameAs(failure);
 
-        verify(store).release(event.eventId());
-        verify(store, never()).markProcessed(any());
+        verify(store).release(event.eventId(), ownerToken);
+        verify(store, never()).markProcessed(any(), any());
         assertThat(count("ecommerce.notification.events.processed", "created")).isZero();
+    }
+
+    @Test
+    void leaseTakenByAnotherConsumerAfterSendIsAcknowledgedWithoutResending() {
+        var event = event(UUID.randomUUID());
+        when(store.markProcessed(event.eventId(), ownerToken)).thenReturn(false);
+
+        service.handleOrderCreated(event);
+
+        verify(sender).send(eq(event), anyString());
+        verify(store, never()).release(any(), any());
+        assertThat(count("ecommerce.notification.events.lease_lost", "created")).isEqualTo(1);
+        assertThat(count("ecommerce.notification.events.processed", "created")).isEqualTo(1);
     }
 
     @Test
     void completionFailurePropagatesForRetry() {
         var event = event(UUID.randomUUID());
         var failure = new RedisConnectionFailureException("Redis indisponível");
-        doThrow(failure).when(store).markProcessed(event.eventId());
+        when(store.markProcessed(event.eventId(), ownerToken)).thenThrow(failure);
 
         assertThatThrownBy(() -> service.handleOrderCreated(event)).isSameAs(failure);
 
-        verify(store).release(event.eventId());
+        verify(store, never()).release(any(), any());
         assertThat(count("ecommerce.notification.events.processed", "created")).isZero();
     }
 
@@ -95,7 +135,7 @@ class NotificationServiceTest {
         var failure = new IllegalStateException("Falha ao notificar");
         var releaseFailure = new RedisConnectionFailureException("Redis indisponível");
         doThrow(failure).when(sender).send(eq(event), anyString());
-        doThrow(releaseFailure).when(store).release(event.eventId());
+        doThrow(releaseFailure).when(store).release(event.eventId(), ownerToken);
 
         assertThatThrownBy(() -> service.handleOrderCancelled(event))
                 .isSameAs(failure).hasSuppressedException(releaseFailure);
@@ -109,7 +149,7 @@ class NotificationServiceTest {
         assertThatThrownBy(() -> service.handleOrderCreated(event(UUID.randomUUID()))).isSameAs(failure);
 
         verifyNoInteractions(sender);
-        verify(store, never()).release(any());
+        verify(store, never()).release(any(), any());
     }
 
     @ParameterizedTest
