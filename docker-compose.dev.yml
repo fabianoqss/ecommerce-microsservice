@@ -1,11 +1,4 @@
-# Override de desenvolvimento local: adiciona os bancos em containers, que em
-# produção são serviços da OCI. Use sempre junto com o arquivo base:
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-# Os endereços desses containers vêm do .env local (veja .env.example).
-
 services:
-
-  # ─── BANCOS (SÓ EM DEV) ─────────────────────────────────────────────────────
 
   postgres:
     image: postgres:16.12
@@ -40,10 +33,6 @@ services:
       retries: 5
     restart: "no"
 
-  # ─── DADOS DE DEMONSTRAÇÃO (SÓ EM DEV) ──────────────────────────────────────
-
-  # Execução única a cada subida, idempotente e sem sobrescrever dados existentes.
-  # Recarregar sem recriar volumes: docker compose ... up seed-products seed-inventory
   seed-products:
     image: mongo:7.0.45
     command: ["mongosh", "--quiet", "mongodb://mongo:27017/product_db", "/seed/products.js"]
@@ -69,10 +58,6 @@ services:
         condition: service_healthy
     restart: "no"
 
-  # ─── AJUSTES DE DEV NOS SERVIÇOS DO ARQUIVO BASE ────────────────────────────
-
-  # SMTP falso: captura os e-mails do Keycloak (verificação, recuperação de senha)
-  # sem enviar nada para fora. Leitura em http://localhost:8025.
   mailpit:
     image: axllent/mailpit:v1.31.5
     container_name: mailpit
@@ -86,7 +71,6 @@ services:
       postgres:
         condition: service_healthy
 
-  # Portas publicadas para os serviços rodando pela IDE, fora do Compose.
   rabbitmq:
     ports:
       - "127.0.0.1:5672:5672"
@@ -115,7 +99,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      # Pedidos de demonstração precisam do estoque carregado.
       seed-inventory:
         condition: service_completed_successfully
 

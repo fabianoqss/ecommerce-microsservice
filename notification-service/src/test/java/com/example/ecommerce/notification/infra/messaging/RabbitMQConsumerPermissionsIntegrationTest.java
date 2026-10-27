@@ -51,11 +51,6 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Prova em RabbitMQ 4.2.5 real que o notification-service opera com privilégio mínimo
- * (configure=^$, write=^$, read=^order\.(created|cancelled)\.queue$) quando a topologia
- * pertence exclusivamente ao order-service, inclusive encaminhando falhas para a DLQ.
- */
 @SpringBootTest(
         classes = RabbitMQConsumerPermissionsIntegrationTest.TestConfig.class,
         properties = {
@@ -107,7 +102,6 @@ class RabbitMQConsumerPermissionsIntegrationTest {
         execRabbitCtl("add_vhost", VHOST);
         execRabbitCtl("set_permissions", "-p", VHOST, RABBIT.getAdminUsername(), ".*", ".*", ".*");
         execRabbitCtl("add_user", CONSUMER_USER, CONSUMER_PASS);
-        // Exatamente as permissões de scripts/rabbitmq-init.sh para o notification-service.
         execRabbitCtl("set_permissions", "-p", VHOST, CONSUMER_USER,
                 "^$", "^$", "^order\\.(created|cancelled)\\.queue$");
 
@@ -116,7 +110,6 @@ class RabbitMQConsumerPermissionsIntegrationTest {
         producerConnectionFactory.setUsername(RABBIT.getAdminUsername());
         producerConnectionFactory.setPassword(RABBIT.getAdminPassword());
 
-        // Declara a topologia exatamente como o order-service faz.
         var admin = new RabbitAdmin(producerConnectionFactory);
         var orderExchange = new TopicExchange(EXCHANGE);
         var dlx = new DirectExchange(DLX);
@@ -183,7 +176,6 @@ class RabbitMQConsumerPermissionsIntegrationTest {
             assertThat(deadLettered.eventId()).isEqualTo(failingEvent.eventId());
         });
 
-        // O consumidor deve continuar saudável após enviar a mensagem falha para a DLQ.
         var createdEvent = event(UUID.randomUUID(), "CONFIRMED");
         var cancelledEvent = event(UUID.randomUUID(), "CANCELLED");
         producerTemplate.convertAndSend(EXCHANGE, CREATED_ROUTING_KEY, createdEvent);

@@ -43,13 +43,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    // Reuso de reservationId com itens diferentes do registrado originalmente => 422.
     @ExceptionHandler(ReservationConflictException.class)
     public ResponseEntity<ProblemDetail> handleReservationConflict(ReservationConflictException ex) {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
     }
 
-    // Reserva já liberada ou lápide (tombstone) não ressuscita => 410 Gone.
     @ExceptionHandler(ReservationGoneException.class)
     public ResponseEntity<ProblemDetail> handleReservationGone(ReservationGoneException ex) {
         return problem(HttpStatus.GONE, ex.getMessage());
@@ -88,7 +86,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
     }
 
-    // Relança exceções de segurança para que o filtro do Spring Security devolva 401/403.
     @ExceptionHandler({AccessDeniedException.class, AuthenticationException.class})
     public void handleSecurityException(RuntimeException ex) {
         throw ex;

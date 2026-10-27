@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Preparação base da VM de produção (Oracle Linux 9): disco, atualizações, ferramentas, Docker e SSH.
-# Idempotente: pode ser executado de novo a qualquer momento.
-# Uso na VM: sudo ./vm-bootstrap.sh   (ao final, reinicie se o script indicar)
 set -euo pipefail
 
 [[ $EUID -eq 0 ]] || { echo 'Execute com sudo.' >&2; exit 1; }
@@ -30,7 +27,6 @@ dnf -y install dnf-plugins-core
 [[ -f /etc/yum.repos.d/docker-ce.repo ]] \
   || dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-# Rotação de logs (sem ela o json-file cresce até encher o disco) e containers sobrevivem ao restart do daemon.
 daemon_json=$(mktemp)
 cat > "$daemon_json" <<'EOF'
 {
@@ -48,7 +44,6 @@ rm -f "$daemon_json"
 systemctl enable --now docker
 
 echo '==> SSH: só chave, sem root, poucas tentativas'
-# Arquivos em sshd_config.d são lidos em ordem e o primeiro valor vence: o prefixo 01 garante prioridade.
 cat > /etc/ssh/sshd_config.d/01-ecommerce-hardening.conf <<'EOF'
 PermitRootLogin no
 PasswordAuthentication no

@@ -1,4 +1,3 @@
-# Só os arquivos necessários ao build entram no contexto compartilhado.
 **
 !pom.xml
 !mvnw
@@ -16,7 +15,6 @@
 !*/src/
 !*/src/**
 
-# Mantém segredos e artefatos locais fora até quando estiverem em src/.
 **/target/
 **/.env*
 **/.git

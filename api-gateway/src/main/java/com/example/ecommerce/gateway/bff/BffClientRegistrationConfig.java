@@ -18,12 +18,6 @@ import java.util.Map;
 
 @Configuration
 public class BffClientRegistrationConfig {
-
-    /**
-     * Declarado em Java para informar issuer e end_session_endpoint sem discovery na subida:
-     * o navegador usa a URL pública do Keycloak, o gateway (back-channel) usa a URL interna.
-     * O registrationId "keycloak" faz parte do redirect_uri cadastrado no client ecommerce-bff.
-     */
     @Bean
     public ClientRegistrationRepository clientRegistrationRepository(BffProperties properties) {
         String publicEndpoints = properties.issuerUri() + "/protocol/openid-connect";
@@ -48,7 +42,6 @@ public class BffClientRegistrationConfig {
         return new InMemoryClientRegistrationRepository(keycloak);
     }
 
-    /** Tokens guardados na sessão HTTP (Redis): sobrevivem a restart e são compartilhados entre instâncias. */
     @Bean
     public OAuth2AuthorizedClientRepository authorizedClientRepository() {
         return new HttpSessionOAuth2AuthorizedClientRepository();

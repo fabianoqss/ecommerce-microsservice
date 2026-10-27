@@ -49,7 +49,6 @@ public class NotificationService {
             try {
                 processedEventStore.release(event.eventId());
             } catch (RuntimeException releaseFailure) {
-                // Preserva a causa original sem esconder a indisponibilidade do Redis.
                 ex.addSuppressed(releaseFailure);
             }
             throw ex;

@@ -1,7 +1,4 @@
 #!/bin/sh
-# Aplica o estoque de demonstração (SÓ EM DEV). A tabela é criada pelo Flyway do
-# inventory-service, então espera ela existir; assim funciona também com o serviço
-# rodando pela IDE, fora do Compose.
 set -eu
 
 attempts=${SEED_WAIT_ATTEMPTS:-150}

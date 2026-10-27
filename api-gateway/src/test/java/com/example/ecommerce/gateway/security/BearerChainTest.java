@@ -60,7 +60,6 @@ class BearerChainTest extends GatewayTestSupport {
         mvc.perform(get("/api/inventory/reservations/0199f5d2-0000-7000-8000-000000000001")
                         .header("Authorization", "Bearer customer-token"))
                 .andExpect(status().isForbidden());
-        // Anônimo recebe 401 (denyAll dispara o entry point), mas também nunca chega ao backend.
         mvc.perform(get("/api/inventory/reservations/0199f5d2-0000-7000-8000-000000000001"))
                 .andExpect(status().isUnauthorized());
 

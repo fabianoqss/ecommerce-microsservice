@@ -12,7 +12,6 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # issuer-uri só valida o claim iss; com jwk-set-uri presente não há discovery na subida.
           issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/ecommerce}
           jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
           audiences: ${OIDC_AUDIENCE:ecommerce-api}

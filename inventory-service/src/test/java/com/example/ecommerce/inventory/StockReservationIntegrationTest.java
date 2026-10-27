@@ -76,7 +76,6 @@ class StockReservationIntegrationTest {
         double createdBefore = reservationMetric("created");
         double replayedBefore = reservationMetric("replayed");
 
-        // Primeira chamada: itens fora de ordem e com SKU-B duplicado (2 + 1 = 3).
         mvc.perform(put("/api/inventory/reservations/" + reservationId)
                         .with(serviceToken())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -100,7 +99,6 @@ class StockReservationIntegrationTest {
         assertThat(quantityOf("SKU-A")).isEqualTo(95);
         assertThat(quantityOf("SKU-B")).isEqualTo(97);
 
-        // Segunda chamada (replay): mesmos itens já normalizados => 200 OK sem nova baixa.
         mvc.perform(put("/api/inventory/reservations/" + reservationId)
                         .with(serviceToken())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -121,7 +119,6 @@ class StockReservationIntegrationTest {
         assertThat(reservationMetric("created")).isEqualTo(createdBefore + 1.0);
         assertThat(reservationMetric("replayed")).isEqualTo(replayedBefore + 1.0);
 
-        // Consulta GET confirma o estado persistido.
         mvc.perform(get("/api/inventory/reservations/" + reservationId).with(serviceToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reservationId.toString()))
@@ -230,7 +227,6 @@ class StockReservationIntegrationTest {
         UUID reservationId = UUID.randomUUID();
         double insufficientBefore = reservationMetric("insufficient");
 
-        // SKU-A tem estoque (100 >= 10), mas SKU-B pede 150 (> 100) => rollback total.
         mvc.perform(put("/api/inventory/reservations/" + reservationId)
                         .with(serviceToken())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -251,7 +247,6 @@ class StockReservationIntegrationTest {
         assertThat(reservationRepository.findById(reservationId)).isEmpty();
         assertThat(reservationMetric("insufficient")).isEqualTo(insufficientBefore + 1.0);
 
-        // SKU inexistente também retorna 409 e faz rollback total.
         UUID missingSkuReservationId = UUID.randomUUID();
         mvc.perform(put("/api/inventory/reservations/" + missingSkuReservationId)
                         .with(serviceToken())
@@ -413,9 +408,6 @@ class StockReservationIntegrationTest {
                     assertThat(status).isIn(200, 201, 204, 410);
                 }
 
-                // Ao término da corrida PUT vs DELETE, como ao menos um DELETE completou
-                // (seja criando lápide antes do PUT ou liberando após o commit do PUT),
-                // o estado final da reserva é sempre RELEASED e o saldo líquido de estoque é inalterado.
                 var reservation = reservationRepository.findById(reservationId).orElseThrow();
                 assertThat(reservation.getStatus())
                         .as("Rodada %d: reserva deve terminar RELEASED", round)

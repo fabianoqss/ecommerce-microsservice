@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Provisionamento idempotente de bancos e roles no OCI Database with PostgreSQL 17.
-# Lê as senhas no OCI Vault (instance principal) e executa psql via container postgres:17-alpine.
-# Uso na VM: sudo ./scripts/prod/db-bootstrap.sh <OCID-do-vault> (ou variável VAULT_ID)
 set -euo pipefail
 umask 077
 
@@ -57,7 +54,6 @@ inventory_db_password=$(read_secret "INVENTORY_DB_PASSWORD")
 keycloak_db_password=$(read_secret "KEYCLOAK_DB_PASSWORD")
 
 echo "==> Conectando em $pg_host:$pg_port (sslmode=$ssl_mode) e reconciliando roles e bancos"
-# Senhas entram só por variáveis de ambiente herdadas (nunca em argv ou interpoladas no SQL).
 PGPASSWORD="$admin_password" \
 ORDER_DB_PASSWORD="$order_db_password" \
 INVENTORY_DB_PASSWORD="$inventory_db_password" \
@@ -79,7 +75,6 @@ docker run --rm -i --network host \
 	\getenv inventory_db_password INVENTORY_DB_PASSWORD
 	\getenv keycloak_db_password KEYCLOAK_DB_PASSWORD
 
-	-- 1. Roles de serviço (mínimo privilégio; ALTER ROLE garante rotação de senha idempotente)
 	SELECT 'CREATE ROLE order_service WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION'
 	WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'order_service') \gexec
 	ALTER ROLE order_service WITH LOGIN NOCREATEDB NOCREATEROLE PASSWORD :'order_db_password';
@@ -92,15 +87,10 @@ docker run --rm -i --network host \
 	WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'keycloak') \gexec
 	ALTER ROLE keycloak WITH LOGIN NOCREATEDB NOCREATEROLE PASSWORD :'keycloak_db_password';
 
-	-- No PostgreSQL 16+, um admin com CREATEROLE (não superusuário) precisa poder fazer SET ROLE
-	-- no dono para executar CREATE DATABASE ... OWNER ou ALTER DATABASE ... OWNER TO.
-	-- Concedemos associação mínima: sem herança automática de privilégios (INHERIT FALSE), apenas SET TRUE.
 	GRANT order_service TO CURRENT_USER WITH INHERIT FALSE, SET TRUE;
 	GRANT inventory_service TO CURRENT_USER WITH INHERIT FALSE, SET TRUE;
 	GRANT keycloak TO CURRENT_USER WITH INHERIT FALSE, SET TRUE;
 
-	-- 2. Bancos por serviço (CREATE DATABASE não roda em bloco transacional; usamos \gexec).
-	-- Como admin tem INHERIT FALSE nos donos, assumimos cada dono via SET ROLE para alterar a ACL do banco.
 	SELECT 'CREATE DATABASE "order-service" OWNER order_service'
 	WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_database WHERE datname = 'order-service') \gexec
 	ALTER DATABASE "order-service" OWNER TO order_service;

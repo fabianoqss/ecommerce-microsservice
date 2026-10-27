@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-// Campos novos da v3 (reservationMode e items) são aditivos e omitidos quando nulos (ORDER_CREATED v2).
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record OrderEventDTO(

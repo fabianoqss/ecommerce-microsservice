@@ -30,7 +30,6 @@ public class ProductService {
 
 
     public PageResponseDTO<ProductDTO> findAll(int page, int size) {
-        // O id único dá uma ordem estável e usa o índice padrão do MongoDB.
         var pageable = PageRequest.of(page, size, Sort.by("id"));
         return PageResponseDTO.from(repository.findAll(pageable).map(ProductDTO::new));
     }

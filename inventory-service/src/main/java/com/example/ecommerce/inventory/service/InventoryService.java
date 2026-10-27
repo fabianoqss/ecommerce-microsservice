@@ -71,8 +71,6 @@ public class InventoryService {
         return new InventoryDTO(inventory);
     }
 
-    // Reserva idempotente por reservationId (orderId). Itens são somados e ordenados por SKU
-    // para adquirir locks de linha em ordem determinística e evitar deadlocks.
     @Transactional
     public ReservationResult reserve(UUID reservationId, List<InventoryItemDTO> items) {
         Map<String, Integer> normalizedItems = normalizeItems(items);
@@ -106,7 +104,6 @@ public class InventoryService {
             );
         }
 
-        // Outro request já criou a reserva ou lápide (ON CONFLICT aguardou eventual tx concorrente).
         StockReservation existing = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ReservationNotFoundException(reservationId));
 
@@ -146,9 +143,6 @@ public class InventoryService {
         );
     }
 
-    // Liberação idempotente em duas etapas para segurança sob isolamento READ COMMITTED:
-    // (a) INSERT lápide ON CONFLICT DO NOTHING aguarda eventual PUT concorrente em voo;
-    // (b) UPDATE em statement separado enxerga novo snapshot (commit do PUT) e garante devolução única.
     @Transactional
     public String release(UUID reservationId) {
         Instant now = Instant.now();
@@ -179,8 +173,6 @@ public class InventoryService {
         return "noop";
     }
 
-    // Devolução idempotente para pedidos LEGACY (anteriores à V7, sem reserva no livro-razão):
-    // grava uma lápide RELEASED por orderId; apenas a 1ª execução incrementa os itens ordenados por SKU.
     @Transactional
     public String releaseLegacy(UUID orderId, List<InventoryItemDTO> items) {
         Map<String, Integer> normalizedItems = normalizeItems(items);

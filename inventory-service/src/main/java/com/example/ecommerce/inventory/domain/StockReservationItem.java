@@ -5,7 +5,6 @@ import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
-// Item normalizado associado a uma reserva de estoque.
 @Entity
 @Table(name = "tb_stock_reservation_item")
 public class StockReservationItem {

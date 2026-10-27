@@ -116,7 +116,6 @@ class OrderServiceReserveErrorTest {
         assertThatThrownBy(() -> orderService.createOrder(ORDER, "user-sub"))
                 .isInstanceOf(OrderReservationException.class);
 
-        // 1 chamada inicial + 2 retentativas = 3 tentativas no total.
         verify(inventoryClient, times(3)).reserve(eq(ORDER_ID), any());
         assertThat(persistedOrder.getStatus()).isEqualTo(OrderStatus.PENDING);
         verifyNoInteractions(outboxEventRepository);

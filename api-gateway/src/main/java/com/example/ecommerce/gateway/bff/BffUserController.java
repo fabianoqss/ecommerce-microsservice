@@ -9,11 +9,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class BffUserController {
-
-    /**
-     * Usuário da sessão para um cliente de navegador montar a interface. Acessar o CsrfToken força
-     * a gravação do cookie XSRF-TOKEN, que o cliente devolve no header X-XSRF-TOKEN nas escritas.
-     */
     @GetMapping("/bff/me")
     public BffUserResponse me(@AuthenticationPrincipal OidcUser user, CsrfToken csrfToken) {
         csrfToken.getToken();

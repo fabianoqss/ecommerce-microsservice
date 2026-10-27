@@ -22,10 +22,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Order {
-
-
-    // UUIDv7 (RFC 9562): gerado na aplicação, não enumerável e ordenado por tempo, então os
-    // inserts vão para o fim do índice B-tree como num BIGSERIAL (o v4 aleatório fragmenta o índice).
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     private UUID id;
@@ -36,7 +32,6 @@ public class Order {
     @Column(nullable = false, length = 20)
     private OrderStatus status;
 
-    // Novos pedidos usam o livro-razão (LEDGER) no inventory; pedidos anteriores à V7 são LEGACY.
     @Enumerated(EnumType.STRING)
     @Column(name = "reservation_mode", nullable = false, length = 10)
     private ReservationMode reservationMode = ReservationMode.LEDGER;
@@ -52,13 +47,10 @@ public class Order {
     @JoinColumn(name = "order_id")
     private List<OrderItem> items;
 
-    // Optimistic locking: duas transições simultâneas no mesmo pedido (ex.: dois cancelamentos,
-    // ou confirmar após o reconciliador expirar) não passam as duas.
     @Version
     @Column(nullable = false)
     private Long version;
 
-    // Auditoria do cancelamento: quem (sub do token), quando e por quê.
     private LocalDateTime cancelledAt;
 
     private String cancelledBy;
@@ -66,9 +58,6 @@ public class Order {
     @Column(length = 255)
     private String cancellationReason;
 
-    /**
-     * PENDING -> CONFIRMED. Pedido já expirado pelo reconciliador nunca pode ser confirmado tarde.
-     */
     public void confirm(Instant now) {
         Objects.requireNonNull(now, "confirmedAt não pode ser nulo");
         if (status != OrderStatus.PENDING) {
@@ -82,10 +71,6 @@ public class Order {
         confirm(Instant.now());
     }
 
-    /**
-     * PENDING -> EXPIRED. Gravado antes do DELETE da reserva no inventory para impedir que uma
-     * confirmação atrasada do fluxo síncrono vença a corrida.
-     */
     public void expire() {
         if (status != OrderStatus.PENDING) {
             throw new InvalidOrderStatusTransitionException(id, status, OrderStatus.EXPIRED);
@@ -93,10 +78,6 @@ public class Order {
         status = OrderStatus.EXPIRED;
     }
 
-    /**
-     * PENDING | EXPIRED | CONFIRMED -> CANCELLED. Retorna false se o pedido já estava cancelado
-     * (operação idempotente: repetir o cancelamento não reprocessa estoque nem publica outro evento).
-     */
     public boolean cancel(String actorSubject, String reason, LocalDateTime now) {
         if (status == OrderStatus.CANCELLED) {
             return false;

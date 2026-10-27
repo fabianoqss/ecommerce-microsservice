@@ -5,10 +5,6 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-/**
- * Contrato estável de paginação. Não serializamos o PageImpl do Spring Data direto porque o JSON
- * dele é detalhe de implementação (muda entre versões e expõe pageable/sort internos).
- */
 @Schema(name = "PageResponseDTO", description = "Página de resultados")
 public record PageResponseDTO<T>(
         @Schema(description = "Itens da página")

@@ -25,8 +25,6 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/error").permitAll()
-                        // Contrato interno: só o token de serviço do order-service (client_credentials).
-                        // Precisa vir antes das regras genéricas de GET/POST/PUT/DELETE de /api/inventory/**.
                         .requestMatchers(HttpMethod.PUT, "/api/inventory/reservations/**")
                             .hasAuthority("SCOPE_inventory:reserve")
                         .requestMatchers(HttpMethod.DELETE, "/api/inventory/reservations/**")

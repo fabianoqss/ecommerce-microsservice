@@ -12,7 +12,6 @@ import org.springframework.web.filter.ForwardedHeaderFilter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exercita as cadeias reais sem depender de sockets nem de um servidor Redis. */
 @SpringBootTest(properties = {
         "management.server.port=0",
         "local.management.port=8090",

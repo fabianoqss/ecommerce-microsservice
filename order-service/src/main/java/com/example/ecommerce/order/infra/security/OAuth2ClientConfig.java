@@ -10,11 +10,6 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 
 @Configuration
 public class OAuth2ClientConfig {
-
-    /**
-     * Manager baseado em serviço (não em requisição HTTP): funciona em qualquer thread, inclusive
-     * fora do contexto da requisição do usuário. Faz cache do token e pede outro quando expira.
-     */
     @Bean
     public OAuth2AuthorizedClientManager authorizedClientManager(ClientRegistrationRepository clientRegistrations,
                                                                  OAuth2AuthorizedClientService authorizedClients) {

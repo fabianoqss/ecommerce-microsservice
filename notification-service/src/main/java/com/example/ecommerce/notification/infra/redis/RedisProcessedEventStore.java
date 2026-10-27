@@ -16,7 +16,6 @@ import java.util.UUID;
 public class RedisProcessedEventStore implements ProcessedEventStore {
 
     private static final String KEY_PREFIX = "ecommerce:notification:event:";
-    // A comparação e a remoção precisam ser indivisíveis para nunca apagar um DONE concorrente.
     private static final DefaultRedisScript<Long> RELEASE = new DefaultRedisScript<>("""
             if redis.call('GET', KEYS[1]) == 'PROCESSING' then
                 return redis.call('DEL', KEYS[1])

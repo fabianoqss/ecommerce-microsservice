@@ -111,7 +111,6 @@ class RabbitInitTest(unittest.TestCase):
         bin_dir = Path(tmp.name)
         log = bin_dir / 'calls.jsonl'
         curl = bin_dir / 'curl'
-        # Substitui só o transporte: o script real ainda produz URL, JSON e controla a falha.
         curl.write_text("#!/usr/bin/env python3\n" + r"""
 import json, os, sys
 from urllib.parse import urlsplit
@@ -139,7 +138,6 @@ if os.environ['TEST_FAIL'] == 'yes':
         self.assertEqual(0, result.returncode, result.stderr)
         payloads = dict(calls)
         self.assertIn('/api/vhosts/ecommerce', payloads)
-        # Produtor é dono da topologia; consumidores só leem as próprias filas.
         expected = {
             'order-service': ('RABBITMQ_ORDER_PASSWORD',
                               {'configure': r'^(order|inventory)\.', 'write': r'^(order|inventory)\.',

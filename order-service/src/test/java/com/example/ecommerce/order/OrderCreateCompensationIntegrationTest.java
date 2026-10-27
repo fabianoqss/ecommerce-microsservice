@@ -42,11 +42,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Testa o fluxo durável de criação de pedido (PENDING -> reserva idempotente PUT -> CONFIRMED/CANCELLED)
- * e a reconciliação (PENDING -> EXPIRED -> DELETE reserva -> CANCELLED), incluindo corrida entre
- * confirmação síncrona e reconciliador.
- */
 @SpringBootTest(properties = {
         "KC_ORDER_SERVICE_CLIENT_SECRET=order-secret-test",
         "DB_PASSWORD=unused",
@@ -175,11 +170,9 @@ class OrderCreateCompensationIntegrationTest {
         });
         UUID orderId = orders.getFirst().getId();
 
-        // 409 não faz retry.
         WIREMOCK.verify(1, putRequestedFor(urlEqualTo("/api/inventory/reservations/" + orderId)));
         assertThat(outboxEventRepository.findAll()).isEmpty();
 
-        // "Meus pedidos" não mostra tentativas que nunca confirmaram, mas GET por id continua funcionando.
         mvc.perform(get("/api/order").with(user("owner-sub")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isEmpty());
@@ -207,11 +200,8 @@ class OrderCreateCompensationIntegrationTest {
         UUID orderId = pending.getId();
         assertThat(pending.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(pending.getConfirmedAt()).isNull();
-        // 1 chamada inicial + 2 retentativas em timeout.
         WIREMOCK.verify(3, putRequestedFor(urlEqualTo("/api/inventory/reservations/" + orderId)));
 
-        // Envelhece o pedido além do cutoff e roda o reconciliador: falha no 1º DELETE deixa EXPIRED;
-        // na 2ª rodada o DELETE responde 204 e o pedido passa para CANCELLED.
         jdbcTemplate.update("UPDATE tb_orders SET order_time = order_time - INTERVAL '10 minutes' WHERE id = ?", orderId);
         WIREMOCK.stubFor(WireMock.delete(urlEqualTo("/api/inventory/reservations/" + orderId))
                 .inScenario("reconcile-delete")
@@ -241,8 +231,6 @@ class OrderCreateCompensationIntegrationTest {
         WIREMOCK.stubFor(WireMock.put(urlPathMatching(RESERVATION_URL_PATTERN))
                 .willReturn(aResponse().withStatus(201)));
 
-        // Quando o PUT chega no inventory, o pedido já foi persistido como PENDING; simulamos o
-        // reconciliador expirando o pedido antes do retorno do PUT para o createOrder tentar confirmar.
         triggerReconcilerOnPut.set(true);
         WIREMOCK.addMockServiceRequestListener((request, response) -> {
             if (triggerReconcilerOnPut.get()
@@ -270,7 +258,6 @@ class OrderCreateCompensationIntegrationTest {
 
     @Test
     void databaseFailureWhenPersistingPendingOrderNeverCallsInventory() throws Exception {
-        // Excede o VARCHAR(255) de tb_order_items.product_name no Postgres real na 1ª transação (PENDING).
         WIREMOCK.stubFor(WireMock.get("/api/product/p1").willReturn(okJson("""
                 {"id":"p1","name":"%s","price":10.00}
                 """.formatted("x".repeat(300)))));

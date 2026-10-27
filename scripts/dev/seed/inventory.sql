@@ -1,8 +1,3 @@
--- Estoque de demonstração, SÓ EM DEV (montado apenas pelo docker-compose.dev.yml).
--- O sku_code é o _id do produto em products.js. Idempotente e não destrutivo:
--- um SKU que já existe mantém a quantidade atual (reservas e ajustes feitos pela API).
--- Inclui um item esgotado e um com estoque baixo para exercitar esses fluxos.
-
 INSERT INTO tb_inventory (sku_code, quantity) VALUES
     ('670000000000000000000001', 50),
     ('670000000000000000000002', 40),

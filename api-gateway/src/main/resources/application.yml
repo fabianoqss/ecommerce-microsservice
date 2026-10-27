@@ -1,6 +1,5 @@
 server:
   port: 8080
-  # Respeita X-Forwarded-* (nginx em produção) ao montar o redirect_uri do login.
   forward-headers-strategy: framework
   servlet:
     session:
@@ -23,7 +22,6 @@ spring:
               predicates:
                 - Path=/api/product,/api/product/**
               filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
                 - RemoveRequestHeader=X-XSRF-TOKEN
             - id: order-service
@@ -31,7 +29,6 @@ spring:
               predicates:
                 - Path=/api/order,/api/order/**
               filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
                 - RemoveRequestHeader=X-XSRF-TOKEN
             - id: inventory-service
@@ -39,7 +36,6 @@ spring:
               predicates:
                 - Path=/api/inventory,/api/inventory/**
               filters:
-                # Cookie de sessão e token CSRF do BFF nunca chegam aos microsserviços.
                 - RemoveRequestHeader=Cookie
                 - RemoveRequestHeader=X-XSRF-TOKEN
 
@@ -47,7 +43,6 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # issuer-uri só valida o claim iss; com jwk-set-uri presente não há discovery na subida.
           issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/ecommerce}
           jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/ecommerce/protocol/openid-connect/certs}
           audiences: ${OIDC_AUDIENCE:ecommerce-api}
@@ -62,10 +57,8 @@ spring:
 
 ecommerce:
   bff:
-    # Sem frontend, o login cai em /bff/me (JSON do usuário). Com frontend, aponte para a URL dele.
     post-login-redirect-uri: ${BFF_POST_LOGIN_REDIRECT_URI:/bff/me}
     post-logout-redirect-uri: ${BFF_POST_LOGOUT_REDIRECT_URI:}
-    # URL pública do IdP (navegador) e a mesma URL vista de dentro da rede do Compose.
     issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/ecommerce}
     internal-issuer-uri: ${OIDC_INTERNAL_ISSUER_URI:http://localhost:8180/realms/ecommerce}
     client-id: ${OIDC_BFF_CLIENT_ID:ecommerce-bff}

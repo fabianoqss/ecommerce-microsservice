@@ -17,10 +17,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Testa as migrations que transformam dados já existentes (V5: BIGINT -> UUIDv7;
- * V7: reservation_mode LEGACY, confirmed_at preenchido a partir de order_time e next_attempt_at no outbox).
- */
 @Testcontainers
 class OrderIdUuidMigrationTest {
 
@@ -58,7 +54,6 @@ class OrderIdUuidMigrationTest {
 
             assertThat(orderId.version()).isEqualTo(7);
             assertThat(orderId.variant()).isEqualTo(2);
-            // Os 48 bits mais altos do v7 são o timestamp em ms: o legado fica ordenado pelo order_time.
             long timestampMillis = orderId.getMostSignificantBits() >>> 16;
             assertThat(timestampMillis).isEqualTo(orderTime.toInstant(ZoneOffset.UTC).toEpochMilli());
 
@@ -111,7 +106,6 @@ class OrderIdUuidMigrationTest {
                 assertThat(rs.getTimestamp("confirmed_at")).isNull();
             }
 
-            // Verifica que status aceita EXPIRED após a V7.
             sql.execute("UPDATE tb_orders SET status = 'EXPIRED' WHERE id = '" + pendingId + "'");
 
             try (ResultSet outbox = sql.executeQuery("SELECT next_attempt_at FROM tb_outbox_event")) {

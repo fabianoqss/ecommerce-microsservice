@@ -7,7 +7,6 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
-// Chave composta (reservation_id, sku_code) para garantir unicidade de SKU por reserva.
 @Embeddable
 public class StockReservationItemId implements Serializable {
 

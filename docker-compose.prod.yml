@@ -1,21 +1,10 @@
-# Override de produção na OCI: só o que depende dessa infraestrutura fica aqui,
-# o arquivo base continua agnóstico. Na VM é ativado pelo COMPOSE_FILE do .env
-# (gerado por scripts/prod/generate-prod-env.sh), então basta "docker compose up -d".
-
-# CA público do OCI Database with PostgreSQL: as URLs JDBC usam sslmode=verify-full.
 x-oci-postgresql-ca: &oci-postgresql-ca
   - ./scripts/prod/certs/oci-postgresql-ca.pem:/etc/ecommerce/oci-postgresql-ca.pem:ro
 
-# Limites por container: um serviço que vaze memória ou CPU é reiniciado sozinho
-# em vez de levar a VM (2 OCPU/24 GB) ao OOM killer do kernel. Swap igual ao limite
-# para não trocar memória por disco. Soma dos limites ~12 GB, folga para SO e nginx.
 x-no-new-privileges: &no-new-privileges
   security_opt:
     - no-new-privileges:true
 
-# Microsserviços Java: o heap é 75% do limite (MaxRAMPercentage do Dockerfile),
-# o resto cobre metaspace, threads e buffers. Sem escrita fora do /tmp em memória,
-# sem capabilities do kernel e com teto de processos/threads.
 x-java-app: &java-app
   <<: *no-new-privileges
   mem_limit: 1280m
@@ -28,8 +17,6 @@ x-java-app: &java-app
   cap_drop:
     - ALL
   environment:
-    # G1 explícito: abaixo de 1792 MB a JVM escolheria o SerialGC, diferente de dev/CI.
-    # Um OutOfMemoryError encerra a JVM e o Docker reinicia o container.
     JAVA_TOOL_OPTIONS: -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
 
 services:
@@ -39,7 +26,6 @@ services:
     mem_limit: 2g
     memswap_limit: 2g
     environment:
-      # Console de admin só por túnel SSH: o nginx bloqueia /admin e o realm master.
       KC_HOSTNAME_ADMIN: &keycloak-admin-url http://localhost:8180
     volumes: *oci-postgresql-ca
 
@@ -47,7 +33,6 @@ services:
     mem_limit: 768m
     memswap_limit: 768m
     environment:
-      # Arquivos de produção são importados depois do realm-ecommerce.yaml (frontendUrl do master).
       IMPORT_FILES_LOCATIONS: /config/*.yaml,/config-prod/*.yaml
       KEYCLOAK_ADMIN_URL: *keycloak-admin-url
     volumes:

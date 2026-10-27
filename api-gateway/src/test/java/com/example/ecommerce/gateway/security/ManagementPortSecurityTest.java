@@ -14,7 +14,6 @@ import java.net.http.HttpResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** HTTP real nas duas portas; gerenciamento não depende de sessão nem de Redis. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "management.server.port=0",
         "management.health.redis.enabled=false",
@@ -65,7 +64,6 @@ class ManagementPortSecurityTest {
 
     private HttpResponse<String> get(int port, String path, boolean bearer) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
-                // Cabeçalhos encaminhados não alteram a porta local usada pela autorização.
                 .header("X-Forwarded-Port", String.valueOf(managementPort));
         if (bearer) {
             request.header("Authorization", "Bearer invalid-token");

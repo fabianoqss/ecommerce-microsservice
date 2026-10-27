@@ -10,8 +10,6 @@ import java.time.Instant;
 import java.util.UUID;
 
 public interface StockReservationRepository extends JpaRepository<StockReservation, UUID> {
-
-    // Insere reserva ou lápide de forma atômica; em concorrência, bloqueia até o outro INSERT decidir.
     @Modifying
     @Query(value = """
             INSERT INTO tb_stock_reservation (id, status, created_at, updated_at)
@@ -20,7 +18,6 @@ public interface StockReservationRepository extends JpaRepository<StockReservati
             """, nativeQuery = true)
     int insertIfAbsent(@Param("id") UUID id, @Param("status") String status, @Param("now") Instant now);
 
-    // Transiciona RESERVED -> RELEASED em statement separado para enxergar commits recentes em READ COMMITTED.
     @Modifying
     @Query(value = """
             UPDATE tb_stock_reservation

@@ -1,20 +1,7 @@
-# Compose de produção: serviços da aplicação + o que roda na própria VM
-# (Keycloak, RabbitMQ, Redis e monitoramento). Os bancos (OCI Database with
-# PostgreSQL e Autonomous JSON) ficam fora e entram só por variáveis de
-# ambiente, então trocar a infraestrutura não exige mudar este arquivo.
-# Chamadas entre aplicações usam URLs configuradas e DNS da rede do Compose.
-#
-# Desenvolvimento local (Postgres e Mongo em containers):
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-#
-# Variáveis com ":?" são obrigatórias: o compose falha antes de subir se faltar alguma.
-
 x-app-env: &app-env
   TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
   MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
 
-# Resource Servers: nomes genéricos de OIDC, o provedor (hoje Keycloak) muda sem mexer no código.
-# O issuer é a URL pública (vai no "iss"); as chaves vêm pela rede interna do Compose.
 x-oidc-env: &oidc-env
   OIDC_ISSUER_URI: ${OIDC_ISSUER_URI:?defina OIDC_ISSUER_URI}
   OIDC_JWK_SET_URI: ${OIDC_JWK_SET_URI:?defina OIDC_JWK_SET_URI}
@@ -26,12 +13,9 @@ x-rabbitmq-env: &rabbitmq-env
 
 services:
 
-  # ─── INFRAESTRUTURA NA VM ───────────────────────────────────────────────────
-
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.5
     container_name: keycloak
-    # O realm "ecommerce" é código (keycloak/realm-ecommerce.yaml), aplicado pelo keycloak-config.
     command: ["start"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
@@ -40,7 +24,6 @@ services:
       KC_DB_URL: ${KEYCLOAK_DB_URL:?defina KEYCLOAK_DB_URL}
       KC_DB_USERNAME: ${KEYCLOAK_DB_USERNAME:?defina KEYCLOAK_DB_USERNAME}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?defina KEYCLOAK_DB_PASSWORD}
-      # URL pública (a que vai no "iss" dos tokens); o TLS termina no nginx.
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:?defina KEYCLOAK_HOSTNAME}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HTTP_ENABLED: "true"
@@ -48,9 +31,8 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
     ports:
-      - "127.0.0.1:8180:8080" # exposto só para o nginx da própria VM
+      - "127.0.0.1:8180:8080"
     healthcheck:
-      # A imagem não tem curl; o health fica na porta de gerenciamento 9000.
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
       interval: 15s
       timeout: 5s
@@ -60,8 +42,6 @@ services:
 
   keycloak-config:
     image: adorsys/keycloak-config-cli:6.5.1-26.5.5
-    # Execução única a cada subida: reconcilia o realm com keycloak/realm-ecommerce.yaml.
-    # Sem cache, alterações feitas à mão no console são revertidas para o que está no git.
     environment:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_USER: admin
@@ -69,7 +49,6 @@ services:
       KEYCLOAK_AVAILABILITYCHECK_ENABLED: "true"
       IMPORT_FILES_LOCATIONS: /config/*.yaml
       IMPORT_VARSUBSTITUTION_ENABLED: "true"
-      # Um valor de variável nunca é reinterpretado como nova expressão de substituição.
       IMPORT_VARSUBSTITUTION_NESTED: "false"
       IMPORT_CACHE_ENABLED: "false"
       GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:?defina GATEWAY_PUBLIC_URL}
@@ -99,13 +78,13 @@ services:
   rabbitmq:
     image: rabbitmq:4.2.5-management
     container_name: rabbitmq
-    hostname: rabbitmq # o diretório de dados depende do nome do nó
+    hostname: rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_ADMIN_USERNAME:?defina RABBITMQ_ADMIN_USERNAME}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_ADMIN_PASSWORD:?defina RABBITMQ_ADMIN_PASSWORD}
       RABBITMQ_DEFAULT_VHOST: ecommerce
     ports:
-      - "127.0.0.1:15672:15672" # console só por túnel SSH
+      - "127.0.0.1:15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -117,7 +96,6 @@ services:
 
   rabbitmq-init:
     image: curlimages/curl:8.17.0
-    # PUTs idempotentes; uma falha impede os produtores/consumidores de iniciar.
     entrypoint: ["/bin/sh", "/scripts/rabbitmq-init.sh"]
     environment:
       RABBITMQ_ADMIN_USERNAME: ${RABBITMQ_ADMIN_USERNAME:?defina RABBITMQ_ADMIN_USERNAME}
@@ -146,8 +124,6 @@ services:
       timeout: 5s
       retries: 5
     restart: ${RESTART_POLICY:-unless-stopped}
-
-  # ─── MONITORAMENTO ──────────────────────────────────────────────────────────
 
   zipkin:
     image: openzipkin/zipkin@sha256:ebfd47b93879b4bec4075ea3a4b07744c5476bae8dca3f6f9c2aca798ceaf0cc
@@ -187,8 +163,6 @@ services:
     depends_on:
       - prometheus
     restart: ${RESTART_POLICY:-unless-stopped}
-
-  # ─── MICROSSERVIÇOS ─────────────────────────────────────────────────────────
 
   product-service:
     build: { context: ., dockerfile: product-service/Dockerfile }
@@ -265,7 +239,6 @@ services:
       DB_URL: ${ORDER_DB_URL:?defina ORDER_DB_URL}
       DB_USERNAME: ${ORDER_DB_USERNAME:?defina ORDER_DB_USERNAME}
       DB_PASSWORD: ${ORDER_DB_PASSWORD:?defina ORDER_DB_PASSWORD}
-      # Token de serviço (client_credentials) para chamar o inventory.
       OIDC_TOKEN_URI: ${OIDC_TOKEN_URI:?defina OIDC_TOKEN_URI}
       KC_ORDER_SERVICE_CLIENT_SECRET: ${KC_ORDER_SERVICE_CLIENT_SECRET:?defina KC_ORDER_SERVICE_CLIENT_SECRET}
     depends_on:
@@ -289,24 +262,20 @@ services:
     profiles: ["apps"]
     container_name: api-gateway
     ports:
-      - "127.0.0.1:8080:8080" # exposto só para o nginx da própria VM
+      - "127.0.0.1:8080:8080"
     environment:
       <<: [*app-env, *oidc-env]
       PRODUCT_SERVICE_URL: http://product-service:8082
       INVENTORY_SERVICE_URL: http://inventory-service:8083
       ORDER_SERVICE_URL: http://order-service:8081
-      # BFF: login no navegador; back-channel (token, JWKs) pela rede interna.
       OIDC_INTERNAL_ISSUER_URI: ${OIDC_INTERNAL_ISSUER_URI:?defina OIDC_INTERNAL_ISSUER_URI}
       KC_BFF_CLIENT_SECRET: ${KC_BFF_CLIENT_SECRET:?defina KC_BFF_CLIENT_SECRET}
       BFF_POST_LOGIN_REDIRECT_URI: ${BFF_POST_LOGIN_REDIRECT_URI:-/bff/me}
       BFF_POST_LOGOUT_REDIRECT_URI: ${BFF_POST_LOGOUT_REDIRECT_URI:-}
-      # true em produção (HTTPS no nginx): o cookie de sessão só trafega por TLS.
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       MANAGEMENT_SERVER_PORT: 8090
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD}
-    # Sem depends_on nos serviços de negócio: o gateway sobe sozinho e uma rota fora do ar
-    # responde 503 sem derrubar as demais (login, catálogo).
     depends_on:
       keycloak-config:
         condition: service_completed_successfully

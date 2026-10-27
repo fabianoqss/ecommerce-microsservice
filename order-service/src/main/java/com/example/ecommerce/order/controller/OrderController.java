@@ -26,7 +26,6 @@ import java.util.UUID;
 public class OrderController {
 
     private static final int DEFAULT_PAGE_SIZE = 20;
-    // Teto do size: impede que um único request carregue a tabela inteira na memória.
     private static final int MAX_PAGE_SIZE = 100;
 
     @Autowired
