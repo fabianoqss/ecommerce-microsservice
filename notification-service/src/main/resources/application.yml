@@ -12,9 +12,11 @@ spring:
     listener:
       simple:
         missing-queues-fatal: false
+        prefetch: 10
         retry:
           enabled: true
-          max-attempts: 5
+          stateless: true
+          max-retries: 7
           initial-interval: 1000ms
           multiplier: 2.0
           max-interval: 10000ms
@@ -28,7 +30,7 @@ spring:
 ecommerce:
   notification:
     idempotency:
-      processing-ttl: ${NOTIFICATION_IDEMPOTENCY_PROCESSING_TTL:5m}
+      processing-ttl: ${NOTIFICATION_IDEMPOTENCY_PROCESSING_TTL:30s}
       processed-ttl: ${NOTIFICATION_IDEMPOTENCY_PROCESSED_TTL:7d}
 
 management:
