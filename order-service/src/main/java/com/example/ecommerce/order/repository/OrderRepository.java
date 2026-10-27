@@ -1,7 +1,7 @@
 package com.example.ecommerce.order.repository;
 
-import com.example.ecommerce.order.domain.Order;
-import com.example.ecommerce.order.domain.OrderStatus;
+import com.example.ecommerce.order.domain.entity.Order;
+import com.example.ecommerce.order.domain.enums.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -35,4 +35,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             FOR UPDATE SKIP LOCKED
             """, nativeQuery = true)
     List<Order> findReconcilableOrdersForUpdate(@Param("cutoff") LocalDateTime cutoff, @Param("limit") int limit);
+
+    Optional<Order> findByUserIDAndIdempotencyKey(String userID, UUID idempotencyKey);
 }

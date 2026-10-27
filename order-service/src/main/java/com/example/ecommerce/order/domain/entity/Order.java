@@ -1,12 +1,16 @@
-package com.example.ecommerce.order.domain;
+package com.example.ecommerce.order.domain.entity;
 
+import com.example.ecommerce.order.domain.enums.OrderStatus;
+import com.example.ecommerce.order.domain.enums.ReservationMode;
 import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionException;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -29,6 +33,14 @@ public class Order {
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     private UUID id;
+
+    @Column(name = "idempotency_key", updatable = false)
+    private UUID idempotencyKey;
+
+    // CHAR(64) na V8: SHA-256 em hex tem tamanho fixo; sem o JdbcTypeCode o validate espera VARCHAR.
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "request_hash", length = 64, updatable = false)
+    private String requestHash;
 
     private LocalDateTime orderTime;
 

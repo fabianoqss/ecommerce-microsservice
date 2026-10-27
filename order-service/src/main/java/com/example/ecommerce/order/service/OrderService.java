@@ -1,11 +1,11 @@
 package com.example.ecommerce.order.service;
 
-import com.example.ecommerce.order.domain.Order;
-import com.example.ecommerce.order.domain.OrderEventType;
-import com.example.ecommerce.order.domain.OrderItem;
-import com.example.ecommerce.order.domain.OrderStatus;
-import com.example.ecommerce.order.domain.OutboxEvent;
-import com.example.ecommerce.order.domain.ReservationMode;
+import com.example.ecommerce.order.domain.entity.Order;
+import com.example.ecommerce.order.domain.enums.OrderEventType;
+import com.example.ecommerce.order.domain.entity.OrderItem;
+import com.example.ecommerce.order.domain.enums.OrderStatus;
+import com.example.ecommerce.order.domain.entity.OutboxEvent;
+import com.example.ecommerce.order.domain.enums.ReservationMode;
 import com.example.ecommerce.order.dto.request.InventoryItemDTO;
 import com.example.ecommerce.order.dto.request.InventoryReserveRequestDTO;
 import com.example.ecommerce.order.dto.request.OrderItemRequestDTO;

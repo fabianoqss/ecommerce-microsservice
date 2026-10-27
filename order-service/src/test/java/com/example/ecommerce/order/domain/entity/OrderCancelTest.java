@@ -1,5 +1,6 @@
-package com.example.ecommerce.order.domain;
+package com.example.ecommerce.order.domain.entity;
 
+import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

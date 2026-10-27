@@ -1,9 +1,9 @@
 package com.example.ecommerce.order;
 
-import com.example.ecommerce.order.domain.Order;
-import com.example.ecommerce.order.domain.OrderStatus;
-import com.example.ecommerce.order.domain.OutboxEvent;
-import com.example.ecommerce.order.domain.ReservationMode;
+import com.example.ecommerce.order.domain.entity.Order;
+import com.example.ecommerce.order.domain.enums.OrderStatus;
+import com.example.ecommerce.order.domain.entity.OutboxEvent;
+import com.example.ecommerce.order.domain.enums.ReservationMode;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.order.repository.OutboxEventRepository;
 import com.example.ecommerce.order.service.OrderReconciler;
