@@ -3,7 +3,10 @@ package com.example.ecommerce.order.service;
 import com.example.ecommerce.order.domain.entity.Order;
 import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
+import com.example.ecommerce.order.infra.tracing.OutboxTraceContext;
 import com.example.ecommerce.order.repository.OrderRepository;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -11,6 +14,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,6 +42,9 @@ class OrderServiceOwnershipTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Spy
+    private OutboxTraceContext outboxTraceContext = new OutboxTraceContext(Tracer.NOOP, Propagator.NOOP);
 
     @InjectMocks
     private OrderService orderService;

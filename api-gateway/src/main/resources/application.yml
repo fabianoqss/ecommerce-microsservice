@@ -24,6 +24,7 @@ spring:
               filters:
                 - RemoveRequestHeader=Cookie
                 - RemoveRequestHeader=X-XSRF-TOKEN
+                - RemoveRequestHeader=tracestate
             - id: order-service
               uri: ${ORDER_SERVICE_URL:http://localhost:8081}
               predicates:
@@ -31,6 +32,7 @@ spring:
               filters:
                 - RemoveRequestHeader=Cookie
                 - RemoveRequestHeader=X-XSRF-TOKEN
+                - RemoveRequestHeader=tracestate
             - id: inventory-service
               uri: ${INVENTORY_SERVICE_URL:http://localhost:8083}
               predicates:
@@ -38,6 +40,7 @@ spring:
               filters:
                 - RemoveRequestHeader=Cookie
                 - RemoveRequestHeader=X-XSRF-TOKEN
+                - RemoveRequestHeader=tracestate
 
   security:
     oauth2:
