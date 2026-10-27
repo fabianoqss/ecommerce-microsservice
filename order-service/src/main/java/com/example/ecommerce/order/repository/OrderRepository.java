@@ -35,4 +35,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             FOR UPDATE SKIP LOCKED
             """, nativeQuery = true)
     List<Order> findReconcilableOrdersForUpdate(@Param("cutoff") LocalDateTime cutoff, @Param("limit") int limit);
+
+    Optional<Order> findByUserIDAndIdempotencyKey(String userID, UUID idempotencyKey);
 }
