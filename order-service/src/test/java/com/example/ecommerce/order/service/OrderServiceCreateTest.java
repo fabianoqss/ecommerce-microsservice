@@ -66,6 +66,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class OrderServiceCreateTest {
 
+    private static final UUID IDEMPOTENCY_KEY = UUID.fromString("a4ee662f-e404-4cf5-afc0-d837d0beaf82");
     private static final UUID ORDER_ID = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b");
     private static final OrderRequestDTO ORDER = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 1)));
 
@@ -104,11 +105,13 @@ class OrderServiceCreateTest {
     void nullPriceFailsBeforeReserve() {
         when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", null));
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(InvalidProductDataException.class)
                 .hasMessageContaining("product-service").hasMessageContaining("p1");
 
-        verifyNoInteractions(inventoryClient, orderRepository, outboxEventRepository, transactionManager);
+        verifyNoInteractions(inventoryClient, outboxEventRepository);
+        verify(orderRepository).findByUserIDAndIdempotencyKey("owner-sub", IDEMPOTENCY_KEY);
+        verifyNoMoreInteractions(orderRepository);
     }
 
     @ParameterizedTest
@@ -117,11 +120,13 @@ class OrderServiceCreateTest {
     void invalidNameFailsBeforeReserve(String name) {
         when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", name, BigDecimal.TEN));
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(InvalidProductDataException.class)
                 .hasMessageContaining("product-service").hasMessageContaining("p1");
 
-        verifyNoInteractions(inventoryClient, orderRepository, outboxEventRepository, transactionManager);
+        verifyNoInteractions(inventoryClient, outboxEventRepository);
+        verify(orderRepository).findByUserIDAndIdempotencyKey("owner-sub", IDEMPOTENCY_KEY);
+        verifyNoMoreInteractions(orderRepository);
     }
 
     @Test
@@ -130,27 +135,36 @@ class OrderServiceCreateTest {
         when(productClient.getProductById("p2")).thenReturn(new ProductDTO("p2", "Mouse", null));
         var request = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 1), new OrderItemRequestDTO("p2", 2)));
 
-        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(InvalidProductDataException.class)
                 .hasMessageContaining("product-service").hasMessageContaining("p2");
 
-        verifyNoInteractions(inventoryClient, orderRepository, outboxEventRepository, transactionManager);
+        verifyNoInteractions(inventoryClient, outboxEventRepository);
+        verify(orderRepository).findByUserIDAndIdempotencyKey("owner-sub", IDEMPOTENCY_KEY);
+        verifyNoMoreInteractions(orderRepository);
     }
 
     @Test
     void pendingPersistenceFailureRollsBackWithoutCallingInventory() {
         when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
         var transaction = new SimpleTransactionStatus();
-        when(transactionManager.getTransaction(any())).thenReturn(transaction);
+        when(transactionManager.getTransaction(any()))
+                .thenReturn(new SimpleTransactionStatus(), transaction, new SimpleTransactionStatus());
         var failure = new DataIntegrityViolationException("Falha no flush do PENDING");
         when(orderRepository.saveAndFlush(any())).thenThrow(failure);
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub")).isSameAs(failure);
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY)).isSameAs(failure);
 
         var calls = inOrder(transactionManager, orderRepository);
         calls.verify(transactionManager).getTransaction(any());
+        calls.verify(orderRepository).findByUserIDAndIdempotencyKey("owner-sub", IDEMPOTENCY_KEY);
+        calls.verify(transactionManager).commit(any());
+        calls.verify(transactionManager).getTransaction(any());
         calls.verify(orderRepository).saveAndFlush(any());
         calls.verify(transactionManager).rollback(transaction);
+        calls.verify(transactionManager).getTransaction(any());
+        calls.verify(orderRepository).findByUserIDAndIdempotencyKey("owner-sub", IDEMPOTENCY_KEY);
+        calls.verify(transactionManager).commit(any());
         verifyNoInteractions(inventoryClient, outboxEventRepository);
     }
 
@@ -170,9 +184,12 @@ class OrderServiceCreateTest {
             return order;
         });
 
-        var response = orderService.createOrder(duplicatedItems(), "owner-sub");
+        var response = orderService.createOrder(duplicatedItems(), "owner-sub", IDEMPOTENCY_KEY).orderResponseDTO();
 
         var calls = inOrder(productClient, transactionManager, orderRepository, inventoryClient, outboxEventRepository);
+        calls.verify(transactionManager).getTransaction(any());
+        calls.verify(orderRepository).findByUserIDAndIdempotencyKey("owner-sub", IDEMPOTENCY_KEY);
+        calls.verify(transactionManager).commit(any());
         calls.verify(productClient).getProductById("p2");
         calls.verify(productClient).getProductById("p1");
         calls.verify(transactionManager).getTransaction(any());
@@ -221,7 +238,7 @@ class OrderServiceCreateTest {
             return null;
         }).when(inventoryClient).reserve(eq(ORDER_ID), any());
 
-        var response = orderService.createOrder(ORDER, "owner-sub");
+        var response = orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY).orderResponseDTO();
 
         assertThat(response.status()).isEqualTo("CONFIRMED");
         verify(inventoryClient, times(3)).reserve(eq(ORDER_ID), any());
@@ -242,7 +259,7 @@ class OrderServiceCreateTest {
             throw new ObjectOptimisticLockingFailureException(Order.class, ORDER_ID);
         });
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub"))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY))
                 .isInstanceOf(OrderReservationException.class);
 
         verifyNoInteractions(outboxEventRepository);
@@ -256,7 +273,7 @@ class OrderServiceCreateTest {
         var commits = new AtomicInteger();
         var confirmationCommitted = new AtomicBoolean();
         doAnswer(invocation -> {
-            if (commits.incrementAndGet() == 2) {
+            if (commits.incrementAndGet() == 3) {
                 confirmationCommitted.set(true);
             }
             return null;
@@ -280,7 +297,7 @@ class OrderServiceCreateTest {
             return persisted;
         });
 
-        var response = orderService.createOrder(ORDER, "owner-sub");
+        var response = orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY).orderResponseDTO();
 
         assertThat(confirmationCommitted).isTrue();
         assertThat(response.id()).isEqualTo(ORDER_ID);
@@ -293,13 +310,12 @@ class OrderServiceCreateTest {
 
     @Test
     void quantityOverflowFailsBeforeReserve() {
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
         var request = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", Integer.MAX_VALUE), new OrderItemRequestDTO("p1", 1)));
 
-        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub")).isInstanceOf(ArithmeticException.class);
+        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY)).isInstanceOf(ArithmeticException.class);
 
-        verifyNoInteractions(inventoryClient, orderRepository, outboxEventRepository, transactionManager);
+        verifyNoInteractions(productClient, inventoryClient, orderRepository, outboxEventRepository, transactionManager);
     }
 
     private static OrderRequestDTO duplicatedItems() {

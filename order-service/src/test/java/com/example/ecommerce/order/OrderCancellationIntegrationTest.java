@@ -40,7 +40,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -293,7 +297,9 @@ class OrderCancellationIntegrationTest {
     }
 
     private UUID createOrder(String subject) throws Exception {
-        String body = mvc.perform(post("/api/order").with(user(subject))
+        String body = mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .with(user(subject))
                         .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();

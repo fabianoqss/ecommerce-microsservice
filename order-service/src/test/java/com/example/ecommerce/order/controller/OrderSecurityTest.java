@@ -1,5 +1,6 @@
 package com.example.ecommerce.order.controller;
 
+import com.example.ecommerce.order.dto.response.CreateOrderResult;
 import com.example.ecommerce.order.exception.InvalidProductDataException;
 import com.example.ecommerce.order.infra.security.SecurityConfig;
 import com.example.ecommerce.order.service.OrderService;
@@ -14,6 +15,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -47,24 +50,31 @@ class OrderSecurityTest {
     @Test
     void anonymousIsRejected() throws Exception {
         mvc.perform(get("/api/order")).andExpect(status().isUnauthorized());
-        mvc.perform(post("/api/order").contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
+        mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void createOrderUsesTokenSubjectAsUserId() throws Exception {
+        when(orderService.createOrder(any(), any(), any(UUID.class)))
+                .thenReturn(new CreateOrderResult(null, false));
+
         mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .with(jwt().jwt(j -> j.subject("4622f3de-user-sub"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
                 .andExpect(status().isCreated());
 
-        verify(orderService).createOrder(any(), eq("4622f3de-user-sub"));
+        verify(orderService).createOrder(any(), eq("4622f3de-user-sub"), any(UUID.class));
     }
 
     @Test
     void createRejectsInvalidProductId() throws Exception {
         mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -79,6 +89,7 @@ class OrderSecurityTest {
         String items = String.join(",", java.util.Collections.nCopies(51, "{\"productId\":\"p1\",\"quantity\":1}"));
 
         mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[" + items + "]}"))
                 .andExpect(status().isBadRequest());
@@ -87,19 +98,24 @@ class OrderSecurityTest {
 
     @Test
     void createAccepts50ItemsAtQuantityLimit() throws Exception {
+        when(orderService.createOrder(any(), any(), any(UUID.class)))
+                .thenReturn(new CreateOrderResult(null, false));
+
         String items = String.join(",", java.util.Collections.nCopies(50, "{\"productId\":\"p1\",\"quantity\":10000}"));
 
         mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[" + items + "]}"))
                 .andExpect(status().isCreated());
-        verify(orderService).createOrder(any(), any());
+        verify(orderService).createOrder(any(), any(), any(UUID.class));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"0", "-1", "10001", "null"})
     void createRejectsInvalidQuantity(String quantity) throws Exception {
         mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":\"p1\",\"quantity\":" + quantity + "}]}"))
@@ -111,6 +127,7 @@ class OrderSecurityTest {
     @ValueSource(strings = {"{}", "{\"items\":null}", "{\"items\":[]}", "{\"items\":[null]}"})
     void createRejectsMissingOrEmptyItems(String body) throws Exception {
         mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());
@@ -119,9 +136,10 @@ class OrderSecurityTest {
 
     @Test
     void invalidProductDataReturnsBadGatewayProblemDetail() throws Exception {
-        when(orderService.createOrder(any(), any())).thenThrow(new InvalidProductDataException("p1"));
+        when(orderService.createOrder(any(), any(), any(UUID.class))).thenThrow(new InvalidProductDataException("p1"));
 
         mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
                 .andExpect(status().isBadGateway())

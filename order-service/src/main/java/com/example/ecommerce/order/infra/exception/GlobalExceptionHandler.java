@@ -1,8 +1,10 @@
 package com.example.ecommerce.order.infra.exception;
 
+import com.example.ecommerce.order.exception.IdempotencyKeyReuseException;
 import com.example.ecommerce.order.exception.InsufficientStockException;
 import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionException;
 import com.example.ecommerce.order.exception.InvalidProductDataException;
+import com.example.ecommerce.order.exception.OrderInProgressException;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
 import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.exception.ProductNotFoundException;
@@ -67,6 +69,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(OrderReservationException.class)
     public ResponseEntity<ProblemDetail> handleOrderReservationFailure(OrderReservationException ex) {
         return problem(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    @ExceptionHandler(IdempotencyKeyReuseException.class)
+    public ResponseEntity<ProblemDetail> handleIdempotencyKeyReuse(IdempotencyKeyReuseException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
+    }
+
+    @ExceptionHandler(OrderInProgressException.class)
+    public ResponseEntity<ProblemDetail> handleOrderInProgress(OrderInProgressException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problemDetail.setProperty("orderId", ex.getOrderId());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
     }
 
     @Override
