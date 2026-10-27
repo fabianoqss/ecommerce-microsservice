@@ -49,7 +49,7 @@ public class Order {
     private LocalDateTime orderTime;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 32)
     private OrderStatus status;
 
     @Enumerated(EnumType.STRING)
@@ -58,6 +58,12 @@ public class Order {
 
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
+
+    @Column(name = "reconciliation_attempts", nullable = false)
+    private int reconciliationAttempts;
+
+    @Column(name = "next_reconciliation_at")
+    private Instant nextReconciliationAt;
 
     private String userID;
 
@@ -96,6 +102,19 @@ public class Order {
             throw new InvalidOrderStatusTransitionException(id, status, OrderStatus.EXPIRED);
         }
         status = OrderStatus.EXPIRED;
+    }
+
+    public void recordReconciliationFailure(Instant nextAttemptAt, int maxAttempts) {
+        if (status != OrderStatus.EXPIRED) {
+            throw new InvalidOrderStatusTransitionException(id, status, OrderStatus.RECONCILIATION_FAILED);
+        }
+        reconciliationAttempts++;
+        if (reconciliationAttempts >= maxAttempts) {
+            status = OrderStatus.RECONCILIATION_FAILED;
+            nextReconciliationAt = null;
+        } else {
+            nextReconciliationAt = Objects.requireNonNull(nextAttemptAt, "Próxima reconciliação não pode ser nula");
+        }
     }
 
     public boolean cancel(String actorSubject, String reason, LocalDateTime now) {

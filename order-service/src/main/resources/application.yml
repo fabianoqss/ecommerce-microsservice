@@ -86,7 +86,12 @@ ecommerce:
       fixed-delay: 30000
       min-age: 2m
       batch-size: 50
+      max-run-duration: 20s
+      base-backoff: 5s
+      max-backoff: 30m
+      max-attempts: 100
     outbox:
+      max-run-duration: 20s
       base-backoff: 5s
       max-backoff: 30m
       max-attempts: 100

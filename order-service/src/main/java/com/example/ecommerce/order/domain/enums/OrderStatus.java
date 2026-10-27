@@ -4,6 +4,7 @@ public enum OrderStatus {
     PENDING,
     CONFIRMED,
     EXPIRED,
+    RECONCILIATION_FAILED,
     CANCELLED,
     COMPLETED
 }

@@ -115,6 +115,35 @@ class OrderIdUuidMigrationTest {
         }
     }
 
+    @Test
+    void v9UpgradesV8OrdersWithImmediatelyEligibleReconciliationDefaults() throws Exception {
+        migrateTo("8");
+        UUID id = UUID.randomUUID();
+        try (Connection connection = connect(); Statement sql = connection.createStatement()) {
+            sql.execute("INSERT INTO tb_orders (id, order_time, status, userid, total_value) VALUES "
+                    + "('" + id + "', now() - INTERVAL '10 minutes', 'EXPIRED', 'u1', 10.00)");
+        }
+
+        migrateTo("9");
+
+        try (Connection connection = connect(); Statement sql = connection.createStatement()) {
+            try (ResultSet order = sql.executeQuery("SELECT reconciliation_attempts, next_reconciliation_at FROM tb_orders")) {
+                assertThat(order.next()).isTrue();
+                assertThat(order.getInt("reconciliation_attempts")).isZero();
+                assertThat(order.getTimestamp("next_reconciliation_at")).isNull();
+            }
+            try (ResultSet index = sql.executeQuery("SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_orders_reconciliation_due'")) {
+                assertThat(index.next()).isTrue();
+                assertThat(index.getString(1)).contains("next_reconciliation_at", "order_time", "NULLS FIRST");
+            }
+            sql.execute("UPDATE tb_orders SET status = 'RECONCILIATION_FAILED'");
+            try (ResultSet order = sql.executeQuery("SELECT status FROM tb_orders")) {
+                assertThat(order.next()).isTrue();
+                assertThat(order.getString(1)).isEqualTo("RECONCILIATION_FAILED");
+            }
+        }
+    }
+
     private static UUID singleUuid(Statement sql, String query) throws Exception {
         ResultSet result = sql.executeQuery(query);
         assertThat(result.next()).isTrue();

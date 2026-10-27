@@ -228,6 +228,7 @@ class OrderCreateCompensationIntegrationTest {
         orderReconciler.reconcile();
         assertThat(orderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.EXPIRED);
 
+        jdbcTemplate.update("UPDATE tb_orders SET next_reconciliation_at = now() - INTERVAL '1 second' WHERE id = ?", orderId);
         orderReconciler.reconcile();
         Order reconciled = orderRepository.findById(orderId).orElseThrow();
         assertThat(reconciled.getStatus()).isEqualTo(OrderStatus.CANCELLED);

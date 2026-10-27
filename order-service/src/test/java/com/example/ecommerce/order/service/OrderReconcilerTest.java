@@ -6,7 +6,9 @@ import com.example.ecommerce.order.infra.client.InventoryClient;
 import com.example.ecommerce.order.repository.OrderRepository;
 import feign.FeignException;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.MockClock;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +20,7 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +32,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class OrderReconcilerTest {
@@ -43,7 +48,8 @@ class OrderReconcilerTest {
 
     private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
     private final TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-    private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    private final MockClock clock = new MockClock();
+    private final MeterRegistry meterRegistry = new SimpleMeterRegistry(SimpleConfig.DEFAULT, clock);
 
     private OrderReconciler reconciler;
 
@@ -93,7 +99,7 @@ class OrderReconcilerTest {
     }
 
     @Test
-    void deleteFailureLeavesOrderExpiredAndCountsRetry() {
+    void deleteFailureSchedulesBackoffAndCountsRetry() {
         Order pending = new Order();
         pending.setId(ORDER_ID);
         pending.setStatus(OrderStatus.PENDING);
@@ -106,6 +112,8 @@ class OrderReconcilerTest {
         reconciler.reconcile();
 
         assertThat(pending.getStatus()).isEqualTo(OrderStatus.EXPIRED);
+        assertThat(pending.getReconciliationAttempts()).isEqualTo(1);
+        assertThat(pending.getNextReconciliationAt()).isBetween(Instant.now().plusSeconds(4), Instant.now().plusSeconds(6));
         assertThat(meterRegistry.counter("orders.reconciled", "outcome", "retry").count()).isEqualTo(1.0);
         assertThat(meterRegistry.counter("orders.reconciled", "outcome", "cancelled").count()).isZero();
     }
@@ -125,4 +133,70 @@ class OrderReconcilerTest {
         assertThat(expired.getStatus()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(meterRegistry.counter("orders.reconciled", "outcome", "cancelled").count()).isEqualTo(1.0);
     }
+    @Test
+    void maxAttemptsMovesOrderToTerminalStateAndCountsFailure() {
+        Order expired = new Order();
+        expired.setId(ORDER_ID);
+        expired.setStatus(OrderStatus.EXPIRED);
+        expired.setReconciliationAttempts(2);
+        reconciler.setMaxAttempts(3);
+        when(transactionManager.getTransaction(any())).thenAnswer(inv -> new SimpleTransactionStatus());
+        when(orderRepository.findReconcilableOrdersForUpdate(any(), anyInt())).thenReturn(List.of(expired));
+        doThrow(new IllegalStateException("Inventory indisponível")).when(inventoryClient).releaseReservation(ORDER_ID);
+
+        reconciler.reconcile();
+
+        assertThat(expired.getStatus()).isEqualTo(OrderStatus.RECONCILIATION_FAILED);
+        assertThat(expired.getReconciliationAttempts()).isEqualTo(3);
+        assertThat(expired.getNextReconciliationAt()).isNull();
+        assertThat(meterRegistry.counter("orders.reconciled", "outcome", "failed").count()).isEqualTo(1);
+        assertThat(meterRegistry.counter("orders.reconciled", "outcome", "retry").count()).isZero();
+        verify(orderRepository).saveAndFlush(expired);
+    }
+
+    @Test
+    void stopsBatchWhenTimeBudgetIsExhausted() {
+        Order first = new Order();
+        first.setId(ORDER_ID);
+        first.setStatus(OrderStatus.EXPIRED);
+        Order second = new Order();
+        second.setId(UUID.randomUUID());
+        second.setStatus(OrderStatus.EXPIRED);
+        when(transactionManager.getTransaction(any())).thenAnswer(inv -> new SimpleTransactionStatus());
+        when(orderRepository.findReconcilableOrdersForUpdate(any(), anyInt())).thenReturn(List.of(first, second));
+        doAnswer(inv -> {
+            clock.add(Duration.ofSeconds(20));
+            return null;
+        }).when(inventoryClient).releaseReservation(ORDER_ID);
+
+        reconciler.reconcile();
+
+        assertThat(first.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(second.getStatus()).isEqualTo(OrderStatus.EXPIRED);
+        verify(inventoryClient, never()).releaseReservation(second.getId());
+    }
+
+    @Test
+    void backoffDoublesAndIsCappedWithoutOverflow() {
+        reconciler.setBaseBackoff(Duration.ofSeconds(5));
+        reconciler.setMaxBackoff(Duration.ofMinutes(30));
+
+        assertThat(reconciler.computeBackoff(1)).isEqualTo(Duration.ofSeconds(5));
+        assertThat(reconciler.computeBackoff(2)).isEqualTo(Duration.ofSeconds(10));
+        assertThat(reconciler.computeBackoff(10)).isEqualTo(Duration.ofMinutes(30));
+        assertThat(reconciler.computeBackoff(Integer.MAX_VALUE)).isEqualTo(Duration.ofMinutes(30));
+        reconciler.setBaseBackoff(Duration.ofMillis(Long.MAX_VALUE / 2));
+        reconciler.setMaxBackoff(Duration.ofMillis(Long.MAX_VALUE));
+        assertThat(reconciler.computeBackoff(5)).isEqualTo(Duration.ofMillis(Long.MAX_VALUE));
+    }
+
+    @Test
+    void configuredMaximumCapsBackoffEvenBelowBase() {
+        reconciler.setBaseBackoff(Duration.ofSeconds(5));
+        reconciler.setMaxBackoff(Duration.ofSeconds(2));
+
+        assertThat(reconciler.computeBackoff(1)).isEqualTo(Duration.ofSeconds(2));
+        assertThat(reconciler.computeBackoff(5)).isEqualTo(Duration.ofSeconds(2));
+    }
+
 }

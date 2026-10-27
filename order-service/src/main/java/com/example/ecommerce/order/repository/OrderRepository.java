@@ -25,13 +25,20 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     @Query(value = """
             SELECT * FROM tb_orders
-            WHERE (status = 'PENDING' AND order_time < :cutoff)
-               OR status = 'EXPIRED'
-            ORDER BY order_time ASC
+            WHERE ((status = 'PENDING' AND order_time < :cutoff) OR status = 'EXPIRED')
+              AND (next_reconciliation_at IS NULL OR next_reconciliation_at <= CURRENT_TIMESTAMP)
+            ORDER BY next_reconciliation_at ASC NULLS FIRST, order_time ASC
             LIMIT :limit
             FOR UPDATE SKIP LOCKED
             """, nativeQuery = true)
     List<Order> findReconcilableOrdersForUpdate(@Param("cutoff") LocalDateTime cutoff, @Param("limit") int limit);
+
+    @Query(value = """
+            SELECT MIN(order_time) FROM tb_orders
+            WHERE status = 'EXPIRED'
+              AND (next_reconciliation_at IS NULL OR next_reconciliation_at <= CURRENT_TIMESTAMP)
+            """, nativeQuery = true)
+    Optional<LocalDateTime> findOldestExpiredOrderDueForReconciliation();
 
     Optional<Order> findByUserIDAndIdempotencyKey(String userID, UUID idempotencyKey);
 }
