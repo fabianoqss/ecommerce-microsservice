@@ -1,0 +1,1 @@
+ocarun ALL=(root) NOPASSWD: /opt/ecommerce/scripts/prod/release.sh

@@ -336,6 +336,18 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
     curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/actuator/health
     ```
 
+11. **Deploy contínuo.** `.github/workflows/cd.yml` roda quando o CI da `main` termina com sucesso, ou manualmente com um SHA (redeploy/rollback). O job usa o environment `production`, que exige aprovação; depois valida o SHA, confirma que o commit está na `main`, verifica o atestado SLSA das cinco imagens e executa na VM, pelo OCI Run Command (sem SSH aberto), `sudo /opt/ecommerce/scripts/prod/release.sh <sha>`. O `release.sh` posiciona o repositório no commit e chama o `deploy.sh`; o workflow termina com os smoke tests externos. Configuração única:
+
+    - **IAM do CI:** usuário `github-cd-deployer` sem console, só com API key; grupo `ecommerce-deployers` com `manage instance-agent-command-family` e `read instance-agent-command-execution-family`. A VM precisa de `use instance-agent-command-execution-family` para o dynamic group `ecommerce-vm-dg`, com `where request.instance.id = target.instance.id`.
+    - **VM:** plugin *Compute Instance Run Command* ativo e a regra de sudoers versionada, que permite ao usuário `ocarun` executar apenas o `release.sh`:
+
+      ```bash
+      sudo install -m 0440 -o root -g root scripts/prod/sudoers/ecommerce-release /etc/sudoers.d/ecommerce-release
+      sudo visudo -c
+      ```
+
+    - **GitHub:** environment `production` com revisor obrigatório e deploy restrito à `main`. Secrets: `OCI_USER_OCID`, `OCI_TENANCY_OCID`, `OCI_FINGERPRINT`, `OCI_PRIVATE_KEY`. Variables: `OCI_REGION`, `OCI_COMPARTMENT_OCID`, `OCI_INSTANCE_OCID`.
+
 ## Testes
 
 Use o Maven Wrapper único, a partir da raiz:
