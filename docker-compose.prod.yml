@@ -18,6 +18,8 @@ x-java-app: &java-app
     - ALL
   environment:
     JAVA_TOOL_OPTIONS: -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+  pull_policy: missing
+  build: !reset null
 
 services:
 
@@ -70,17 +72,22 @@ services:
 
   product-service:
     <<: *java-app
+    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-product-service:${IMAGE_TAG:?defina IMAGE_TAG no .env}
 
   inventory-service:
     <<: *java-app
+    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-inventory-service:${IMAGE_TAG:?defina IMAGE_TAG no .env}
     volumes: *oci-postgresql-ca
 
   notification-service:
     <<: *java-app
+    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-notification-service:${IMAGE_TAG:?defina IMAGE_TAG no .env}
 
   order-service:
     <<: *java-app
+    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-order-service:${IMAGE_TAG:?defina IMAGE_TAG no .env}
     volumes: *oci-postgresql-ca
 
   api-gateway:
     <<: *java-app
+    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-api-gateway:${IMAGE_TAG:?defina IMAGE_TAG no .env}

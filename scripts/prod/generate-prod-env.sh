@@ -26,6 +26,26 @@ fail() {
   exit 1
 }
 
+read_image_tag() {
+  local image_tag=${IMAGE_TAG:-} line
+  if [[ -z $image_tag && -f $1 ]]; then
+    while IFS= read -r line || [[ -n $line ]]; do
+      if [[ $line == IMAGE_TAG=* ]]; then
+        image_tag=${line#IMAGE_TAG=}
+        break
+      fi
+    done < "$1"
+  fi
+  [[ -n $image_tag ]] \
+    || fail 'Informe IMAGE_TAG=<sha> no ambiente na primeira geração.'
+  if [[ $image_tag == \"*\" || $image_tag == \'*\' ]]; then
+    image_tag=${image_tag:1:${#image_tag}-2}
+  fi
+  [[ $image_tag =~ ^[0-9a-f]{40}$ ]] \
+    || fail 'IMAGE_TAG inválido: informe o SHA completo com 40 caracteres hexadecimais minúsculos.'
+  printf '%s\n' "$image_tag"
+}
+
 fetch_secret() {
   if [[ -n ${OCI_SECRET_CMD:-} ]]; then
     "$OCI_SECRET_CMD" "$1"
@@ -48,12 +68,13 @@ validate_secret() {
 }
 
 write_env() {
-  local template=$1 mongodb_username=$2 mongodb_host=$3 name mongodb_uri
+  local template=$1 mongodb_username=$2 mongodb_host=$3 image_tag=$5 name mongodb_uri
   local -n values=$4
 
   printf '# gerado por scripts/prod/generate-prod-env.sh em %s, não editar\n' \
     "$(date +%Y-%m-%dT%H:%M:%S%z)"
   cat -- "$template"
+  printf '\nIMAGE_TAG=%s\n' "$image_tag"
   printf '\n# Segredos do OCI Vault\n'
   for name in "${SECRET_NAMES[@]}"; do
     printf "%s='%s'\n" "$name" "${values[$name]}"
@@ -74,7 +95,7 @@ main() {
   export OCI_CLI_AUTH=instance_principal
   export LC_ALL=C
 
-  local root_dir env_file template name value secret backup_file
+  local root_dir env_file template name value secret backup_file image_tag
   local mongodb_host='' mongodb_username=''
   local -A secret_values=()
   root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -83,6 +104,7 @@ main() {
   [[ -f $template ]] || fail 'scripts/prod/prod.env não encontrado.'
   [[ ! -L $env_file && ( ! -e $env_file || -f $env_file ) ]] \
     || fail '.env deve ser um arquivo regular, sem link simbólico.'
+  image_tag=$(read_image_tag "$env_file")
 
   if [[ -n ${OCI_SECRET_CMD:-} ]]; then
     [[ -f $OCI_SECRET_CMD && -x $OCI_SECRET_CMD ]] || fail 'OCI_SECRET_CMD deve apontar para um executável.'
@@ -114,10 +136,10 @@ main() {
     # shellcheck disable=SC2034
     secret_values[$name]=$secret
   done
-  write_env "$template" "$mongodb_username" "$mongodb_host" secret_values > "$temp_file"
+  write_env "$template" "$mongodb_username" "$mongodb_host" secret_values "$image_tag" > "$temp_file"
 
   if command -v docker >/dev/null 2>&1; then
-    docker compose --project-directory "$root_dir" --env-file "$temp_file" config --quiet >/dev/null 2>&1 \
+    IMAGE_TAG=$image_tag docker compose --project-directory "$root_dir" --env-file "$temp_file" config --quiet >/dev/null 2>&1 \
       || fail 'Falha ao validar .env com Docker Compose.'
   fi
 

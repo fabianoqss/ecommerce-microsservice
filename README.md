@@ -291,18 +291,18 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
 7. **`.env` a partir do Vault.** Na VM:
 
    ```bash
-   sudo ./scripts/prod/generate-prod-env.sh "$VAULT_ID"
+   sudo IMAGE_TAG=<sha-completo-do-commit> ./scripts/prod/generate-prod-env.sh "$VAULT_ID"
    ```
 
-   Usa instance principal, combina `scripts/prod/prod.env` com os 15 segredos e monta `PRODUCT_MONGODB_URI`. O template define URLs públicas HTTPS e `SESSION_COOKIE_SECURE=true`. Valida com Compose, substitui atomicamente o `.env` com dono root e modo `600`, preservando backup `600` se já existir. Não imprime segredos. Não execute o `.env` como shell nem compartilhe o arquivo ou seus backups.
+   `IMAGE_TAG` só é exigido na primeira geração; nas seguintes, o script preserva a linha `IMAGE_TAG=` do `.env` atual (lida isoladamente, sem executar o arquivo) e a valida como SHA de 40 caracteres hexadecimais. Usa instance principal, combina `scripts/prod/prod.env` com os 15 segredos e monta `PRODUCT_MONGODB_URI`. O template define URLs públicas HTTPS e `SESSION_COOKIE_SECURE=true`. Valida com Compose, substitui atomicamente o `.env` com dono root e modo `600`, preservando backup `600` se já existir. Não imprime segredos. Não execute o `.env` como shell nem compartilhe o arquivo ou seus backups.
 
 8. **Subida.** Na VM, em `/opt/ecommerce`:
 
    ```bash
-   sudo docker compose up -d --build --remove-orphans
+   sudo docker compose up -d --remove-orphans
    ```
 
-   Construa e suba no mesmo comando: um `build` separado pode gerar imagens novas sem que o `up` recrie os containers, que seguem com a imagem anterior. O `.env` define `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` e `COMPOSE_PROFILES=monitoring,apps`. Na primeira aplicação do `frontendUrl` do master, `keycloak-config` pode sair com `401`: o atributo já foi gravado, mas o token do CLI ainda tem o issuer anterior (comentários em `scripts/prod/keycloak/realm-master.yaml`). Nesse caso, execute novamente e confirme saída `0`; depois retome a subida das aplicações:
+   Os apps não são compilados na VM: o override de produção remove o `build` (`!reset`) e aponta cada app para `${IMAGE_REGISTRY}/ecommerce-<serviço>:${IMAGE_TAG}`, as imagens publicadas pelo CI no GHCR com SBOM e atestado de proveniência. O pull é anônimo (pacotes públicos), sem credencial do GitHub na VM. O `.env` define `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` e `COMPOSE_PROFILES=monitoring,apps`. Na primeira aplicação do `frontendUrl` do master, `keycloak-config` pode sair com `401`: o atributo já foi gravado, mas o token do CLI ainda tem o issuer anterior (comentários em `scripts/prod/keycloak/realm-master.yaml`). Nesse caso, execute novamente e confirme saída `0`; depois retome a subida das aplicações:
 
    ```bash
    sudo docker compose run --rm keycloak-config
@@ -323,9 +323,10 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
     ```bash
     cd /opt/ecommerce
     sudo git pull --ff-only
-    sudo docker compose up -d --build --remove-orphans
-    sudo docker compose ps -a
+    sudo ./scripts/prod/deploy.sh <sha-completo-do-commit>
     ```
+
+    Use o SHA de um commit da `main` cujo job de publicação de imagens no CI terminou com sucesso. O `deploy.sh` baixa as imagens antes de alterar qualquer coisa, registra os digests, grava a tag no `.env` de forma atômica, recria somente os cinco apps e aguarda `running+healthy` (`DEPLOY_HEALTH_TIMEOUT`, padrão 300 s). Se algo falhar depois da troca, volta sozinho para a tag anterior e sai com erro. A versão no ar é a linha `IMAGE_TAG` do `.env`; rollback manual é rodar o script com o SHA anterior. O rollback não desfaz migrations: mantenha-as aditivas e faça `pg_dump` antes de releases com mudança de schema. Mudanças em realm, topologia do RabbitMQ ou infraestrutura não são aplicadas pelo `deploy.sh`: rode `sudo docker compose run --rm keycloak-config`, `sudo docker compose up -d --remove-orphans` conforme o caso.
 
     Se configuração pública ou segredos mudaram, regenere o `.env` pelo passo 7 antes da subida; mudanças na borda exigem reaplicar o passo 4. Alterar um segredo não rotaciona automaticamente credenciais persistidas: coordene a rotação com cada serviço/banco. Após a primeira subida e a cada atualização, aguarde os healthchecks e execute os smoke tests sem sessão (saídas esperadas: `200`, `401`, `403`):
 
