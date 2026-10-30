@@ -19,9 +19,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -153,7 +155,7 @@ class OutboxTracingIntegrationTest {
         checkout("01");
         OutboxEvent created = repository.findAll().getFirst();
         mvc.perform(post("/api/order/{id}/cancel", created.getAggregateId())
-                        .with(jwt().jwt(token -> token.subject("customer")))
+                        .with(customer())
                         .header("traceparent", "00-" + TRACE_ID + "-" + PARENT_ID + "-01")
                         .contentType("application/json").content("{\"reason\":\"Changed mind\"}"))
                 .andExpect(status().isOk());
@@ -189,7 +191,7 @@ class OutboxTracingIntegrationTest {
 
     private void checkout(String flags) throws Exception {
         mvc.perform(post("/api/order")
-                        .with(jwt().jwt(token -> token.subject("customer")))
+                        .with(customer())
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .header("traceparent", "00-" + TRACE_ID + "-" + PARENT_ID + "-" + flags)
                         .contentType("application/json")
@@ -208,5 +210,9 @@ class OutboxTracingIntegrationTest {
         assertThat(message).isNotNull();
         assertThat(message.getMessageProperties().getHeaders().get("traceparent"))
                 .asString().matches("00-" + TRACE_ID + "-[0-9a-f]{16}-" + flags);
+    }
+
+    private static RequestPostProcessor customer() {
+        return jwt().jwt(token -> token.subject("customer")).authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
     }
 }

@@ -10,12 +10,17 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -54,6 +59,45 @@ class OrderSecurityTest {
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void serviceAccountTokenWithoutStoreRoleIsForbidden() throws Exception {
+        when(jwtDecoder.decode("service-account-token")).thenReturn(token("service-account-token",
+                Map.of("azp", "order-service", "scope", "inventory:reserve")));
+        String bearer = "Bearer service-account-token";
+
+        mvc.perform(get("/api/order").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/order")
+                        .header(HttpHeaders.AUTHORIZATION, bearer)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/order/019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
+    void customerRoleFromRealmAccessIsAllowed() throws Exception {
+        when(jwtDecoder.decode("customer-token")).thenReturn(token("customer-token",
+                Map.of("realm_access", Map.of("roles", List.of("CUSTOMER")))));
+
+        mvc.perform(get("/api/order").header(HttpHeaders.AUTHORIZATION, "Bearer customer-token"))
+                .andExpect(status().isOk());
+        verify(orderService).findAll(eq(0), eq(20), any());
+    }
+
+    @Test
+    void adminRoleFromRealmAccessIsAllowed() throws Exception {
+        when(jwtDecoder.decode("admin-token")).thenReturn(token("admin-token",
+                Map.of("realm_access", Map.of("roles", List.of("ADMIN")))));
+
+        mvc.perform(get("/api/order").header(HttpHeaders.AUTHORIZATION, "Bearer admin-token"))
+                .andExpect(status().isOk());
+        verify(orderService).findAll(eq(0), eq(20), any());
     }
 
     @Test
@@ -198,5 +242,16 @@ class OrderSecurityTest {
                 .andExpect(status().isOk());
 
         verify(orderService).findAll(eq(0), eq(20), any());
+    }
+
+    private static Jwt token(String value, Map<String, Object> claims) {
+        Instant now = Instant.now();
+        return Jwt.withTokenValue(value)
+                .header("alg", "RS256")
+                .subject(value + "-sub")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(300))
+                .claims(existing -> existing.putAll(claims))
+                .build();
     }
 }
