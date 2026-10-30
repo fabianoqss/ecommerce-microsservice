@@ -22,7 +22,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/error").permitAll()
-                        .requestMatchers("/api/order", "/api/order/**").authenticated()
+                        .requestMatchers("/api/order", "/api/order/**").hasAnyRole("CUSTOMER", "ADMIN")
                         .anyRequest().denyAll()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
