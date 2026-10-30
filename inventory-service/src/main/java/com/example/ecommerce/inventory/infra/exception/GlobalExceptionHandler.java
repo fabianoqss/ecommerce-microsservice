@@ -1,6 +1,7 @@
 package com.example.ecommerce.inventory.infra.exception;
 
 import com.example.ecommerce.inventory.exception.InsufficientStockException;
+import com.example.ecommerce.inventory.exception.InventoryAlreadyExistsException;
 import com.example.ecommerce.inventory.exception.InventoryNotFoundException;
 import com.example.ecommerce.inventory.exception.ReservationConflictException;
 import com.example.ecommerce.inventory.exception.ReservationGoneException;
@@ -40,6 +41,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(InsufficientStockException.class)
     public ResponseEntity<ProblemDetail> handleInsufficientStock(InsufficientStockException ex) {
+        return problem(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(InventoryAlreadyExistsException.class)
+    public ResponseEntity<ProblemDetail> handleInventoryAlreadyExists(InventoryAlreadyExistsException ex) {
         return problem(HttpStatus.CONFLICT, ex.getMessage());
     }
 
