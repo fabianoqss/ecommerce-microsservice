@@ -9,6 +9,8 @@ import com.example.ecommerce.inventory.exception.ReservationNotFoundException;
 import com.example.ecommerce.inventory.infra.security.SecurityConfig;
 import com.example.ecommerce.inventory.service.InventoryService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -25,7 +27,10 @@ import java.util.stream.IntStream;
 
 import static org.hamcrest.Matchers.contains;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -93,6 +98,60 @@ class InventoryErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.status").value(406));
+    }
+
+    @Test
+    void lookupRejectsMoreThan50SkuCodes() throws Exception {
+        String[] skuCodes = IntStream.rangeClosed(1, 51).mapToObj(i -> "SKU-" + i).toArray(String[]::new);
+
+        mvc.perform(get("/api/inventory").param("skuCode", skuCodes))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
+                .andExpect(jsonPath("$.status").value(400));
+        verifyNoInteractions(inventoryService);
+    }
+
+    @Test
+    void lookupAccepts50SkuCodes() throws Exception {
+        String[] skuCodes = IntStream.rangeClosed(1, 50).mapToObj(i -> "SKU-" + i).toArray(String[]::new);
+
+        mvc.perform(get("/api/inventory").param("skuCode", skuCodes))
+                .andExpect(status().isOk());
+        verify(inventoryService).isInStock(argThat(list -> list.size() == 50));
+    }
+
+    @Test
+    void lookupRejectsInvalidSkuCode() throws Exception {
+        mvc.perform(get("/api/inventory").param("skuCode", "SKU-1", "x/.."))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400));
+        verifyNoInteractions(inventoryService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x/..", "SKU 1", "sku;drop", "\u00e7", "a12345678901234567890123456789012345678901234567890123456789012345"})
+    void insertRejectsInvalidSkuCode(String skuCode) throws Exception {
+        mvc.perform(post("/api/inventory")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"skuCode\":\"" + skuCode + "\",\"quantity\":10}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400));
+        verifyNoInteractions(inventoryService);
+    }
+
+    @Test
+    void reserveRejectsInvalidSkuCode() throws Exception {
+        mvc.perform(put("/api/inventory/reservations/" + RESERVATION_ID)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_inventory:reserve")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"skuCode\":\"x/..\",\"quantity\":1}]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        verifyNoInteractions(inventoryService);
     }
 
     @Test

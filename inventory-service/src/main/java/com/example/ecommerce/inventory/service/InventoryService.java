@@ -11,6 +11,7 @@ import com.example.ecommerce.inventory.dto.response.InventoryDTO;
 import com.example.ecommerce.inventory.dto.response.ReservationResponseDTO;
 import com.example.ecommerce.inventory.dto.response.ReservationResult;
 import com.example.ecommerce.inventory.exception.InsufficientStockException;
+import com.example.ecommerce.inventory.exception.InventoryAlreadyExistsException;
 import com.example.ecommerce.inventory.exception.InventoryNotFoundException;
 import com.example.ecommerce.inventory.exception.ReservationConflictException;
 import com.example.ecommerce.inventory.exception.ReservationGoneException;
@@ -19,9 +20,11 @@ import com.example.ecommerce.inventory.repository.InventoryRepository;
 import com.example.ecommerce.inventory.repository.StockReservationItemRepository;
 import com.example.ecommerce.inventory.repository.StockReservationRepository;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +40,7 @@ public class InventoryService {
     private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
     private static final String METRIC_RESERVATIONS = "inventory.reservations";
     private static final String METRIC_RELEASES = "inventory.releases";
+    private static final String UNIQUE_SKU_CODE_CONSTRAINT = "uk_tb_inventory_sku_code";
 
     @Autowired
     private InventoryRepository inventoryRepository;
@@ -59,8 +63,24 @@ public class InventoryService {
         Inventory inventory = new Inventory();
         inventory.setSkuCode(dto.skuCode());
         inventory.setQuantity(dto.quantity());
-        inventory = inventoryRepository.save(inventory);
+        try {
+            inventory = inventoryRepository.saveAndFlush(inventory);
+        } catch (DataIntegrityViolationException e) {
+            if (violates(e, UNIQUE_SKU_CODE_CONSTRAINT)) {
+                throw new InventoryAlreadyExistsException(dto.skuCode(), e);
+            }
+            throw e;
+        }
         return new InventoryDTO(inventory);
+    }
+
+    private static boolean violates(DataIntegrityViolationException e, String constraintName) {
+        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException violation) {
+                return constraintName.equalsIgnoreCase(violation.getConstraintName());
+            }
+        }
+        return false;
     }
 
     public InventoryDTO update(Long id, InventoryUpdateDTO dto) {
