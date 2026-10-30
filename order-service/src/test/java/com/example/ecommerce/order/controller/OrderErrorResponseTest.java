@@ -1,5 +1,6 @@
 package com.example.ecommerce.order.controller;
 
+import com.example.ecommerce.order.exception.OrderTotalLimitExceededException;
 import com.example.ecommerce.order.infra.security.SecurityConfig;
 import com.example.ecommerce.order.service.OrderService;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.contains;
@@ -128,5 +130,21 @@ class OrderErrorResponseTest {
                 .andExpect(jsonPath("$.type").doesNotExist())
                 .andExpect(jsonPath("$.status").value(500))
                 .andExpect(jsonPath("$.detail").value("Erro interno inesperado"));
+    }
+
+    @Test
+    void orderTotalLimitExceededReturnsUnprocessableContentProblemDetail() throws Exception {
+        when(orderService.createOrder(any(), any(), any(UUID.class)))
+                .thenThrow(new OrderTotalLimitExceededException(new BigDecimal("1000000.00")));
+
+        mvc.perform(post("/api/order")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"productId\":\"p1\",\"quantity\":2}]}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(422))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("1000000.00")));
     }
 }

@@ -81,6 +81,8 @@ clients:
 
 ecommerce:
   order:
+    checkout:
+      max-total-value: 1000000.00
     reservation:
       max-attempts: 3
       retry-delay: 50ms
