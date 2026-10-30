@@ -1,5 +1,6 @@
 package com.example.ecommerce.product.dto.request;
 
+import com.example.ecommerce.product.dto.validation.HttpsUrl;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
@@ -11,14 +12,14 @@ import java.math.BigDecimal;
 
 @Schema(name = "ProductRequestDTO", description = "Dados para criar ou atualizar um produto")
 public record ProductRequestDTO(
-        @Schema(description = "Nome do produto", example = "Teclado Mecânico")
+        @Schema(description = "Nome do produto (máximo 255 caracteres)", example = "Teclado Mecânico")
         @NotBlank(message = "O Nome do Produto não pode ser nulo ou vazio")
         @Size(max = 255, message = "O nome do produto deve ter no máximo 255 caracteres")
         String name,
 
-        @Schema(description = "Descrição do produto (mínimo 10 caracteres)", example = "Teclado mecânico com switches blue e RGB")
+        @Schema(description = "Descrição do produto (entre 10 e 2000 caracteres)", example = "Teclado mecânico com switches blue e RGB")
         @NotBlank(message = "O Produto Precisa ter uma descrição")
-        @Size(min = 10)
+        @Size(min = 10, max = 2000, message = "A descrição deve ter entre 10 e 2000 caracteres")
         String description,
 
         @Schema(description = "Preço do produto (deve ser positivo)", example = "349.90")
@@ -27,11 +28,14 @@ public record ProductRequestDTO(
         @Positive(message = "O preço do produto deve ser positivo")
         BigDecimal price,
 
-        @Schema(description = "Categoria do produto", example = "Periféricos")
-        @NotNull(message = "O nome da Categoria não pode ser nulo")
+        @Schema(description = "Categoria do produto (máximo 100 caracteres)", example = "Periféricos")
+        @NotBlank(message = "O nome da Categoria não pode ser nulo ou vazio")
+        @Size(max = 100, message = "A categoria do produto deve ter no máximo 100 caracteres")
         String category,
 
-        @Schema(description = "URL da imagem do produto", example = "https://example.com/imagens/teclado.jpg")
+        @Schema(description = "URL https absoluta da imagem do produto (opcional, máximo 2048 caracteres)", example = "https://example.com/imagens/teclado.jpg")
+        @Size(max = 2048, message = "A URL da imagem deve ter no máximo 2048 caracteres")
+        @HttpsUrl
         String imageUrl
 ) {
 }
