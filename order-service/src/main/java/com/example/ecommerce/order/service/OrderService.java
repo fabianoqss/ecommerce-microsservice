@@ -23,6 +23,7 @@ import com.example.ecommerce.order.exception.InvalidProductDataException;
 import com.example.ecommerce.order.exception.OrderInProgressException;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
 import com.example.ecommerce.order.exception.OrderReservationException;
+import com.example.ecommerce.order.exception.OrderTotalLimitExceededException;
 import com.example.ecommerce.order.exception.ProductNotFoundException;
 import com.example.ecommerce.order.infra.client.InventoryClient;
 import com.example.ecommerce.order.infra.client.ProductClient;
@@ -103,6 +104,10 @@ public class OrderService {
     @Value("${ecommerce.order.reservation.retry-delay:50ms}")
     private Duration reservationRetryDelay = Duration.ofMillis(50);
 
+    @Setter
+    @Value("${ecommerce.order.checkout.max-total-value:1000000.00}")
+    private BigDecimal maxTotalValue = new BigDecimal("1000000.00");
+
     @Transactional(readOnly = true)
     public PageResponseDTO<OrderResponseDTO> findAll(int page, int size, Authentication authentication) {
         Pageable pageable = PageRequest.of(page, size, LATEST_FIRST);
@@ -155,6 +160,12 @@ public class OrderService {
         BigDecimal totalValue = orderItems.stream()
                 .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalValue.compareTo(maxTotalValue) > 0) {
+            meterRegistry.counter("orders.created", "result", "total_limit_exceeded").increment();
+            log.info("Pedido recusado por exceder o valor máximo: total={}, limite={}", totalValue, maxTotalValue);
+            throw new OrderTotalLimitExceededException(maxTotalValue);
+        }
 
         Order order = new Order();
         order.setUserID(userId);
