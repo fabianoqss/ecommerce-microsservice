@@ -7,6 +7,7 @@ import com.example.ecommerce.order.exception.InvalidProductDataException;
 import com.example.ecommerce.order.exception.OrderInProgressException;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
 import com.example.ecommerce.order.exception.OrderReservationException;
+import com.example.ecommerce.order.exception.OrderTotalLimitExceededException;
 import com.example.ecommerce.order.exception.ProductNotFoundException;
 import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +74,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(IdempotencyKeyReuseException.class)
     public ResponseEntity<ProblemDetail> handleIdempotencyKeyReuse(IdempotencyKeyReuseException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
+    }
+
+    @ExceptionHandler(OrderTotalLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> handleOrderTotalLimitExceeded(OrderTotalLimitExceededException ex) {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
     }
 

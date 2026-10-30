@@ -11,6 +11,7 @@ import com.example.ecommerce.order.dto.request.OrderItemRequestDTO;
 import com.example.ecommerce.order.dto.request.OrderRequestDTO;
 import com.example.ecommerce.order.exception.InvalidProductDataException;
 import com.example.ecommerce.order.exception.OrderReservationException;
+import com.example.ecommerce.order.exception.OrderTotalLimitExceededException;
 import com.example.ecommerce.order.infra.client.InventoryClient;
 import com.example.ecommerce.order.infra.client.ProductClient;
 import com.example.ecommerce.order.infra.tracing.OutboxTraceContext;
@@ -54,6 +55,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
@@ -148,6 +150,35 @@ class OrderServiceCreateTest {
         verifyNoInteractions(inventoryClient, outboxEventRepository);
         verify(orderRepository).findByUserIDAndIdempotencyKey("owner-sub", IDEMPOTENCY_KEY);
         verifyNoMoreInteractions(orderRepository);
+    }
+
+    @Test
+    void totalAboveLimitFailsBeforePersistingAndReserving() {
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Notebook", new BigDecimal("500000.01")));
+        var request = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 2)));
+
+        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY))
+                .isInstanceOf(OrderTotalLimitExceededException.class)
+                .hasMessageContaining("1000000.00");
+
+        verify(orderRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(inventoryClient, outboxEventRepository);
+        assertThat(meterRegistry.get("orders.created").tag("result", "total_limit_exceeded").counter().count())
+                .isEqualTo(1.0);
+    }
+
+    @Test
+    void totalExactlyAtLimitIsPersisted() {
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Notebook", new BigDecimal("500000.00")));
+        when(transactionManager.getTransaction(any())).thenAnswer(inv -> new SimpleTransactionStatus());
+        var stop = new IllegalStateException("interrompe o fluxo após persistir");
+        when(orderRepository.saveAndFlush(any())).thenThrow(stop);
+        var request = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 2)));
+
+        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY)).isSameAs(stop);
+
+        verify(orderRepository).saveAndFlush(argThat(order ->
+                order.getTotalValue().compareTo(new BigDecimal("1000000.00")) == 0));
     }
 
     @Test
