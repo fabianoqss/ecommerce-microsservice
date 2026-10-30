@@ -27,7 +27,9 @@ import java.util.stream.IntStream;
 
 import static org.hamcrest.Matchers.contains;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -96,6 +98,36 @@ class InventoryErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.status").value(406));
+    }
+
+    @Test
+    void lookupRejectsMoreThan50SkuCodes() throws Exception {
+        String[] skuCodes = IntStream.rangeClosed(1, 51).mapToObj(i -> "SKU-" + i).toArray(String[]::new);
+
+        mvc.perform(get("/api/inventory").param("skuCode", skuCodes))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("about:blank"))
+                .andExpect(jsonPath("$.status").value(400));
+        verifyNoInteractions(inventoryService);
+    }
+
+    @Test
+    void lookupAccepts50SkuCodes() throws Exception {
+        String[] skuCodes = IntStream.rangeClosed(1, 50).mapToObj(i -> "SKU-" + i).toArray(String[]::new);
+
+        mvc.perform(get("/api/inventory").param("skuCode", skuCodes))
+                .andExpect(status().isOk());
+        verify(inventoryService).isInStock(argThat(list -> list.size() == 50));
+    }
+
+    @Test
+    void lookupRejectsInvalidSkuCode() throws Exception {
+        mvc.perform(get("/api/inventory").param("skuCode", "SKU-1", "x/.."))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400));
+        verifyNoInteractions(inventoryService);
     }
 
     @ParameterizedTest

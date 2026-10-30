@@ -6,12 +6,15 @@ import com.example.ecommerce.inventory.dto.request.InventoryUpdateDTO;
 import com.example.ecommerce.inventory.dto.response.InventoryDTO;
 import com.example.ecommerce.inventory.dto.response.ReservationResponseDTO;
 import com.example.ecommerce.inventory.dto.response.ReservationResult;
+import com.example.ecommerce.inventory.dto.validation.SkuCodeRules;
 import com.example.ecommerce.inventory.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,12 +45,16 @@ public class InventoryController {
             description = "Check stock for one or more SKU codes",
             summary = "Check if items are in stock",
             responses = {
-                    @ApiResponse(description = "Ok", responseCode = "200")
+                    @ApiResponse(description = "Ok", responseCode = "200"),
+                    @ApiResponse(description = "Bad Request", responseCode = "400")
             }
     )
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<InventoryDTO> isInStock(@RequestParam("skuCode") List<String> skuCode) {
+    public List<InventoryDTO> isInStock(
+            @RequestParam("skuCode")
+            @Size(min = 1, max = SkuCodeRules.MAX_LOOKUP_SIZE, message = SkuCodeRules.LOOKUP_SIZE_MESSAGE)
+            List<@Pattern(regexp = SkuCodeRules.PATTERN, message = SkuCodeRules.MESSAGE) String> skuCode) {
         return inventoryService.isInStock(skuCode);
     }
 
