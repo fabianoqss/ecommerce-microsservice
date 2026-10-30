@@ -125,7 +125,7 @@ Na raiz do repositório:
 ./scripts/generate-env.sh
 ```
 
-O script cria `.env` a partir do exemplo e substitui **cada** valor `troque-...` por um segredo independente de 24 bytes gerado por `openssl rand -hex 24`. Não imprime os segredos e cria o arquivo com permissão `600`. Recusa sobrescrever um `.env` existente; `./scripts/generate-env.sh --force` cria um backup com permissão `600` antes da substituição. O `.env` e seus backups contêm credenciais e não devem ser compartilhados ou versionados.
+O script cria `.env` a partir do exemplo: substitui valores marcados com `troque-politica-...` (senhas de usuários do realm do Keycloak, como `KC_ADMIN_USER_PASSWORD`) por uma senha de 24 caracteres compatível com a política do realm (maiúscula, minúscula, dígito e caractere especial entre `-_.`) e **cada** outro valor `troque-...` por um segredo independente de 24 bytes gerado por `openssl rand -hex 24`. Não imprime os segredos e cria o arquivo com permissão `600`. Recusa sobrescrever um `.env` existente; `./scripts/generate-env.sh --force` cria um backup com permissão `600` antes da substituição. O `.env` e seus backups contêm credenciais e não devem ser compartilhados ou versionados.
 
 Em desenvolvimento, Order e Inventory usam o usuário `postgres` do container local: a senha efetiva é `DB_PASSWORD`. O exemplo define `ORDER_DB_PASSWORD=${DB_PASSWORD}` e `INVENTORY_DB_PASSWORD=${DB_PASSWORD}`, referências expandidas pelo Compose. Em produção, configure usuários e senhas próprios para cada banco e gere as variáveis pelo OCI Vault. O banco do Keycloak tem usuário e senha separados.
 
@@ -161,12 +161,18 @@ As aplicações usam `RABBITMQ_ORDER_PASSWORD`, `RABBITMQ_NOTIFICATION_PASSWORD`
 
 ### Dados de demonstração (somente dev)
 
-O override de desenvolvimento inclui dois serviços de execução única que carregam um catálogo de demonstração: `seed-products` (20 produtos no MongoDB) e `seed-inventory` (estoque desses produtos no PostgreSQL, com um item esgotado e um com estoque baixo). Os scripts ficam em [`scripts/dev/seed/`](scripts/dev/seed/) e são montados **apenas** pelo `docker-compose.dev.yml`: o Compose de produção não os referencia e o `.dockerignore` os mantém fora das imagens.
+O override de desenvolvimento inclui três serviços de execução única: `seed-products` (20 produtos no MongoDB), `seed-inventory` (estoque desses produtos no PostgreSQL, com um item esgotado e um com estoque baixo) e `seed-keycloak-admin` (usuário `ADMIN` da loja no realm `ecommerce` do Keycloak). Os scripts ficam em [`scripts/dev/seed/`](scripts/dev/seed/) e são montados **apenas** pelo `docker-compose.dev.yml`: o Compose de produção não os referencia e o `.dockerignore` os mantém fora das imagens.
 
 Os produtos têm `_id` fixo porque o estoque usa o id do produto como `sku_code`. A carga é idempotente e não destrutiva: roda a cada subida, insere só o que ainda não existe e nunca sobrescreve produtos ou quantidades alterados pela API. `product-service` e `order-service` aguardam a carga terminar. O `seed-inventory` espera a tabela criada pelo Flyway do `inventory-service`, então também funciona com o serviço rodando pela IDE. Para recarregar sem recriar volumes:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up seed-products seed-inventory
+```
+
+O `seed-keycloak-admin` aguarda o `keycloak-config` terminar e usa `kcadm.sh` para criar (se ainda não existir) o usuário `ADMIN` da loja no realm `ecommerce` a partir de `KC_ADMIN_USER_EMAIL` e `KC_ADMIN_USER_PASSWORD`, habilitado, com `emailVerified=true`, sem ações pendentes e com a role `ADMIN` atribuída. A senha é sempre reaplicada, então alterar `KC_ADMIN_USER_PASSWORD` no `.env` e executar o seed novamente rotaciona a senha:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up seed-keycloak-admin
 ```
 
 Serviços úteis (publicados em `127.0.0.1`; na VM, acesse por túnel SSH):

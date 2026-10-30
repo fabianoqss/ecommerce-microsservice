@@ -20,10 +20,53 @@ if [[ -e "$env_file" && "$force" != true ]]; then
   exit 1
 fi
 
+generate_policy_secret() {
+  openssl rand 256 | od -An -v -tu1 | LC_ALL=C awk '
+    function next_byte() {
+      if (pos >= n) exit 1
+      return bytes[++pos]
+    }
+    function pick(alphabet, len, limit, b) {
+      limit = 256 - (256 % len)
+      while ((b = next_byte()) >= limit) {}
+      return substr(alphabet, (b % len) + 1, 1)
+    }
+    {
+      for (i = 1; i <= NF; i++) bytes[++n] = $i
+    }
+    END {
+      upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      lower = "abcdefghijklmnopqrstuvwxyz"
+      digits = "0123456789"
+      special = "-_."
+      all = upper lower digits special
+      chars[1] = pick(upper, 26)
+      chars[2] = pick(lower, 26)
+      chars[3] = pick(digits, 10)
+      chars[4] = pick(special, 3)
+      for (i = 5; i <= 24; i++) chars[i] = pick(all, 65)
+      for (i = 24; i >= 2; i--) {
+        limit = 256 - (256 % i)
+        while ((b = next_byte()) >= limit) {}
+        j = (b % i) + 1
+        tmp = chars[i]
+        chars[i] = chars[j]
+        chars[j] = tmp
+      }
+      for (i = 1; i <= 24; i++) printf "%s", chars[i]
+      printf "\n"
+    }'
+}
+
 temp_file=$(mktemp "$root_dir/.env.tmp-XXXXXXXX")
 trap 'rm -f -- "$temp_file"' EXIT
 while IFS= read -r line || [[ -n "$line" ]]; do
-  if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*=troque- ]]; then
+  if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*=troque-politica- ]]; then
+    secret=$(generate_policy_secret)
+    [[ "$secret" =~ ^[A-Za-z0-9._-]{24}$ && "$secret" =~ [A-Z] && "$secret" =~ [a-z] && "$secret" =~ [0-9] && "$secret" =~ [._-] ]] \
+      || { echo 'Falha ao gerar segredo.' >&2; exit 1; }
+    line="${line%%=*}=$secret"
+  elif [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*=troque- ]]; then
     secret=$(openssl rand -hex 24)
     [[ "$secret" =~ ^[0-9a-f]{48}$ ]] || { echo 'Falha ao gerar segredo.' >&2; exit 1; }
     line="${line%%=*}=$secret"
