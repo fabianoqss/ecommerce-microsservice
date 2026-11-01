@@ -182,7 +182,7 @@ class ProductErrorResponseTest {
     void validProductWithNullImageUrlPassesValidation() throws Exception {
         when(productService.insert(any())).thenAnswer(invocation -> {
             ProductRequestDTO req = invocation.getArgument(0);
-            return new ProductResponseDTO("abc", req.name(), req.description(), req.price(), req.category(), req.imageUrl());
+            return new ProductResponseDTO("abc", req.name(), req.description(), req.price(), req.category(), req.imageUrl(), 0L);
         });
         String payload = """
                 {"name":"Teclado","description":"Teclado mecânico RGB","price":349.90,"category":"Periféricos","imageUrl":null}

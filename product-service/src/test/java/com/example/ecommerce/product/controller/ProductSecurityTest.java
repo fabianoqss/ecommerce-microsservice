@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.BadJwtException;
@@ -20,6 +21,7 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -50,6 +52,8 @@ class ProductSecurityTest {
 
     @Test
     void anonymousCanReadProducts() throws Exception {
+        when(productService.findByID("abc")).thenReturn(created(new ProductRequestDTO(
+                "Teclado", "Teclado mecânico RGB", new BigDecimal("349.90"), "Periféricos", null)));
         mvc.perform(get("/api/product")).andExpect(allowed());
         mvc.perform(get("/api/product/abc")).andExpect(allowed());
     }
@@ -85,12 +89,15 @@ class ProductSecurityTest {
     void adminCanWrite() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
         when(productService.insert(any())).thenReturn(
-                new ProductResponseDTO("abc", "Teclado", "Teclado mecânico RGB", new BigDecimal("349.90"), "Periféricos", null));
+                new ProductResponseDTO("abc", "Teclado", "Teclado mecânico RGB", new BigDecimal("349.90"), "Periféricos", null, 0L));
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(VALID_PRODUCT))
                 .andExpect(status().isCreated());
-        mvc.perform(put("/api/product/abc").with(admin).contentType(MediaType.APPLICATION_JSON).content(VALID_PRODUCT))
-                .andExpect(allowed());
-        mvc.perform(delete("/api/product/abc").with(admin)).andExpect(allowed());
+        when(productService.update(eq("abc"), eq(0L), any())).thenAnswer(invocation -> created(invocation.getArgument(2)));
+        mvc.perform(put("/api/product/abc").with(admin).header(HttpHeaders.IF_MATCH, "\"0\"")
+                        .contentType(MediaType.APPLICATION_JSON).content(VALID_PRODUCT))
+                .andExpect(status().isOk());
+        mvc.perform(delete("/api/product/abc").with(admin).header(HttpHeaders.IF_MATCH, "\"0\""))
+                .andExpect(status().isNoContent());
     }
 
     @Test
@@ -170,6 +177,6 @@ class ProductSecurityTest {
 
     private static ProductResponseDTO created(ProductRequestDTO request) {
         return new ProductResponseDTO("abc", request.name(), request.description(), request.price(),
-                request.category(), request.imageUrl());
+                request.category(), request.imageUrl(), 0L);
     }
 }
