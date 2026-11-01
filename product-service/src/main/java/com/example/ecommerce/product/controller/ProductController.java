@@ -13,8 +13,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.PositiveOrZero;
-import org.springframework.beans.factory.annotation.Autowired;
-
+import com.example.ecommerce.product.infra.http.EntityTags;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -35,8 +38,13 @@ import java.net.URI;
 @Tag(name = "Products", description = "Controller for Product")
 public class ProductController {
 
-    @Autowired
-    private ProductService productService;
+    private static final String IF_MATCH_DESCRIPTION = "ETag do produto obtido no GET /api/product/{id}";
+
+    private final ProductService productService;
+
+    public ProductController(ProductService productService) {
+        this.productService = productService;
+    }
 
     @Operation(
             description = "Get product by id",
@@ -50,7 +58,7 @@ public class ProductController {
     public ResponseEntity<ProductResponseDTO> findById(@PathVariable String id){
         ProductResponseDTO dto = productService.findByID(id);
 
-        return ResponseEntity.ok(dto);
+        return ResponseEntity.ok().eTag(EntityTags.fromVersion(dto.version())).body(dto);
     }
 
     @Operation(
@@ -89,7 +97,7 @@ public class ProductController {
         URI uri = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}")
                 .buildAndExpand(created.id()).toUri();
 
-        return ResponseEntity.created(uri).body(created);
+        return ResponseEntity.created(uri).eTag(EntityTags.fromVersion(created.version())).body(created);
 
     }
 
@@ -102,16 +110,22 @@ public class ProductController {
                     @ApiResponse(description = "Bad Request", responseCode = "400"),
                     @ApiResponse(description = "Unauthorized", responseCode = "401"),
                     @ApiResponse(description = "Forbidden", responseCode = "403"),
-                    @ApiResponse(description = "Unprocessable Entity", responseCode = "422")
+                    @ApiResponse(description = "Precondition Failed: o produto mudou desde o GET", responseCode = "412"),
+                    @ApiResponse(description = "Unprocessable Entity", responseCode = "422"),
+                    @ApiResponse(description = "Precondition Required: If-Match ausente", responseCode = "428")
             }
     )
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(value = "/{id}")
-    public ResponseEntity<ProductResponseDTO> update(@PathVariable String id, @Valid @RequestBody ProductRequestDTO dto) {
-        ProductResponseDTO updated = productService.update(id, dto);
+    public ResponseEntity<ProductResponseDTO> update(
+            @PathVariable String id,
+            @Parameter(in = ParameterIn.HEADER, description = IF_MATCH_DESCRIPTION, example = "\"3\"")
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+            @Valid @RequestBody ProductRequestDTO dto) {
+        ProductResponseDTO updated = productService.update(id, EntityTags.requireVersion(ifMatch), dto);
 
-        return ResponseEntity.ok().body(updated);
+        return ResponseEntity.ok().eTag(EntityTags.fromVersion(updated.version())).body(updated);
     }
 
 
@@ -124,14 +138,18 @@ public class ProductController {
                     @ApiResponse(description = "Not Found", responseCode = "404"),
                     @ApiResponse(description = "Unauthorized", responseCode = "401"),
                     @ApiResponse(description = "Forbidden", responseCode = "403"),
-                    @ApiResponse(description = "Unprocessable Entity", responseCode = "422")
+                    @ApiResponse(description = "Precondition Failed: o produto mudou desde o GET", responseCode = "412"),
+                    @ApiResponse(description = "Precondition Required: If-Match ausente", responseCode = "428")
             }
     )
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping(value = "/{id}")
-    public ResponseEntity<Void> delete(@PathVariable String id){
-        productService.delete(id);
+    public ResponseEntity<Void> delete(
+            @PathVariable String id,
+            @Parameter(in = ParameterIn.HEADER, description = IF_MATCH_DESCRIPTION, example = "\"3\"")
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch){
+        productService.delete(id, EntityTags.requireVersion(ifMatch));
         return ResponseEntity.noContent().build();
     }
 

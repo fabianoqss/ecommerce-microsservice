@@ -58,6 +58,22 @@ services:
         condition: service_healthy
     restart: "no"
 
+  seed-keycloak-admin:
+    image: quay.io/keycloak/keycloak:26.7.5
+    entrypoint: ["/bin/sh", "/seed/seed-keycloak-admin.sh"]
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_USER: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?defina KEYCLOAK_ADMIN_PASSWORD}
+      KC_ADMIN_USER_EMAIL: ${KC_ADMIN_USER_EMAIL:?defina KC_ADMIN_USER_EMAIL}
+      KC_ADMIN_USER_PASSWORD: ${KC_ADMIN_USER_PASSWORD:?defina KC_ADMIN_USER_PASSWORD}
+    volumes:
+      - ./scripts/dev/seed:/seed:ro
+    depends_on:
+      keycloak-config:
+        condition: service_completed_successfully
+    restart: "no"
+
   mailpit:
     image: axllent/mailpit:v1.31.5
     container_name: mailpit
