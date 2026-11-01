@@ -1,5 +1,6 @@
 package com.example.ecommerce.order.service;
 
+import com.example.ecommerce.order.config.OrderCheckoutProperties;
 import com.example.ecommerce.order.domain.entity.Order;
 import com.example.ecommerce.order.domain.enums.OrderStatus;
 import com.example.ecommerce.order.dto.client.product.ProductDTO;
@@ -79,6 +80,9 @@ class OrderServiceReserveErrorTest {
 
     @Spy
     private OutboxTraceContext outboxTraceContext = new OutboxTraceContext(Tracer.NOOP, Propagator.NOOP);
+
+    @Spy
+    private OrderCheckoutProperties checkoutProperties = new OrderCheckoutProperties(10000);
 
     @InjectMocks
     private OrderService orderService;

@@ -6,6 +6,7 @@ import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionExcepti
 import com.example.ecommerce.order.exception.InvalidProductDataException;
 import com.example.ecommerce.order.exception.OrderInProgressException;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
+import com.example.ecommerce.order.exception.OrderQuantityLimitExceededException;
 import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.exception.OrderTotalLimitExceededException;
 import com.example.ecommerce.order.exception.ProductNotFoundException;
@@ -79,6 +80,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(OrderTotalLimitExceededException.class)
     public ResponseEntity<ProblemDetail> handleOrderTotalLimitExceeded(OrderTotalLimitExceededException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
+    }
+
+    @ExceptionHandler(OrderQuantityLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> handleOrderQuantityLimitExceeded(OrderQuantityLimitExceededException ex) {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
     }
 
