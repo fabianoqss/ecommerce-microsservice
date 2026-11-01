@@ -8,8 +8,6 @@ import java.time.Instant;
 import java.util.List;
 
 public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> {
-    List<OutboxEvent> findTop50ByStatusOrderByCreatedAtAsc(OutboxStatus status);
-
     List<OutboxEvent> findTop50ByStatusAndNextAttemptAtLessThanEqualOrderByNextAttemptAtAscCreatedAtAsc(
             OutboxStatus status, Instant now);
 }

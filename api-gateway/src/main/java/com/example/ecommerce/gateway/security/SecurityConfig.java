@@ -3,6 +3,7 @@ package com.example.ecommerce.gateway.security;
 import com.example.ecommerce.common.security.KeycloakJwtAuthenticationConverter;
 import com.example.ecommerce.gateway.bff.BffProperties;
 import com.example.ecommerce.gateway.bff.relay.SessionTokenRelayFilter;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +29,7 @@ import org.springframework.security.web.util.matcher.AndRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.json.JsonMapper;
 
 @Configuration
 @EnableWebSecurity
@@ -110,8 +112,9 @@ public class SecurityConfig {
 
     @Bean
     public FilterRegistrationBean<SessionTokenRelayFilter> sessionTokenRelayFilter(
-            OAuth2AuthorizedClientManager authorizedClientManager) {
-        var registration = new FilterRegistrationBean<>(new SessionTokenRelayFilter(authorizedClientManager));
+            OAuth2AuthorizedClientManager authorizedClientManager, JsonMapper jsonMapper, MeterRegistry meterRegistry) {
+        var registration = new FilterRegistrationBean<>(
+                new SessionTokenRelayFilter(authorizedClientManager, jsonMapper, meterRegistry));
         registration.setOrder(Ordered.LOWEST_PRECEDENCE - 10);
         return registration;
     }
