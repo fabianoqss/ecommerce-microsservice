@@ -83,6 +83,7 @@ ecommerce:
   order:
     checkout:
       max-total-value: 1000000.00
+      max-quantity-per-product: 10000
     reservation:
       max-attempts: 3
       retry-delay: 50ms

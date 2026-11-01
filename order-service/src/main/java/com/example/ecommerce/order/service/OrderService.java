@@ -1,5 +1,6 @@
 package com.example.ecommerce.order.service;
 
+import com.example.ecommerce.order.config.OrderCheckoutProperties;
 import com.example.ecommerce.order.domain.entity.Order;
 import com.example.ecommerce.order.domain.entity.OrderItem;
 import com.example.ecommerce.order.domain.entity.OutboxEvent;
@@ -22,6 +23,7 @@ import com.example.ecommerce.order.exception.InvalidOrderStatusTransitionExcepti
 import com.example.ecommerce.order.exception.InvalidProductDataException;
 import com.example.ecommerce.order.exception.OrderInProgressException;
 import com.example.ecommerce.order.exception.OrderNotFoundException;
+import com.example.ecommerce.order.exception.OrderQuantityLimitExceededException;
 import com.example.ecommerce.order.exception.OrderReservationException;
 import com.example.ecommerce.order.exception.OrderTotalLimitExceededException;
 import com.example.ecommerce.order.exception.ProductNotFoundException;
@@ -96,6 +98,8 @@ public class OrderService {
 
     private final TransactionTemplate transactionTemplate;
 
+    private final OrderCheckoutProperties checkoutProperties;
+
     @Setter
     @Value("${ecommerce.order.reservation.max-attempts:3}")
     private int reservationMaxAttempts = 3;
@@ -137,6 +141,15 @@ public class OrderService {
         Optional<CreateOrderResult> replay = findReplay(userId, idempotencyKey, requestHash);
         if (replay.isPresent()) {
             return replay.get();
+        }
+
+        for (InventoryItemDTO item : reserveItems) {
+            if (item.quantity() > checkoutProperties.maxQuantityPerProduct()) {
+                meterRegistry.counter("orders.created", "result", "quantity_limit_exceeded").increment();
+                log.info("Pedido recusado por exceder a quantidade máxima por produto: productId={}, quantidade={}, limite={}",
+                        item.skuCode(), item.quantity(), checkoutProperties.maxQuantityPerProduct());
+                throw new OrderQuantityLimitExceededException(item.skuCode(), checkoutProperties.maxQuantityPerProduct());
+            }
         }
 
         List<String> productIds = request.items().stream()
