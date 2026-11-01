@@ -7,6 +7,7 @@ import com.example.ecommerce.product.service.ProductService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -28,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ProductController.class)
-@Import({SecurityConfig.class, ProductService.class})
+@Import({SecurityConfig.class, ProductService.class, SimpleMeterRegistry.class})
 class ProductPaginationTest {
 
     @Autowired

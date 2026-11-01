@@ -23,11 +23,14 @@ public record ProductResponseDTO(
         String category,
 
         @Schema(description = "URL da imagem do produto", example = "https://example.com/imagens/teclado.jpg")
-        String imageUrl
+        String imageUrl,
+
+        @Schema(description = "Versão do produto; o mesmo valor vai no ETag e deve voltar no If-Match do PUT/DELETE", example = "3")
+        Long version
 ) {
 
     public static ProductResponseDTO from(Product product) {
         return new ProductResponseDTO(product.getId(), product.getName(), product.getDescription(),
-                product.getPrice(), product.getCategory(), product.getImageUrl());
+                product.getPrice(), product.getCategory(), product.getImageUrl(), product.getVersion());
     }
 }

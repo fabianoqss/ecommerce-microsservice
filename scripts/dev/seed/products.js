@@ -34,6 +34,7 @@ for (const [id, name, description, price, category] of products) {
         price: NumberDecimal(price),
         category,
         imageUrl: `https://picsum.photos/seed/ecommerce-${id.slice(-2)}/600/600`,
+        version: NumberLong(0),
       },
     },
     { upsert: true },

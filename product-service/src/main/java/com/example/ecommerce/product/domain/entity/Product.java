@@ -2,6 +2,7 @@ package com.example.ecommerce.product.domain.entity;
 
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
@@ -11,6 +12,8 @@ public class Product {
 
     @Id
     private String id;
+    @Version
+    private Long version;
     private String name;
     private String description;
     private BigDecimal price;
@@ -26,6 +29,14 @@ public class Product {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     public String getName() {
