@@ -1,4 +1,6 @@
 import { Component } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
@@ -10,7 +12,11 @@ describe('App', () => {
   async function render(): Promise<HTMLElement> {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter([{ path: '', component: RouteStub }])],
+      providers: [
+        provideRouter([{ path: '', component: RouteStub }]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(App);

@@ -8,11 +8,6 @@ export const routes: Routes = [
     loadComponent: () => import('./features/home/home/home').then((m) => m.Home),
   },
   {
-    path: 'login',
-    title: 'Login | DS Catalog',
-    loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
-  },
-  {
     path: 'catalog',
     title: 'Catálogo | DS Catalog',
     loadChildren: () =>

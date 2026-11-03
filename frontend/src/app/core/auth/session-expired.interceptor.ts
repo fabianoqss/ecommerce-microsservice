@@ -1,0 +1,22 @@
+import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { catchError, throwError } from 'rxjs';
+import { AuthService } from './auth.service';
+
+export const sessionExpiredInterceptor: HttpInterceptorFn = (req, next) => {
+  const auth = inject(AuthService);
+
+  return next(req).pipe(
+    catchError((error: unknown) => {
+      if (
+        error instanceof HttpErrorResponse &&
+        error.status === 401 &&
+        req.url.startsWith('/api/')
+      ) {
+        auth.clear();
+        auth.login();
+      }
+      return throwError(() => error);
+    }),
+  );
+};
