@@ -156,3 +156,33 @@ clients:
 scopeMappings:
   - client: ecommerce-bff
     roles: [CUSTOMER, ADMIN]
+
+identityProviders:
+  - alias: google
+    providerId: google
+    displayName: Google
+    enabled: '$(env:KC_IDP_GOOGLE_ENABLED:-false)'
+    trustEmail: true
+    storeToken: false
+    linkOnly: false
+    hideOnLogin: false
+    firstBrokerLoginFlowAlias: first broker login
+    config:
+      clientId: '$(env:KC_IDP_GOOGLE_CLIENT_ID:-)'
+      clientSecret: '$(env:KC_IDP_GOOGLE_CLIENT_SECRET:-)'
+      defaultScope: openid profile email
+      syncMode: IMPORT
+  - alias: github
+    providerId: github
+    displayName: GitHub
+    enabled: '$(env:KC_IDP_GITHUB_ENABLED:-false)'
+    trustEmail: false
+    storeToken: false
+    linkOnly: false
+    hideOnLogin: false
+    firstBrokerLoginFlowAlias: first broker login
+    config:
+      clientId: '$(env:KC_IDP_GITHUB_CLIENT_ID:-)'
+      clientSecret: '$(env:KC_IDP_GITHUB_CLIENT_SECRET:-)'
+      defaultScope: user:email
+      syncMode: IMPORT

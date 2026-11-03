@@ -316,16 +316,6 @@ a:focus-visible,
   font-weight: 600;
 }
 
-#kc-social-providers .ec-social-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.pf-v5-theme-dark #kc-social-providers .ec-social-icon--apple {
-  filter: invert(1);
-}
-
 .pf-v5-c-alert {
   border-radius: var(--ec-control-radius);
 }
