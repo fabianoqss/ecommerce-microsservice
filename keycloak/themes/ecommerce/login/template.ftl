@@ -151,7 +151,7 @@
 <header id="kc-header" class="ec-topbar">
   <span id="kc-header-wrapper" class="ec-brand">${msg("brandName")}</span>
 </header>
-<#assign showIntro = ["login.ftl", "login-username.ftl", "login-password.ftl", "register.ftl", "login-reset-password.ftl"]?seq_contains(pageId) />
+<#assign showIntro = ["login", "login-username", "login-password", "register", "login-reset-password"]?seq_contains(pageId) />
 <div class="${properties.kcLogin!}">
   <div class="${properties.kcLoginContainer!}">
     <main class="${properties.kcLoginMain!}">
