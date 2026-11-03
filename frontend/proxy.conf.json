@@ -1,0 +1,7 @@
+{
+  "/api": { "target": "http://localhost:8080", "changeOrigin": false },
+  "/bff": { "target": "http://localhost:8080", "changeOrigin": false },
+  "/oauth2": { "target": "http://localhost:8080", "changeOrigin": false },
+  "/login/oauth2": { "target": "http://localhost:8080", "changeOrigin": false },
+  "/logout": { "target": "http://localhost:8080", "changeOrigin": false }
+}
