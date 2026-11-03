@@ -13,6 +13,7 @@ describe('Header', () => {
         provideRouter([
           { path: '', component: RouteStub },
           { path: 'catalog', component: RouteStub },
+          { path: 'catalog/:id', component: RouteStub },
         ]),
       ],
     });
@@ -24,6 +25,10 @@ describe('Header', () => {
     expect(catalog?.getAttribute('aria-current')).toBe('page');
     expect(catalog?.classList.contains('font-bold')).toBe(true);
     expect(element.querySelector('a[href="/"]')?.hasAttribute('aria-current')).toBe(false);
+    await TestBed.inject(Router).navigateByUrl('/catalog/1?page=2&name=Teclado');
+    await fixture.whenStable();
+    expect(catalog?.getAttribute('aria-current')).toBe('page');
+    expect(catalog?.classList.contains('font-bold')).toBe(true);
     await TestBed.inject(Router).navigateByUrl('/');
     await fixture.whenStable();
     expect(element.querySelector('a[href="/"]')?.getAttribute('aria-current')).toBe('page');

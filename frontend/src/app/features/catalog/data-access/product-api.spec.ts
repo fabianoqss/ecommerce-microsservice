@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { ApplicationRef, signal } from '@angular/core';
 import { ProductApi } from './product-api';
+import { Product } from './product';
 
 describe('ProductApi', () => {
   let http: HttpTestingController;
@@ -54,6 +55,31 @@ describe('ProductApi', () => {
       totalElements: 0,
       totalPages: 0,
     });
+  });
+
+  it('busca um produto pelo id com URL relativa e acompanha mudanças do id', async () => {
+    const id = signal('670000000000000000000001');
+    const result = TestBed.runInInjectionContext(() => api.byId(id));
+    TestBed.tick();
+    const request = http.expectOne('/api/product/' + id());
+    expect(request.request.method).toBe('GET');
+    const product: Product = {
+      id: id(),
+      name: 'Teclado Mecânico TKL',
+      description: 'Teclado compacto',
+      price: 349.9,
+      category: 'Periféricos',
+      imageUrl: null,
+      version: 0,
+    };
+    request.flush(product, { headers: { ETag: '"0"' } });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(result.value()).toEqual(product);
+    id.set('outro-id');
+    TestBed.tick();
+    http.expectOne('/api/product/outro-id').flush({ ...product, id: 'outro-id' });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(result.value()?.id).toBe('outro-id');
   });
 
   it('carrega categorias em um recurso independente', async () => {
