@@ -1,0 +1,370 @@
+:root {
+  --ec-primary: #407bff;
+  --ec-primary-hover: #2563eb;
+  --ec-primary-active: #1d4ed8;
+  --ec-on-primary: #ffffff;
+  --ec-link: #2563eb;
+  --ec-link-hover: #1d4ed8;
+  --ec-page-bg: #f2f2f2;
+  --ec-card-bg: #ffffff;
+  --ec-border: #e1e1e1;
+  --ec-text: #263238;
+  --ec-text-muted: #6b6b6b;
+  --ec-arrow-bg: rgba(38, 50, 56, 0.5);
+  --ec-card-radius: 20px;
+  --ec-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  --ec-control-radius: 10px;
+  --ec-font: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --pf-v5-global--FontFamily--text: var(--ec-font);
+  --pf-v5-global--FontFamily--heading: var(--ec-font);
+  --pf-v5-global--FontFamily--text--vf: var(--ec-font);
+  --pf-v5-global--FontFamily--heading--vf: var(--ec-font);
+  --pf-v5-global--primary-color--100: var(--ec-primary-hover);
+  --pf-v5-global--primary-color--200: var(--ec-primary-active);
+  --pf-v5-global--link--Color: var(--ec-link);
+  --pf-v5-global--link--Color--hover: var(--ec-link-hover);
+  --pf-v5-global--link--Color--visited: var(--ec-link);
+  --pf-v5-global--Color--100: var(--ec-text);
+  --pf-v5-global--Color--200: var(--ec-text-muted);
+  --pf-v5-global--BackgroundColor--100: var(--ec-card-bg);
+}
+
+:root.pf-v5-theme-dark {
+  --ec-link: #93b8ff;
+  --ec-link-hover: #bfd5ff;
+  --ec-page-bg: #151515;
+  --ec-card-bg: #1b1d21;
+  --ec-border: #4f5255;
+  --ec-text: #e0e0e0;
+  --ec-text-muted: #b8bbbe;
+  --ec-arrow-bg: rgba(0, 0, 0, 0.3);
+  --ec-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.login-pf body {
+  background: var(--ec-page-bg);
+  color: var(--ec-text);
+  font-family: var(--ec-font);
+  min-height: 100%;
+}
+
+.ec-topbar {
+  background: var(--ec-primary);
+  color: var(--ec-on-primary);
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.ec-brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.36px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.pf-v5-c-login {
+  --pf-v5-c-login__main--BackgroundColor: var(--ec-card-bg);
+  --pf-v5-c-login__main--BoxShadow: var(--ec-card-shadow);
+  --pf-v5-c-login__main--MarginBottom: 0;
+  --pf-v5-c-login__main-header--PaddingTop: 28px;
+  --pf-v5-c-login__main-header--PaddingLeft: 20px;
+  --pf-v5-c-login__main-header--PaddingRight: 20px;
+  --pf-v5-c-login__main-header--md--PaddingLeft: 50px;
+  --pf-v5-c-login__main-header--md--PaddingRight: 50px;
+  --pf-v5-c-login__main-body--PaddingLeft: 20px;
+  --pf-v5-c-login__main-body--PaddingRight: 20px;
+  --pf-v5-c-login__main-body--md--PaddingLeft: 50px;
+  --pf-v5-c-login__main-body--md--PaddingRight: 50px;
+  --pf-v5-c-login__main-body--PaddingBottom: 28px;
+  display: block;
+  min-height: auto;
+  padding: 24px 16px 48px;
+  background: transparent;
+}
+
+.pf-v5-c-login__container {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "main"
+    "intro";
+  row-gap: 40px;
+  column-gap: 62px;
+  max-width: 551px;
+  margin: 0 auto;
+  padding: 0;
+  width: 100%;
+}
+
+.pf-v5-c-login__main {
+  grid-area: main;
+  width: 100%;
+  border-radius: var(--ec-card-radius);
+  overflow: hidden;
+}
+
+.pf-v5-c-login__main-header {
+  border-top: 0;
+}
+
+[data-page-id="login-login-reset-password"] #kc-page-title {
+  font-size: 2.25rem;
+}
+
+#kc-page-title {
+  color: var(--ec-text);
+  font-size: 3rem;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: -0.72px;
+  text-align: center;
+}
+
+.ec-intro {
+  grid-area: intro;
+  min-width: 0;
+}
+
+.ec-intro__title {
+  color: var(--ec-text);
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.825px;
+  overflow-wrap: break-word;
+}
+
+.ec-intro__text {
+  color: var(--ec-text-muted);
+  font-size: 1.25rem;
+  line-height: 1.4;
+  letter-spacing: -0.36px;
+  margin-top: 26px;
+  max-width: 516px;
+}
+
+.ec-intro__illustration {
+  display: block;
+  width: 100%;
+  max-width: 535px;
+  height: auto;
+  margin: 39px auto 0;
+}
+
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--PaddingLeft: 20px;
+  --pf-v5-c-form-control--PaddingRight: 20px;
+  --pf-v5-c-form-control--FontSize: 1.125rem;
+  --pf-v5-c-form-control--before--BorderTopColor: var(--ec-border);
+  --pf-v5-c-form-control--before--BorderRightColor: var(--ec-border);
+  --pf-v5-c-form-control--before--BorderLeftColor: var(--ec-border);
+  --pf-v5-c-form-control--before--BorderBottomWidth: 1px;
+  --pf-v5-c-form-control--before--BorderBottomColor: var(--ec-border);
+  --pf-v5-c-form-control--after--BorderBottomColor: transparent;
+  --pf-v5-c-form-control--hover--after--BorderBottomColor: var(--ec-primary);
+  --pf-v5-c-form-control--focus--after--BorderBottomColor: var(--ec-primary);
+  --pf-v5-c-form-control--BackgroundColor: var(--ec-card-bg);
+  min-height: 50px;
+  border-radius: var(--ec-control-radius);
+}
+
+.pf-v5-c-form-control::before,
+.pf-v5-c-form-control::after {
+  border-radius: var(--ec-control-radius);
+}
+
+.pf-v5-c-input-group > .pf-v5-c-input-group__item.pf-m-fill .pf-v5-c-form-control,
+.pf-v5-c-input-group > .pf-v5-c-input-group__item.pf-m-fill .pf-v5-c-form-control::before,
+.pf-v5-c-input-group > .pf-v5-c-input-group__item.pf-m-fill .pf-v5-c-form-control::after {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.pf-v5-c-input-group > .pf-v5-c-input-group__item:last-child .pf-v5-c-button.pf-m-control,
+.pf-v5-c-input-group > .pf-v5-c-input-group__item:last-child .pf-v5-c-button.pf-m-control::after {
+  border-start-end-radius: var(--ec-control-radius);
+  border-end-end-radius: var(--ec-control-radius);
+}
+
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  --pf-v5-c-button--after--BorderColor: var(--ec-border);
+  min-height: 50px;
+}
+
+.pf-v5-c-form__label-text {
+  color: var(--ec-text);
+  font-size: 1rem;
+}
+
+.pf-v5-c-button {
+  --pf-v5-c-button--BorderRadius: var(--ec-control-radius);
+}
+
+.pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--ec-primary);
+  --pf-v5-c-button--m-primary--Color: var(--ec-on-primary);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--ec-primary-hover);
+  --pf-v5-c-button--m-primary--hover--Color: var(--ec-on-primary);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--ec-primary-hover);
+  --pf-v5-c-button--m-primary--focus--Color: var(--ec-on-primary);
+  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--ec-primary-active);
+  --pf-v5-c-button--m-primary--active--Color: var(--ec-on-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.36px;
+  text-transform: uppercase;
+}
+
+.pf-v5-c-button.pf-m-primary.pf-m-block {
+  position: relative;
+  min-height: 70px;
+  padding-inline: 86px;
+  overflow: hidden;
+}
+
+.pf-v5-c-button.pf-m-primary.pf-m-block::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 70px;
+  background: var(--ec-arrow-bg) url("../img/arrow-right.svg") center / 28px no-repeat;
+  border: 0;
+  border-radius: 0;
+}
+
+[dir="rtl"] .pf-v5-c-button.pf-m-primary.pf-m-block::before {
+  transform: scaleX(-1);
+}
+
+.pf-v5-c-button.pf-m-secondary {
+  --pf-v5-c-button--m-secondary--Color: var(--ec-link);
+  --pf-v5-c-button--m-secondary--hover--Color: var(--ec-link-hover);
+  --pf-v5-c-button--m-secondary--focus--Color: var(--ec-link-hover);
+  --pf-v5-c-button--m-secondary--after--BorderColor: var(--ec-link);
+  --pf-v5-c-button--m-secondary--hover--after--BorderColor: var(--ec-link-hover);
+  --pf-v5-c-button--m-secondary--focus--after--BorderColor: var(--ec-link-hover);
+  min-height: 50px;
+}
+
+.pf-v5-c-button.pf-m-link {
+  --pf-v5-c-button--m-link--Color: var(--ec-link);
+  --pf-v5-c-button--m-link--hover--Color: var(--ec-link-hover);
+}
+
+a,
+.pf-v5-c-button,
+.pf-v5-c-form-control input,
+.pf-v5-c-form-control select,
+.pf-v5-c-check__input {
+  outline-offset: 2px;
+}
+
+a:focus-visible,
+.pf-v5-c-button:focus-visible,
+.pf-v5-c-check__input:focus-visible {
+  outline: 3px solid var(--ec-link);
+}
+
+.pf-v5-c-form-control:focus-within {
+  outline: 3px solid var(--ec-link);
+  outline-offset: 2px;
+}
+
+.pf-v5-c-form-control input:focus-visible,
+.pf-v5-c-form-control select:focus-visible {
+  outline: none;
+}
+
+.pf-v5-c-login__main-body a:not(.pf-v5-c-button) {
+  color: var(--ec-link);
+  font-size: 1.125rem;
+  letter-spacing: -0.27px;
+}
+
+.pf-v5-c-login__main-body a:not(.pf-v5-c-button):hover {
+  color: var(--ec-link-hover);
+}
+
+#kc-info {
+  text-align: center;
+}
+
+#kc-registration span {
+  color: var(--ec-text-muted);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.27px;
+}
+
+#kc-registration a {
+  color: var(--ec-link);
+  font-weight: 700;
+  margin-inline-start: 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-transform: uppercase;
+}
+
+.pf-v5-c-login__main-footer-band {
+  --pf-v5-c-login__main-footer-band--BorderTopColor: var(--ec-border);
+}
+
+#kc-social-providers .pf-v5-c-button.pf-m-secondary {
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.pf-v5-c-alert {
+  border-radius: var(--ec-control-radius);
+}
+
+@media (min-width: 576px) {
+  .pf-v5-c-login {
+    padding: 40px 24px 64px;
+  }
+
+  .ec-topbar {
+    padding: 0 40px;
+  }
+
+  .ec-intro__title {
+    font-size: 3.4375rem;
+  }
+
+  .ec-intro__text {
+    font-size: 1.5rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .pf-v5-c-login__container {
+    grid-template-columns: minmax(0, 1fr) 551px;
+    grid-template-areas: "intro main";
+    max-width: 1440px;
+    align-items: start;
+    padding-inline-end: 64px;
+  }
+
+  .ec-intro {
+    padding-top: 34px;
+    padding-inline-start: 100px;
+    max-width: 847px;
+  }
+
+  .ec-intro__illustration {
+    margin-inline: 17px 0;
+  }
+
+  .pf-v5-c-login__container:not(:has(.ec-intro)) {
+    grid-template-columns: 551px;
+    grid-template-areas: "main";
+    justify-content: center;
+    padding-inline-end: 0;
+  }
+}
