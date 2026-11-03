@@ -378,4 +378,11 @@ a:focus-visible,
   .ec-intro__illustration {
     margin-inline: 17px 0;
   }
+
+  .pf-v5-c-login__container:not(:has(.ec-intro)) {
+    grid-template-columns: 551px;
+    grid-template-areas: "main";
+    justify-content: center;
+    padding-inline-end: 0;
+  }
 }
