@@ -5,4 +5,10 @@ export const catalogRoutes: Routes = [
     path: '',
     loadComponent: () => import('./product-list/product-list').then((module) => module.ProductList),
   },
+  {
+    path: ':id',
+    title: 'Produto | DS Catalog',
+    loadComponent: () =>
+      import('./product-detail/product-detail').then((module) => module.ProductDetail),
+  },
 ];

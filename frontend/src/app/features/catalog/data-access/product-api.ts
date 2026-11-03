@@ -20,6 +20,10 @@ export class ProductApi {
     });
   }
 
+  byId(id: () => string) {
+    return httpResource<Product>(() => '/api/product/' + encodeURIComponent(id()));
+  }
+
   categories() {
     return httpResource<string[]>(() => '/api/product/categories');
   }

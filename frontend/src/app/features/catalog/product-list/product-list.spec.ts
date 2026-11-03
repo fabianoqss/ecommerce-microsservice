@@ -77,6 +77,7 @@ describe('ProductList', () => {
     await settle(harness);
     expect(element.querySelectorAll('ul li article')).toHaveLength(1);
     expect(element.textContent).toContain(product.name);
+    expect(element.querySelector('a[href="/catalog/1"] article')).not.toBeNull();
     expect(element.querySelector('[aria-live="polite"]')?.textContent).toContain(
       '1 produto encontrado',
     );

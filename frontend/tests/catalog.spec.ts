@@ -33,6 +33,9 @@ test('lista oito cards com preço e link ativo', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Catálogo de produtos' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Produtos' }).getByRole('article')).toHaveCount(8);
   await expect(page.getByRole('heading', { name: 'Teclado Mecânico TKL' })).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: 'Produtos' }).getByRole('link').first(),
+  ).toHaveAttribute('href', '/catalog/1');
   await expect(page.getByTestId('price-integer').first()).toHaveText('1.999');
   await expect(page.getByTestId('price-decimal').first()).toHaveText(',00');
   await expect(page.getByRole('link', { name: 'CATÁLOGO' })).toHaveAttribute(
