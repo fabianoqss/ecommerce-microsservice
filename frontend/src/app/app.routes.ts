@@ -12,4 +12,11 @@ export const routes: Routes = [
     title: 'Login | DS Catalog',
     loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
   },
+  {
+    path: 'catalog',
+    title: 'Catálogo | DS Catalog',
+    loadChildren: () =>
+      import('./features/catalog/catalog.routes').then((module) => module.catalogRoutes),
+  },
+  { path: '**', redirectTo: '' },
 ];

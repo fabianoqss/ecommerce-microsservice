@@ -1,0 +1,34 @@
+<article
+  class="h-[316px] overflow-hidden rounded-[10px] bg-surface-0 text-color shadow-[0px_4px_20px_0px_rgba(0,0,0,0.25)] dark:bg-surface-900"
+>
+  <div class="flex h-[183px] items-center justify-center border-b border-surface-200">
+    @if (product().imageUrl; as imageUrl) {
+      <img
+        [src]="imageUrl"
+        [alt]="product().name"
+        width="158"
+        height="158"
+        loading="lazy"
+        decoding="async"
+        class="size-[158px] object-contain"
+      />
+    } @else {
+      <span class="pi pi-image text-6xl text-muted-color" aria-hidden="true"></span>
+    }
+  </div>
+  <div class="px-[21px] pt-[15px]">
+    <h2 class="line-clamp-2 min-h-[50px] text-lg leading-[25px] font-bold tracking-[-0.27px]">
+      {{ product().name }}
+    </h2>
+    <p class="mt-1 flex items-start gap-[7px]">
+      <span class="sr-only">R$ {{ price().integer }}{{ price().decimal }}</span>
+      <span class="pt-1 text-lg leading-normal text-muted-color" aria-hidden="true">R$</span>
+      <span class="font-bold tracking-[-0.48px] text-primary" aria-hidden="true"
+        ><span class="text-[32px] leading-[40px]" data-testid="price-integer">{{
+          price().integer
+        }}</span
+        ><span class="text-lg" data-testid="price-decimal">{{ price().decimal }}</span></span
+      >
+    </p>
+  </div>
+</article>

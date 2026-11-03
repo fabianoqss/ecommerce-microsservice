@@ -12,13 +12,30 @@
       >
         <li>
           <a
-            href="/"
-            class="rounded-sm font-semibold opacity-50 transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
+            routerLink="/"
+            routerLinkActive="font-bold opacity-100"
+            [routerLinkActiveOptions]="{ exact: true }"
+            ariaCurrentWhenActive="page"
+            #homeLink="routerLinkActive"
+            [class.font-semibold]="!homeLink.isActive"
+            [class.opacity-50]="!homeLink.isActive"
+            class="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
             >HOME</a
           >
         </li>
-        <li><span class="font-semibold opacity-50">CATÁLOGO</span></li>
-        <li><span class="font-bold">ADMIN</span></li>
+        <li>
+          <a
+            routerLink="/catalog"
+            routerLinkActive="font-bold opacity-100"
+            ariaCurrentWhenActive="page"
+            #catalogLink="routerLinkActive"
+            [class.font-semibold]="!catalogLink.isActive"
+            [class.opacity-50]="!catalogLink.isActive"
+            class="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
+            >CATÁLOGO</a
+          >
+        </li>
+        <li><span class="font-semibold opacity-50">ADMIN</span></li>
       </ul>
     </nav>
   </div>
