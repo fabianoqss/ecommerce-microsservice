@@ -1,6 +1,7 @@
 realm: ecommerce
 enabled: true
 displayName: E-commerce
+loginTheme: ecommerce
 
 sslRequired: external
 

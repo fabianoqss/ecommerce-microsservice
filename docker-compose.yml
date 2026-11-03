@@ -30,6 +30,8 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
+    volumes:
+      - ./keycloak/themes:/opt/keycloak/themes:ro
     ports:
       - "127.0.0.1:8180:8080"
     healthcheck:
