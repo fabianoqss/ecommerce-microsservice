@@ -144,6 +144,10 @@ Secrets, URL pública e SMTP entram por variáveis de ambiente (`KC_BFF_CLIENT_S
 
 O realm exige HTTPS fora da rede local, verificação de e-mail, senha forte com histórico, bloqueio progressivo contra força bruta, access token de 5 minutos e sessão limitada a 30 minutos ociosa ou 10 horas no total, e registra eventos de login e administrativos (sem o corpo das requisições, que incluiria secrets). Os access tokens levam `aud=ecommerce-api`. No ambiente local, o issuer público é `http://localhost:8180/realms/ecommerce`; containers consultam JWKs e token endpoint pela rede interna. As variáveis `OIDC_*` controlam esses endereços. Em desenvolvimento, o SMTP aponta para o Mailpit (`http://localhost:8025`).
 
+Login com Google e GitHub é opcional e fica desligado por padrão. Para ligar, crie um OAuth client no provedor com a URL de callback `${KEYCLOAK_HOSTNAME}/realms/ecommerce/broker/<google|github>/endpoint` e preencha no `.env` `KC_IDP_<GOOGLE|GITHUB>_ENABLED=true`, `_CLIENT_ID` e `_CLIENT_SECRET`. Contas vindas do provedor nunca são vinculadas automaticamente por e-mail: se o e-mail já existir, o Keycloak pede que o usuário confirme a vinculação entrando com a conta existente. O e-mail do Google é confiado (já verificado pelo Google); o do GitHub passa pela verificação de e-mail do realm.
+
+Com a verificação de e-mail ligada, o formulário de cadastro pede só os dados do perfil; a senha é definida depois do clique no link de verificação. Isso impede que alguém crie uma conta com o e-mail de outra pessoa e uma senha própria antes do dono do e-mail.
+
 Para produção com HTTPS, consulte [Deploy na OCI](#deploy-na-oci). O override de desenvolvimento usa `SESSION_COOKIE_SECURE=false` para HTTP local.
 
 ### Inicialização
