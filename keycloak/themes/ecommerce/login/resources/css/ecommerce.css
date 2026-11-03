@@ -111,6 +111,10 @@
   border-top: 0;
 }
 
+[data-page-id="login-login-reset-password"] #kc-page-title {
+  font-size: 2.25rem;
+}
+
 #kc-page-title {
   color: var(--ec-text);
   font-size: 3rem;
