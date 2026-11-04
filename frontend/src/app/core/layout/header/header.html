@@ -1,78 +1,83 @@
-<header class="bg-primary text-primary-contrast">
+<header class="bg-primary font-sans text-white">
   <div
-    class="grid min-h-[70px] grid-cols-1 items-center gap-3 px-5 py-4 sm:grid-cols-[1fr_auto_1fr] sm:gap-0 sm:px-10 sm:py-0"
+    class="grid h-[50px] grid-cols-[1fr_auto] items-center px-5 md:h-[70px] md:grid-cols-[1fr_auto_1fr] md:px-10"
   >
-    <span class="text-2xl font-bold leading-normal tracking-[-0.36px] whitespace-nowrap">
+    <span
+      class="text-lg font-bold leading-normal tracking-[-0.27px] whitespace-nowrap md:text-2xl md:tracking-[-0.36px]"
+    >
       DS Catalog
     </span>
 
-    <nav aria-label="Navegação principal">
-      <ul
-        class="flex flex-wrap items-center gap-x-8 gap-y-2 text-lg leading-normal tracking-[-0.27px] sm:gap-x-[70px]"
-      >
-        <li>
-          <a
-            routerLink="/"
-            routerLinkActive="font-bold opacity-100"
-            [routerLinkActiveOptions]="{ exact: true }"
-            ariaCurrentWhenActive="page"
-            #homeLink="routerLinkActive"
-            [class.font-semibold]="!homeLink.isActive"
-            [class.opacity-50]="!homeLink.isActive"
-            class="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
-            >HOME</a
-          >
-        </li>
-        <li>
-          <a
-            routerLink="/catalog"
-            routerLinkActive="font-bold opacity-100"
-            ariaCurrentWhenActive="page"
-            #catalogLink="routerLinkActive"
-            [class.font-semibold]="!catalogLink.isActive"
-            [class.opacity-50]="!catalogLink.isActive"
-            class="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
-            >CATÁLOGO</a
-          >
-        </li>
-        @if (auth.isAdmin()) {
-          <li>
-            <a
-              routerLink="/admin"
-              routerLinkActive="font-bold opacity-100"
-              ariaCurrentWhenActive="page"
-              #adminLink="routerLinkActive"
-              [class.font-semibold]="!adminLink.isActive"
-              [class.opacity-50]="!adminLink.isActive"
-              class="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
-              >ADMIN</a
-            >
-          </li>
-        }
+    <nav aria-label="Navegação principal" class="hidden md:block">
+      <ul class="flex items-center gap-x-[86px] text-lg leading-normal tracking-[-0.27px]">
+        <ng-container [ngTemplateOutlet]="links" [ngTemplateOutletContext]="{ mobile: false }" />
       </ul>
     </nav>
 
     <div
-      class="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-lg leading-normal tracking-[-0.27px] sm:justify-end"
+      class="hidden min-w-0 flex-wrap items-center justify-end gap-x-4 gap-y-2 text-lg leading-normal font-semibold tracking-[-0.27px] md:flex"
     >
-      @if (auth.isAuthenticated()) {
-        <span class="wrap-anywhere">{{ firstName() }}</span>
-        <button
-          type="button"
-          (click)="auth.logout()"
-          class="min-h-11 cursor-pointer rounded-sm font-semibold text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
-        >
-          SAIR
-        </button>
-      } @else {
-        <button
-          type="button"
-          (click)="auth.login()"
-          class="min-h-11 cursor-pointer rounded-sm font-semibold text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
-        >
-          ENTRAR
-        </button>
-      }
+      <ng-container [ngTemplateOutlet]="account" />
     </div>
+
+    <button
+      #menuButton
+      type="button"
+      class="flex size-11 cursor-pointer items-center justify-end rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current md:hidden"
+      [attr.aria-expanded]="menuOpen()"
+      aria-controls="header-mobile-menu"
+      [attr.aria-label]="menuOpen() ? 'Fechar menu' : 'Abrir menu'"
+      (click)="toggleMenu()"
+    >
+      <img src="/images/icons/menu.svg" alt="" width="17" height="17" />
+    </button>
   </div>
+
+  @if (menuOpen()) {
+    <nav
+      id="header-mobile-menu"
+      aria-label="Navegação móvel"
+      class="w-full bg-primary pt-[44px] pr-5 pb-[42px] pl-[35px] text-lg leading-normal font-bold tracking-[-0.27px] md:hidden"
+    >
+      <ul class="flex flex-col items-start gap-[30px]">
+        <ng-container [ngTemplateOutlet]="links" [ngTemplateOutletContext]="{ mobile: true }" />
+      </ul>
+      <div class="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <ng-container [ngTemplateOutlet]="account" />
+      </div>
+    </nav>
+  }
 </header>
+
+<ng-template #links let-mobile="mobile">
+  @for (link of navigationLinks(); track link.path) {
+    <li>
+      <a
+        [routerLink]="link.path"
+        routerLinkActive="opacity-100"
+        [routerLinkActiveOptions]="{ exact: link.path === '/' }"
+        ariaCurrentWhenActive="page"
+        #activeLink="routerLinkActive"
+        [class.font-bold]="mobile || activeLink.isActive"
+        [class.font-semibold]="!mobile && !activeLink.isActive"
+        [class.opacity-50]="!mobile && !activeLink.isActive"
+        (click)="closeMenu()"
+        class="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
+        >{{ link.label }}</a
+      >
+    </li>
+  }
+</ng-template>
+
+<ng-template #account>
+  @if (auth.isAuthenticated()) {
+    <span class="wrap-anywhere md:font-normal">{{ firstName() }}</span>
+  }
+  <button
+    type="button"
+    (click)="auth.isAuthenticated() ? logout() : login()"
+    class="min-h-11 cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
+  >
+    {{ auth.isAuthenticated() ? 'SAIR' : 'ENTRAR' }}
+  </button>
+</ng-template>
