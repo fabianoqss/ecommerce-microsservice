@@ -16,10 +16,10 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Message } from 'primeng/message';
 import { Skeleton } from 'primeng/skeleton';
 import { Pagination } from '../../../shared/ui/pagination/pagination';
-import { ProductApi } from '../data-access/product-api';
-import { ProductFilter } from '../data-access/product-filter';
+import { ProductApi } from '../../../shared/data-access/product/product-api';
+import { ProductFilter } from '../../../shared/data-access/product/product-filter';
 import { ProductCard } from '../product-card/product-card';
-import { ProductSearch } from '../product-search/product-search';
+import { ProductSearch } from '../../../shared/ui/product-search/product-search';
 
 @Component({
   imports: [Message, Skeleton, Pagination, ProductCard, ProductSearch],

@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { Product } from '../data-access/product';
+import { Product } from '../../../shared/data-access/product/product';
 import { ProductCard } from './product-card';
 
 describe('ProductCard', () => {

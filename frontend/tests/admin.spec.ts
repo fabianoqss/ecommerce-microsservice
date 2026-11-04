@@ -139,3 +139,62 @@ test('menu acompanha o fundo escuro e mantém Produtos identificado', async ({ p
   await expect(menu.getByText('Categorias', { exact: true })).toBeVisible();
   await expect(menu.getByText('Usuários', { exact: true })).toBeVisible();
 });
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 1024, height: 900 },
+]) {
+  test(`toolbar alinha botão e busca no desktop em ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/admin/products');
+    const button = page.getByRole('button', { name: 'ADICIONAR', exact: true });
+    const search = page.locator('app-admin-products app-product-search');
+    await expect(button).toBeVisible();
+    await expect(search).toBeVisible();
+    const buttonBounds = await button.boundingBox();
+    const searchBounds = await search.boundingBox();
+    if (!buttonBounds || !searchBounds) throw new Error('Toolbar ausente');
+    expect(buttonBounds.x).toBe(345);
+    expect(buttonBounds.y).toBe(96);
+    expect(buttonBounds.width).toBe(170);
+    expect(buttonBounds.height).toBe(60);
+    expect(searchBounds.x - buttonBounds.x - buttonBounds.width).toBe(28);
+    expect(searchBounds.y).toBe(buttonBounds.y);
+    expect(searchBounds.height).toBe(60);
+    expect(searchBounds.width).toBe(viewport.width - 583);
+    expect(searchBounds.x + searchBounds.width).toBe(viewport.width - 40);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
+  });
+}
+
+for (const viewport of [
+  { width: 414, height: 896 },
+  { width: 767, height: 1024 },
+]) {
+  test(`toolbar empilha botão e busca no mobile em ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/admin/products');
+    const button = page.getByRole('button', { name: 'ADICIONAR', exact: true });
+    const search = page.locator('app-admin-products app-product-search');
+    await expect(button).toBeVisible();
+    await expect(search).toBeVisible();
+    const buttonBounds = await button.boundingBox();
+    const searchBounds = await search.boundingBox();
+    if (!buttonBounds || !searchBounds) throw new Error('Toolbar ausente');
+    expect(buttonBounds.x).toBe(20);
+    expect(buttonBounds.y).toBe(158);
+    expect(buttonBounds.width).toBe(viewport.width - 40);
+    expect(buttonBounds.height).toBe(50);
+    expect(searchBounds.x).toBe(buttonBounds.x);
+    expect(searchBounds.width).toBe(buttonBounds.width);
+    expect(searchBounds.y - buttonBounds.y - buttonBounds.height).toBe(20);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
+  });
+}
+
+test('digitar nome na busca administrativa atualiza a URL', async ({ page }) => {
+  await page.goto('/admin/products');
+  await page.getByRole('searchbox', { name: 'Nome do produto' }).fill('Teclado');
+  await expect(page).toHaveURL('/admin/products?name=Teclado');
+  await expect(page.getByRole('searchbox', { name: 'Nome do produto' })).toHaveValue('Teclado');
+});

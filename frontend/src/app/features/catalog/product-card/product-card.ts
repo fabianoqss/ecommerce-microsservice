@@ -1,7 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { priceParts } from '../../../shared/format/price-parts';
-import { Product } from '../data-access/product';
+import { Product } from '../../../shared/data-access/product/product';
 
 @Component({
   imports: [RouterLink],

@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { Message } from 'primeng/message';
 import { Skeleton } from 'primeng/skeleton';
 import { priceParts } from '../../../shared/format/price-parts';
-import { ProductApi } from '../data-access/product-api';
+import { ProductApi } from '../../../shared/data-access/product/product-api';
 
 @Component({
   imports: [RouterLink, Message, Skeleton],
