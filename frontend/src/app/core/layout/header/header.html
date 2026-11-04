@@ -12,14 +12,67 @@
       >
         <li>
           <a
-            href="/"
-            class="rounded-sm font-semibold opacity-50 transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
+            routerLink="/"
+            routerLinkActive="font-bold opacity-100"
+            [routerLinkActiveOptions]="{ exact: true }"
+            ariaCurrentWhenActive="page"
+            #homeLink="routerLinkActive"
+            [class.font-semibold]="!homeLink.isActive"
+            [class.opacity-50]="!homeLink.isActive"
+            class="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
             >HOME</a
           >
         </li>
-        <li><span class="font-semibold opacity-50">CATÁLOGO</span></li>
-        <li><span class="font-bold">ADMIN</span></li>
+        <li>
+          <a
+            routerLink="/catalog"
+            routerLinkActive="font-bold opacity-100"
+            ariaCurrentWhenActive="page"
+            #catalogLink="routerLinkActive"
+            [class.font-semibold]="!catalogLink.isActive"
+            [class.opacity-50]="!catalogLink.isActive"
+            class="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
+            >CATÁLOGO</a
+          >
+        </li>
+        @if (auth.isAdmin()) {
+          <li>
+            <a
+              routerLink="/admin"
+              routerLinkActive="font-bold opacity-100"
+              ariaCurrentWhenActive="page"
+              #adminLink="routerLinkActive"
+              [class.font-semibold]="!adminLink.isActive"
+              [class.opacity-50]="!adminLink.isActive"
+              class="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current focus-visible:opacity-100"
+              >ADMIN</a
+            >
+          </li>
+        }
       </ul>
     </nav>
+
+    <div
+      class="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-lg leading-normal tracking-[-0.27px] sm:justify-end"
+    >
+      @if (auth.isAuthenticated()) {
+        <span class="wrap-anywhere">{{ firstName() }}</span>
+        <button
+          type="button"
+          (click)="auth.logout()"
+          class="min-h-11 cursor-pointer rounded-sm font-semibold text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
+        >
+          SAIR
+        </button>
+      } @else {
+        <button
+          type="button"
+          (click)="auth.login()"
+          class="min-h-11 cursor-pointer rounded-sm font-semibold text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
+        >
+          ENTRAR
+        </button>
+      }
+    </div>
   </div>
 </header>

@@ -16,6 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Objects;
 
 
@@ -23,6 +24,7 @@ import java.util.Objects;
 public class ProductService {
 
     static final String CONFLICT_METRIC = "product.write.conflicts";
+    static final String SEARCH_METRIC = "product.search";
 
     private static final Logger log = LoggerFactory.getLogger(ProductService.class);
 
@@ -39,9 +41,16 @@ public class ProductService {
     }
 
 
-    public PageResponseDTO<ProductResponseDTO> findAll(int page, int size) {
+
+    public PageResponseDTO<ProductResponseDTO> findAll(String name, String category, int page, int size) {
         var pageable = PageRequest.of(page, size, Sort.by("id"));
-        return PageResponseDTO.from(repository.findAll(pageable).map(ProductResponseDTO::from));
+        var result = repository.search(name, category, pageable);
+        meterRegistry.counter(SEARCH_METRIC, "filtered", String.valueOf(isFiltered(name, category))).increment();
+        return PageResponseDTO.from(result.map(ProductResponseDTO::from));
+    }
+
+    public List<String> findCategories() {
+        return repository.findCategories();
     }
 
     public ProductResponseDTO insert(ProductRequestDTO dto){
@@ -98,5 +107,9 @@ public class ProductService {
         entity.setDescription(dto.description());
         entity.setPrice(dto.price());
         entity.setImageUrl(dto.imageUrl());
+    }
+
+    private static boolean isFiltered(String name, String category) {
+        return (name != null && !name.isBlank()) || (category != null && !category.isBlank());
     }
 }

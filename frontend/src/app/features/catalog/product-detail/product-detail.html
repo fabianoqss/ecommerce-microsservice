@@ -1,0 +1,109 @@
+<section
+  aria-label="Detalhe do produto"
+  [attr.aria-busy]="productResource.isLoading()"
+  class="rounded-[20px] bg-surface-0 p-5 text-color shadow-[0px_4px_20px_0px_rgba(0,0,0,0.25)] lg:p-[60px] dark:bg-surface-900"
+>
+  <a
+    routerLink="/catalog"
+    queryParamsHandling="preserve"
+    class="mb-10 inline-flex items-center gap-10 rounded-sm text-2xl leading-normal font-bold tracking-[-0.36px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+  >
+    <span class="pi pi-angle-left text-3xl text-primary" aria-hidden="true"></span>
+    VOLTAR
+  </a>
+  @if (productResource.isLoading()) {
+    <p role="status" class="sr-only">Carregando produto.</p>
+    <div class="grid grid-cols-1 gap-[30px] lg:grid-cols-2 lg:gap-[67px]" aria-hidden="true">
+      <div class="min-w-0">
+        <div
+          class="flex h-[397px] items-center justify-center rounded-[20px] border border-surface-200 p-5"
+        >
+          <div class="w-full max-w-[353px]">
+            <p-skeleton width="100%" height="280px" />
+          </div>
+        </div>
+        <div class="mt-[30px]"><p-skeleton width="80%" height="43px" /></div>
+        <div class="mt-4"><p-skeleton width="60%" height="58px" /></div>
+      </div>
+      <div
+        class="min-w-0 rounded-[20px] border border-surface-200 px-5 py-[38px] lg:min-h-[593px] lg:px-[29px]"
+      >
+        <p-skeleton width="100%" height="300px" />
+      </div>
+    </div>
+  } @else if (notFound()) {
+    <div class="flex flex-col items-start gap-5" role="status">
+      <h1 class="text-2xl font-bold">Produto não encontrado.</h1>
+      <a
+        routerLink="/catalog"
+        queryParamsHandling="preserve"
+        class="rounded-sm font-bold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        >Voltar ao catálogo</a
+      >
+    </div>
+  } @else if (productResource.error()) {
+    <div class="flex flex-col items-start gap-5">
+      <p-message severity="error">{{ errorMessage() }}</p-message>
+      <button
+        type="button"
+        (click)="productResource.reload()"
+        class="rounded-[10px] bg-primary px-5 py-3 font-bold text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+      >
+        Tentar novamente
+      </button>
+    </div>
+  } @else if (product(); as product) {
+    <div class="grid grid-cols-1 gap-[30px] lg:grid-cols-2 lg:gap-[67px]">
+      <div class="min-w-0">
+        <div
+          class="flex h-[397px] items-center justify-center rounded-[20px] border border-surface-200 p-5"
+        >
+          @if (product.imageUrl; as imageUrl) {
+            <img
+              [src]="imageUrl"
+              [alt]="product.name"
+              width="353"
+              height="353"
+              decoding="async"
+              class="max-h-[353px] w-full max-w-[353px] object-contain"
+            />
+          } @else {
+            <span class="pi pi-image text-6xl text-muted-color" aria-hidden="true"></span>
+          }
+        </div>
+        <h1
+          class="mt-[30px] text-[28px] leading-tight font-bold tracking-[-0.54px] wrap-anywhere lg:text-4xl"
+        >
+          {{ product.name }}
+        </h1>
+        <p class="mt-4 flex flex-wrap items-start gap-[7px]">
+          <span class="sr-only">R$ {{ price().integer }}{{ price().decimal }}</span>
+          <span class="pt-1 text-[28px] leading-normal text-muted-color" aria-hidden="true"
+            >R$</span
+          >
+          <span class="font-bold tracking-[-0.72px] text-primary" aria-hidden="true"
+            ><span
+              class="text-[40px] leading-tight wrap-anywhere lg:text-5xl"
+              data-testid="price-integer"
+              >{{ price().integer }}</span
+            ><span class="text-[28px]" data-testid="price-decimal">{{
+              price().decimal
+            }}</span></span
+          >
+        </p>
+      </div>
+      <div
+        class="min-w-0 rounded-[20px] border border-surface-200 px-5 py-[38px] lg:min-h-[593px] lg:px-[29px]"
+      >
+        <h2 class="text-2xl leading-normal font-bold tracking-[-0.36px] text-muted-color">
+          Descrição do produto
+        </h2>
+        <p
+          class="mt-[30px] text-lg tracking-[-0.27px] wrap-anywhere whitespace-pre-line text-muted-color"
+        >
+          {{ product.description || 'Este produto ainda não tem descrição.' }}
+        </p>
+      </div>
+    </div>
+  }
+</section>
