@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -44,7 +45,7 @@ class ProductPaginationTest {
     @Test
     void defaultPageIsBoundedAndUsesStableResponse() throws Exception {
         var pageable = PageRequest.of(0, 20, Sort.by("id"));
-        when(repository.findAll(any(Pageable.class))).thenReturn(Page.empty(pageable));
+        when(repository.search(any(), any(), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         mvc.perform(get("/api/product"))
                 .andExpect(status().isOk())
@@ -54,7 +55,7 @@ class ProductPaginationTest {
                 .andExpect(jsonPath("$.totalElements").value(0))
                 .andExpect(jsonPath("$.totalPages").value(0))
                 .andExpect(jsonPath("$.pageable").doesNotExist());
-        verify(repository).findAll(pageable);
+        verify(repository).search(null, null, pageable);
     }
 
     @Test
@@ -64,7 +65,7 @@ class ProductPaginationTest {
         product.setName("Teclado");
         product.setPrice(new BigDecimal("10.00"));
         var pageable = PageRequest.of(1, 20, Sort.by("id"));
-        when(repository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(product), pageable, 45));
+        when(repository.search(any(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(product), pageable, 45));
 
         mvc.perform(get("/api/product").param("page", "1").param("size", "20"))
                 .andExpect(status().isOk())
@@ -75,17 +76,47 @@ class ProductPaginationTest {
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(45))
                 .andExpect(jsonPath("$.totalPages").value(3));
-        verify(repository).findAll(pageable);
+        verify(repository).search(null, null, pageable);
     }
 
     @Test
     void acceptsMaximumPageSize() throws Exception {
         var pageable = PageRequest.of(0, 100, Sort.by("id"));
-        when(repository.findAll(any(Pageable.class))).thenReturn(Page.empty(pageable));
+        when(repository.search(any(), any(), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         mvc.perform(get("/api/product").param("size", "100"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size").value(100));
-        verify(repository).findAll(pageable);
+        verify(repository).search(null, null, pageable);
+    }
+
+    @Test
+    void forwardsNameAndCategoryFiltersToTheRepository() throws Exception {
+        var pageable = PageRequest.of(0, 8, Sort.by("id"));
+        when(repository.search(any(), any(), any(Pageable.class))).thenReturn(Page.empty(pageable));
+
+        mvc.perform(get("/api/product")
+                        .param("name", "tecl")
+                        .param("category", "Periféricos")
+                        .param("size", "8"))
+                .andExpect(status().isOk());
+        verify(repository).search(eq("tecl"), eq("Periféricos"), eq(pageable));
+    }
+
+    @Test
+    void rejectsNameLongerThanOneHundredCharacters() throws Exception {
+        mvc.perform(get("/api/product").param("name", "a".repeat(101)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listsCategoriesPublicly() throws Exception {
+        when(repository.findCategories()).thenReturn(List.of("Acessórios", "Áudio", "Livros"));
+
+        mvc.perform(get("/api/product/categories"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0]").value("Acessórios"))
+                .andExpect(jsonPath("$[1]").value("Áudio"))
+                .andExpect(jsonPath("$[2]").value("Livros"));
     }
 }

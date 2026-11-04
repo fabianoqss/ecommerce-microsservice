@@ -138,4 +138,19 @@ class SessionChainTest extends GatewayTestSupport {
                         org.hamcrest.Matchers.startsWith("http://localhost:8180/realms/ecommerce/protocol/openid-connect/logout"),
                         org.hamcrest.Matchers.containsString("post_logout_redirect_uri=http://localhost:3000/"))));
     }
+
+    @Test
+    void spaLogoutReturnsAcceptedWithKeycloakEndSessionLocation() throws Exception {
+        mvc.perform(post("/logout").with(customer()).with(xsrf()).header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isAccepted())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.startsWith("http://localhost:8180/realms/ecommerce/protocol/openid-connect/logout"),
+                        org.hamcrest.Matchers.containsString("post_logout_redirect_uri=http://localhost:3000/"))));
+    }
+
+    @Test
+    void spaLogoutWithoutCsrfIsForbidden() throws Exception {
+        mvc.perform(post("/logout").with(customer()).header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isForbidden());
+    }
 }
