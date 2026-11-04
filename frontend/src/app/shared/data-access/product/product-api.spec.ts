@@ -36,6 +36,17 @@ describe('ProductApi', () => {
     expect(result.value()).toEqual(response);
   });
 
+  it('permite solicitar quatro produtos sem alterar o tamanho padrão', async () => {
+    const result = TestBed.runInInjectionContext(() =>
+      api.list(() => ({ page: 0, name: '', category: '' }), 4),
+    );
+    TestBed.tick();
+    const response = { content: [], page: 0, size: 4, totalElements: 0, totalPages: 0 };
+    http.expectOne('/api/product?page=0&size=4').flush(response);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(result.value()).toEqual(response);
+  });
+
   it('omite filtros vazios e refaz a requisição quando o filtro muda', () => {
     const page = signal(0);
     TestBed.runInInjectionContext(() =>
