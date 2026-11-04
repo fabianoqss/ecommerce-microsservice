@@ -1,11 +1,12 @@
 <h1 class="sr-only">Produtos</h1>
 <div class="flex w-full flex-col gap-5 md:flex-row md:gap-7">
-  <button
-    type="button"
-    class="h-[50px] w-full shrink-0 rounded-[10px] bg-primary font-sans text-base font-bold tracking-[-0.24px] text-white transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:h-[60px] md:w-[170px]"
+  <a
+    routerLink="/admin/products/new"
+    queryParamsHandling="preserve"
+    class="flex items-center justify-center h-[50px] w-full shrink-0 rounded-[10px] bg-primary font-sans text-base font-bold tracking-[-0.24px] text-white transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:h-[60px] md:w-[170px]"
   >
     ADICIONAR
-  </button>
+  </a>
   <app-product-search
     #search
     class="block w-full min-w-0 md:flex-1"
@@ -45,7 +46,13 @@
     @if (result.content.length) {
       <ul aria-label="Produtos" class="grid gap-[21px]" [class.opacity-50]="products.isLoading()">
         @for (product of result.content; track product.id) {
-          <li class="min-w-0"><app-admin-product-card [product]="product" /></li>
+          <li class="min-w-0">
+            <app-admin-product-card
+              [product]="product"
+              (edit)="edit($event)"
+              (remove)="remove($event)"
+            />
+          </li>
         }
       </ul>
     } @else {
@@ -67,3 +74,9 @@
     }
   }
 </div>
+
+<p-confirmdialog styleClass="w-[calc(100%-40px)] max-w-lg">
+  <ng-template #message let-confirmation>
+    <p class="min-w-0 break-words">{{ confirmation.message }}</p>
+  </ng-template>
+</p-confirmdialog>

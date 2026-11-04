@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
 import { TestBed } from '@angular/core/testing';
 import { NavigationEnd, provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -23,6 +24,8 @@ describe('AdminProducts', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
+        ConfirmationService,
+        MessageService,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(
@@ -87,13 +90,11 @@ describe('AdminProducts', () => {
     expect(heading?.hasAttribute('aria-hidden')).toBe(false);
   });
 
-  it('mostra o botão ADICIONAR sem submeter formulário ou navegar', async () => {
-    const { element } = await render();
-    const button = element.querySelector('button');
-    expect(button?.textContent?.trim()).toBe('ADICIONAR');
-    expect(button?.type).toBe('button');
-    button?.click();
-    expect(TestBed.inject(Router).url).toBe('/admin/products');
+  it('ADICIONAR é um link que preserva os filtros', async () => {
+    const { element } = await render('/admin/products?name=Teclado&extra=1');
+    const link = element.querySelector('a');
+    expect(link?.textContent?.trim()).toBe('ADICIONAR');
+    expect(link?.getAttribute('href')).toBe('/admin/products/new?name=Teclado&extra=1');
   });
 
   it('preenche a busca com os filtros da URL e acompanha novas navegações', async () => {
@@ -294,5 +295,100 @@ describe('AdminProducts', () => {
     await settle(harness);
     expect(element.querySelector('p-message')).toBeNull();
     expect(element.querySelectorAll('article')).toHaveLength(4);
+  });
+  async function renderActions() {
+    const result = await render('/admin/products?name=Teclado&extra=1', false, false);
+    http.expectOne((req) => req.url === '/api/product').flush(productPage);
+    await settle(result.harness);
+    return result;
+  }
+
+  it('EDITAR navega para edição preservando query params', async () => {
+    const { element } = await renderActions();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    element.querySelector<HTMLButtonElement>('article button')?.click();
+    expect(navigate).toHaveBeenCalledWith(['/admin/products', '0', 'edit'], {
+      queryParamsHandling: 'preserve',
+    });
+  });
+
+  it('abre confirmação com nome e foco no cancelar; cancelar não exclui', async () => {
+    const { element } = await renderActions();
+    const confirm = vi.spyOn(TestBed.inject(ConfirmationService), 'confirm');
+    element.querySelectorAll<HTMLButtonElement>('article button')[1]?.click();
+    const confirmation = confirm.mock.calls[0]?.[0];
+    expect(confirmation?.message).toContain('Excluir "Produto 0"?');
+    expect(confirmation?.defaultFocus).toBe('reject');
+    expect(confirmation?.acceptLabel).toBe('Excluir');
+    expect(confirmation?.rejectLabel).toBe('Cancelar');
+    confirmation?.reject?.();
+    http.expectNone((req) => req.method === 'DELETE');
+  });
+
+  it('exclui com ETag, bloqueia confirmação duplicada e recarrega sem skeleton', async () => {
+    const { harness, element } = await renderActions();
+    const messages = vi.spyOn(TestBed.inject(MessageService), 'add');
+    const confirm = vi.spyOn(TestBed.inject(ConfirmationService), 'confirm');
+    const remove = element.querySelectorAll<HTMLButtonElement>('article button')[1];
+    remove?.click();
+    remove?.click();
+    expect(confirm).toHaveBeenCalledTimes(1);
+    const confirmation: Confirmation | undefined = confirm.mock.calls[0]?.[0];
+    confirmation?.accept?.();
+    confirmation?.accept?.();
+    const req = http.expectOne('/api/product/0');
+    expect(req.request.method).toBe('DELETE');
+    expect(req.request.headers.get('If-Match')).toBe('"0"');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    TestBed.tick();
+    harness.detectChanges();
+    expect(element.querySelectorAll('article')).toHaveLength(4);
+    expect(element.querySelector('p-skeleton')).toBeNull();
+    http.expectOne((req) => req.url === '/api/product').flush(emptyPage);
+    await settle(harness);
+    expect(messages).toHaveBeenCalledWith(expect.objectContaining({ severity: 'success' }));
+    expect(element.textContent).toContain('Nenhum produto encontrado.');
+  });
+
+  it.each([
+    [412, 'alterado'],
+    [404, 'não existe'],
+    [503, 'Falha ao excluir.'],
+  ])('trata erro %s ao excluir', async (status, message) => {
+    const { harness, element } = await renderActions();
+    const messages = vi.spyOn(TestBed.inject(MessageService), 'add');
+    const confirm = vi.spyOn(TestBed.inject(ConfirmationService), 'confirm');
+    element.querySelectorAll<HTMLButtonElement>('article button')[1]?.click();
+    confirm.mock.calls[0]?.[0].accept?.();
+    http
+      .expectOne('/api/product/0')
+      .flush({ detail: 'Falha ao excluir.' }, { status, statusText: 'Error' });
+    TestBed.tick();
+    if (status === 503) http.expectNone((req) => req.url === '/api/product');
+    else http.expectOne((req) => req.url === '/api/product').flush(productPage);
+    await settle(harness);
+    expect(messages).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: expect.stringContaining(message) }),
+    );
+  });
+  it('renderiza o nome da confirmação literalmente, sem criar elementos HTML', async () => {
+    const { harness, element } = await render('/admin/products', false, false);
+    const name = '<img src=x onerror=alert(1)>Produto';
+    http
+      .expectOne((req) => req.url === '/api/product')
+      .flush({ ...productPage, content: [{ ...products[0], name }] });
+    await settle(harness);
+    element.querySelectorAll<HTMLButtonElement>('article button')[1]?.click();
+    await settle(harness);
+    const dialog = document.querySelector('div[role="alertdialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain(name);
+    expect(dialog?.querySelector('img')).toBeNull();
+    const cancel = Array.from(dialog?.querySelectorAll('button') ?? []).find(
+      (button) => button.textContent?.trim() === 'Cancelar',
+    );
+    cancel?.click();
+    await settle(harness);
+    http.expectNone((req) => req.method === 'DELETE');
   });
 });

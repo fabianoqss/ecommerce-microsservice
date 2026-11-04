@@ -1,0 +1,169 @@
+<section
+  class="mt-[14px] w-full min-w-0 rounded-[20px] bg-surface-0 p-5 text-color shadow-[0px_4px_20px_0px_rgba(0,0,0,0.25)] md:px-[47px] md:pt-[75px] md:pb-[49px] dark:bg-surface-900"
+  aria-labelledby="product-heading"
+>
+  <h1 id="product-heading" class="text-2xl leading-[29px] font-bold tracking-[-0.36px]">
+    DADOS DO PRODUTO
+  </h1>
+  @if (productResource?.isLoading()) {
+    <div
+      class="mt-[47px] grid gap-8 md:grid-cols-2"
+      aria-label="Carregando produto"
+      aria-busy="true"
+    >
+      <div class="grid content-start gap-8" aria-hidden="true">
+        @for (item of [0, 1, 2]; track item) {
+          <p-skeleton height="50px" />
+        }
+      </div>
+      <p-skeleton height="447px" aria-hidden="true" />
+    </div>
+  } @else if (notFound()) {
+    <div class="mt-10 flex flex-col items-start gap-5">
+      <p-message severity="error">Produto não encontrado.</p-message>
+      <a
+        routerLink="/admin/products"
+        queryParamsHandling="preserve"
+        class="text-primary underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        >Voltar para a lista</a
+      >
+    </div>
+  } @else if (productResource?.error()) {
+    <div class="mt-10 flex flex-col items-start gap-5">
+      <p-message severity="error">{{ loadError() }}</p-message>
+      <button
+        type="button"
+        (click)="reload()"
+        class="rounded-[10px] bg-primary px-5 py-3 font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+      >
+        Tentar novamente
+      </button>
+    </div>
+  } @else {
+    <form
+      [formGroup]="form"
+      (ngSubmit)="save()"
+      [attr.aria-busy]="saving()"
+      class="mt-8 md:mt-[47px]"
+    >
+      <fieldset
+        [disabled]="saving()"
+        class="grid min-w-0 gap-8 md:grid-cols-[minmax(0,454fr)_minmax(0,475fr)]"
+      >
+        <legend class="sr-only">Dados do produto</legend>
+        <div class="grid min-w-0 content-start gap-8">
+          <div>
+            <label for="name" class="sr-only">Nome do Produto</label>
+            <input
+              id="name"
+              formControlName="name"
+              placeholder="Nome do Produto"
+              autocomplete="off"
+              [attr.aria-invalid]="!!fieldError('name')"
+              [attr.aria-describedby]="fieldError('name') ? 'name-error' : null"
+              class="h-[50px] w-full min-w-0 rounded-[10px] border border-surface-200 bg-transparent px-5 text-lg tracking-[-0.27px] placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            />
+            @if (fieldError('name'); as error) {
+              <p id="name-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+            }
+          </div>
+          <div>
+            <label for="category" class="sr-only">Categorias</label>
+            <input
+              id="category"
+              formControlName="category"
+              placeholder="Categorias"
+              list="product-categories"
+              autocomplete="off"
+              [attr.aria-invalid]="!!fieldError('category')"
+              [attr.aria-describedby]="fieldError('category') ? 'category-error' : null"
+              class="h-[50px] w-full min-w-0 rounded-[10px] border border-surface-200 bg-transparent px-5 text-lg tracking-[-0.27px] placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            />
+            <datalist id="product-categories">
+              @for (category of categories(); track category) {
+                <option [value]="category"></option>
+              }
+            </datalist>
+            @if (fieldError('category'); as error) {
+              <p id="category-error" class="mt-2 text-sm text-red-600 dark:text-red-400">
+                {{ error }}
+              </p>
+            }
+          </div>
+          <div>
+            <label for="price" class="sr-only">Preço</label>
+            <input
+              id="price"
+              type="text"
+              inputmode="decimal"
+              formControlName="price"
+              placeholder="Preço"
+              autocomplete="off"
+              [attr.aria-invalid]="!!fieldError('price')"
+              [attr.aria-describedby]="fieldError('price') ? 'price-error' : null"
+              class="h-[50px] w-full min-w-0 rounded-[10px] border border-surface-200 bg-transparent px-5 text-lg tracking-[-0.27px] placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            />
+            @if (fieldError('price'); as error) {
+              <p id="price-error" class="mt-2 text-sm text-red-600 dark:text-red-400">
+                {{ error }}
+              </p>
+            }
+          </div>
+        </div>
+        <div class="min-w-0">
+          <label for="description" class="sr-only">Descrição</label>
+          <textarea
+            id="description"
+            formControlName="description"
+            placeholder="Descrição"
+            [attr.aria-invalid]="!!fieldError('description')"
+            [attr.aria-describedby]="fieldError('description') ? 'description-error' : null"
+            class="block h-[200px] w-full min-w-0 resize-y rounded-[10px] border border-surface-200 bg-transparent px-5 py-3 text-lg tracking-[-0.27px] placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:h-[447px]"
+          ></textarea>
+          @if (fieldError('description'); as error) {
+            <p id="description-error" class="mt-2 text-sm text-red-600 dark:text-red-400">
+              {{ error }}
+            </p>
+          }
+        </div>
+      </fieldset>
+      @if (saveError()) {
+        <p-message severity="error" class="mt-5 block">{{ saveError() }}</p-message>
+      }
+      @if (conflict()) {
+        <div class="mt-5 flex flex-col items-start gap-4">
+          <p-message severity="warn"
+            >Outra pessoa alterou este produto. Seus dados foram mantidos. Recarregue os dados antes
+            de salvar novamente; isso substituirá os campos pelos valores atuais.</p-message
+          >
+          <button
+            type="button"
+            (click)="reload()"
+            class="rounded-[10px] bg-primary px-5 py-3 font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+          >
+            Recarregar dados
+          </button>
+        </div>
+      }
+      <div
+        class="mt-8 flex flex-col-reverse gap-5 md:mt-[73px] md:flex-row md:justify-end md:gap-[29px]"
+      >
+        <button
+          type="button"
+          (click)="cancel()"
+          [disabled]="saving()"
+          class="h-[60px] w-full rounded-[10px] border border-[#DF5753] bg-transparent text-base font-bold tracking-[-0.24px] text-[#DF5753] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary disabled:opacity-50 md:w-[273px]"
+        >
+          CANCELAR
+        </button>
+        <button
+          type="submit"
+          [disabled]="saving() || conflict()"
+          class="h-[60px] w-full rounded-[10px] bg-primary text-base font-bold tracking-[-0.24px] text-white hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary disabled:opacity-50 md:w-[273px]"
+        >
+          {{ saving() ? 'SALVANDO...' : 'SALVAR' }}
+        </button>
+      </div>
+    </form>
+  }
+</section>

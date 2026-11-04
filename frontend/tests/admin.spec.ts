@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 
 const products = Array.from({ length: 4 }, (_, index) => ({
   id: String(index + 1),
@@ -158,7 +158,7 @@ for (const viewport of [
   test(`toolbar alinha botão e busca no desktop em ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto('/admin/products');
-    const button = page.getByRole('button', { name: 'ADICIONAR', exact: true });
+    const button = page.getByRole('link', { name: 'ADICIONAR', exact: true });
     const search = page.locator('app-admin-products app-product-search');
     await expect(button).toBeVisible();
     await expect(search).toBeVisible();
@@ -185,7 +185,7 @@ for (const viewport of [
   test(`toolbar empilha botão e busca no mobile em ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto('/admin/products');
-    const button = page.getByRole('button', { name: 'ADICIONAR', exact: true });
+    const button = page.getByRole('link', { name: 'ADICIONAR', exact: true });
     const search = page.locator('app-admin-products app-product-search');
     await expect(button).toBeVisible();
     await expect(search).toBeVisible();
@@ -327,4 +327,214 @@ test('mantém os quatro cards sem skeleton durante resposta atrasada do filtro',
     'data-skeleton-appeared',
     'false',
   );
+});
+
+async function fillProduct(page: Page) {
+  await page.getByLabel('Nome do Produto', { exact: true }).fill(' Teclado novo ');
+  await page.getByLabel('Categorias', { exact: true }).fill(' Nova categoria ');
+  await page.getByLabel('Preço', { exact: true }).fill('1.234,56');
+  await page.getByLabel('Descrição', { exact: true }).fill(' Teclado mecânico para trabalho ');
+}
+
+test('cria produto com categoria nova, imagem nula e retorna com filtros e toast', async ({
+  page,
+}) => {
+  let created = false;
+  await page.route('**/api/product', async (route) => {
+    expect(route.request().method()).toBe('POST');
+    const body: unknown = route.request().postDataJSON();
+    expect(body).toEqual({
+      name: 'Teclado novo',
+      description: 'Teclado mecânico para trabalho',
+      category: 'Nova categoria',
+      price: 1234.56,
+      imageUrl: null,
+    });
+    created = true;
+    await route.fulfill({ status: 201, json: { ...products[0], id: 'new' } });
+  });
+  await page.goto('/admin/products?name=Teclado&extra=1');
+  await page.getByRole('link', { name: 'ADICIONAR', exact: true }).click();
+  await expect(page).toHaveTitle('Novo produto | DS Catalog');
+  await fillProduct(page);
+  await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+  await expect(page).toHaveURL('/admin/products?name=Teclado&extra=1');
+  await expect(page.getByText('Produto criado com sucesso.', { exact: true })).toBeVisible();
+  expect(created).toBe(true);
+});
+
+test('edita com If-Match entre aspas e preserva imageUrl', async ({ page }) => {
+  const loaded = { ...products[0], imageUrl: 'https://example.com/existing.png', version: 3 };
+  let updated = false;
+  await page.route('**/api/product/1', async (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: loaded });
+    expect(route.request().method()).toBe('PUT');
+    expect(route.request().headers()['if-match']).toBe('"3"');
+    expect(route.request().postDataJSON()).toEqual({
+      name: 'Teclado novo',
+      description: 'Teclado mecânico para trabalho',
+      category: 'Nova categoria',
+      price: 1234.56,
+      imageUrl: 'https://example.com/existing.png',
+    });
+    updated = true;
+    await route.fulfill({ json: { ...loaded, version: 4 } });
+  });
+  await page.goto('/admin/products?extra=1');
+  await page.getByRole('button', { name: 'Editar ' + products[0].name, exact: true }).click();
+  await expect(page).toHaveURL('/admin/products/1/edit?extra=1');
+  await expect(page).toHaveTitle('Editar produto | DS Catalog');
+  await expect(page.getByLabel('Preço', { exact: true })).toHaveValue('2.779,00');
+  await fillProduct(page);
+  await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+  await expect(page).toHaveURL('/admin/products?extra=1');
+  expect(updated).toBe(true);
+});
+
+test('exclui somente após confirmar, enviando ETag', async ({ page }) => {
+  let deleted = false;
+  let reads = 0;
+  await page.route('**/api/product?**', async (route) => {
+    reads++;
+    await route.fulfill({
+      json: deleted
+        ? { ...productPage, content: products.slice(1), totalElements: 3 }
+        : productPage,
+    });
+  });
+  await page.route('**/api/product/1', async (route) => {
+    expect(route.request().method()).toBe('DELETE');
+    expect(route.request().headers()['if-match']).toBe('"0"');
+    deleted = true;
+    await route.fulfill({ status: 204 });
+  });
+  await page.goto('/admin/products');
+  await page.getByRole('button', { name: 'Excluir ' + products[0].name, exact: true }).click();
+  const dialog = page.locator('div[role="alertdialog"]');
+  await expect(dialog).toContainText(
+    'Excluir "' + products[0].name + '"? Esta ação não pode ser desfeita.',
+  );
+  await expect(dialog.getByRole('button', { name: 'Cancelar', exact: true })).toBeFocused();
+  expect(deleted).toBe(false);
+  await dialog.getByRole('button', { name: 'Excluir', exact: true }).click();
+  await expect(
+    page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('article'),
+  ).toHaveCount(3);
+  await expect(page.getByText('Produto excluído com sucesso.', { exact: true })).toBeVisible();
+  expect(deleted).toBe(true);
+  expect(reads).toBe(2);
+});
+
+test('cancelar exclusão não envia DELETE e nome com HTML é texto literal', async ({ page }) => {
+  let deletes = 0;
+  const name = '<img src=x onerror=alert(1)>Produto';
+  await page.route('**/api/product?**', (route) =>
+    route.fulfill({ json: { ...productPage, content: [{ ...products[0], name }] } }),
+  );
+  page.on('request', (request) => {
+    if (request.method() === 'DELETE') deletes++;
+  });
+  await page.goto('/admin/products');
+  await page.getByRole('button', { name: 'Excluir ' + name, exact: true }).click();
+  const dialog = page.locator('div[role="alertdialog"]');
+  await expect(dialog).toContainText(name);
+  await expect(dialog.locator('img')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(deletes).toBe(0);
+});
+
+test('412 mantém entrada até recarga explícita e usa versão atual na tentativa seguinte', async ({
+  page,
+}) => {
+  let reads = 0;
+  let writes = 0;
+  await page.route('**/api/product/1', async (route) => {
+    if (route.request().method() === 'GET') {
+      reads++;
+      return route.fulfill({
+        json: {
+          ...products[0],
+          name: reads === 1 ? 'Original' : 'Outra pessoa',
+          version: reads === 1 ? 3 : 7,
+          imageUrl: reads === 1 ? null : 'https://example.com/new.png',
+        },
+      });
+    }
+    writes++;
+    if (writes === 1) {
+      expect(route.request().headers()['if-match']).toBe('"3"');
+      return route.fulfill({ status: 412, json: { detail: 'Versão desatualizada.' } });
+    }
+    expect(route.request().headers()['if-match']).toBe('"7"');
+    expect(route.request().postDataJSON().imageUrl).toBe('https://example.com/new.png');
+    await route.fulfill({ json: { ...products[0], version: 8 } });
+  });
+  await page.goto('/admin/products/1/edit');
+  await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue('Original');
+  await fillProduct(page);
+  await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+  await expect(page.getByText(/Outra pessoa alterou este produto/)).toBeVisible();
+  await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue(' Teclado novo ');
+  expect(reads).toBe(1);
+  expect(writes).toBe(1);
+  await page.getByRole('button', { name: 'Recarregar dados', exact: true }).click();
+  await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue('Outra pessoa');
+  await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+  await expect(page).toHaveURL('/admin/products');
+  expect(writes).toBe(2);
+});
+
+test('formulário segue geometria desktop em 1440px', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.goto('/admin/products/new');
+  const box = page.locator('app-admin-product-form > section');
+  const title = page.getByRole('heading', { name: 'DADOS DO PRODUTO', level: 1 });
+  await expect(title).toBeVisible();
+  const bounds = await box.boundingBox();
+  const heading = await title.boundingBox();
+  const name = await page.getByLabel('Nome do Produto', { exact: true }).boundingBox();
+  const category = await page.getByLabel('Categorias', { exact: true }).boundingBox();
+  const price = await page.getByLabel('Preço', { exact: true }).boundingBox();
+  const description = await page.getByLabel('Descrição', { exact: true }).boundingBox();
+  const cancel = await page.getByRole('button', { name: 'CANCELAR', exact: true }).boundingBox();
+  const save = await page.getByRole('button', { name: 'SALVAR', exact: true }).boundingBox();
+  if (!bounds || !heading || !name || !category || !price || !description || !cancel || !save)
+    throw new Error('Formulário ausente');
+  expect(bounds.x).toBe(345);
+  expect(bounds.y).toBe(110);
+  expect(bounds.width).toBe(1055);
+  expect(heading.y - bounds.y).toBe(75);
+  expect(name.x - bounds.x).toBe(47);
+  expect(name.y - bounds.y).toBe(151);
+  expect(name.width).toBeCloseTo(454, 0);
+  expect(name.height).toBe(50);
+  expect(category.y - name.y - name.height).toBe(32);
+  expect(price.y - category.y - category.height).toBe(32);
+  expect(description.x - name.x - name.width).toBeCloseTo(32, 1);
+  expect(description.width).toBeCloseTo(475, 0);
+  expect(description.height).toBe(447);
+  expect(description.y).toBe(name.y);
+  expect(save.y - description.y - description.height).toBe(73);
+  expect(save.x - cancel.x - cancel.width).toBe(29);
+  expect(save.width).toBe(273);
+  expect(cancel.height).toBe(60);
+  expect(bounds.y + bounds.height - save.y - save.height).toBe(49);
+});
+
+test('formulário móvel não transborda em 414px e SALVAR aparece primeiro', async ({ page }) => {
+  await page.setViewportSize({ width: 414, height: 1100 });
+  await page.goto('/admin/products/new');
+  await expect(page.getByRole('heading', { name: 'DADOS DO PRODUTO' })).toBeVisible();
+  const save = await page.getByRole('button', { name: 'SALVAR', exact: true }).boundingBox();
+  const cancel = await page.getByRole('button', { name: 'CANCELAR', exact: true }).boundingBox();
+  const name = await page.getByLabel('Nome do Produto', { exact: true }).boundingBox();
+  const description = await page.getByLabel('Descrição', { exact: true }).boundingBox();
+  if (!save || !cancel || !name || !description) throw new Error('Formulário ausente');
+  expect(name.width).toBe(334);
+  expect(description.width).toBe(name.width);
+  expect(description.height).toBe(200);
+  expect(save.width).toBe(name.width);
+  expect(save.y).toBeLessThan(cancel.y);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(414);
 });
