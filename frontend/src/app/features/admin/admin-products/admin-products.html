@@ -1,0 +1,18 @@
+<h1 class="sr-only">Produtos</h1>
+<div class="flex w-full flex-col gap-5 md:flex-row md:gap-7">
+  <button
+    type="button"
+    class="h-[50px] w-full shrink-0 rounded-[10px] bg-primary font-sans text-base font-bold tracking-[-0.24px] text-white transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:h-[60px] md:w-[170px]"
+  >
+    ADICIONAR
+  </button>
+  <app-product-search
+    class="block w-full min-w-0 md:flex-1"
+    [name]="filter().name"
+    [category]="filter().category"
+    [categories]="categories()"
+    (nameChange)="changeName($event)"
+    (categoryChange)="changeCategory($event)"
+    (clear)="clearFilters()"
+  />
+</div>

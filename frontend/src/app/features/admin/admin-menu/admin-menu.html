@@ -1,0 +1,30 @@
+<nav
+  aria-label="Administração"
+  class="h-[88px] w-full bg-surface-0 px-5 md:h-auto md:px-0 dark:bg-surface-900"
+>
+  <ul class="flex h-full items-center gap-[21px] md:h-auto md:flex-col md:items-stretch md:gap-0">
+    <li class="min-w-0 flex-1 md:flex-none">
+      <a
+        routerLink="/admin/products"
+        routerLinkActive="bg-primary/30 text-primary"
+        #products="routerLinkActive"
+        ariaCurrentWhenActive="page"
+        [class.text-muted-color]="!products.isActive"
+        class="flex h-[49px] w-full items-center justify-center rounded-[10px] text-sm font-bold focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary md:h-[83px] md:justify-start md:rounded-none md:border-b md:border-surface-200 md:pl-10 md:text-lg md:tracking-[-0.27px] dark:md:border-surface-700"
+      >
+        Produtos
+      </a>
+    </li>
+    @for (item of unavailableItems; track item) {
+      <li class="min-w-0 flex-1 md:flex-none">
+        <a
+          role="link"
+          aria-disabled="true"
+          class="flex h-[49px] w-full items-center justify-center rounded-[10px] text-sm font-bold text-muted-color md:h-[83px] md:justify-start md:rounded-none md:border-b md:border-surface-200 md:pl-10 md:text-lg md:tracking-[-0.27px] dark:md:border-surface-700"
+        >
+          {{ item }}
+        </a>
+      </li>
+    }
+  </ul>
+</nav>

@@ -125,4 +125,141 @@ describe('Header', () => {
     expect(element.querySelector('a[href="/"]')?.getAttribute('aria-current')).toBe('page');
     expect(catalog?.hasAttribute('aria-current')).toBe(false);
   });
+
+  it('mantém o painel ausente inicialmente e o botão com nome acessível', async () => {
+    const { element } = await render();
+    const toggle = element.querySelector<HTMLButtonElement>('button[aria-controls]');
+
+    expect(element.querySelector('nav[aria-label="Navegação móvel"]')).toBeNull();
+    expect(toggle?.getAttribute('aria-label')).toBe('Abrir menu');
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle?.type).toBe('button');
+    expect(toggle?.querySelector('img')?.getAttribute('src')).toBe('/images/icons/menu.svg');
+    expect(toggle?.querySelector('img')?.getAttribute('alt')).toBe('');
+  });
+
+  it('abre o painel pelo botão e atualiza seu estado acessível ao alternar', async () => {
+    const { fixture, element } = await render();
+    const toggle = element.querySelector<HTMLButtonElement>('button[aria-controls]');
+
+    toggle?.click();
+    await fixture.whenStable();
+    const panel = element.querySelector('nav[aria-label="Navegação móvel"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.id).toBe(toggle?.getAttribute('aria-controls'));
+    expect(
+      Array.from(panel?.querySelectorAll('a') ?? []).map((link) => link.textContent?.trim()),
+    ).toEqual(['HOME', 'CATÁLOGO']);
+    expect(panel?.textContent).toContain('ENTRAR');
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle?.getAttribute('aria-label')).toBe('Fechar menu');
+
+    toggle?.click();
+    await fixture.whenStable();
+    expect(element.querySelector('nav[aria-label="Navegação móvel"]')).toBeNull();
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it.each([
+    { roles: undefined, admin: false },
+    { roles: ['CUSTOMER'], admin: false },
+    { roles: ['CUSTOMER', 'ADMIN'], admin: true },
+  ])('mostra ADMIN no painel somente para administradores: $roles', async ({ roles, admin }) => {
+    const { fixture, element } = await render(roles);
+    element.querySelector<HTMLButtonElement>('button[aria-controls]')?.click();
+    await fixture.whenStable();
+    const panel = element.querySelector('nav[aria-label="Navegação móvel"]');
+
+    expect(panel).not.toBeNull();
+    expect(panel?.textContent?.includes('ADMIN')).toBe(admin);
+    expect(panel?.querySelector('a[href="/admin"]') !== null).toBe(admin);
+    if (roles) {
+      expect(panel?.textContent).toContain('Ana');
+      expect(panel?.textContent).toContain('SAIR');
+    }
+  });
+
+  it('fecha o painel ao escolher um link e navega para o catálogo', async () => {
+    const { fixture, element } = await render();
+    element.querySelector<HTMLButtonElement>('button[aria-controls]')?.click();
+    await fixture.whenStable();
+    const catalog = element.querySelector<HTMLAnchorElement>(
+      'nav[aria-label="Navegação móvel"] a[href="/catalog"]',
+    );
+    expect(catalog).not.toBeNull();
+
+    catalog?.click();
+    await fixture.whenStable();
+    expect(TestBed.inject(Router).url).toBe('/catalog');
+    expect(element.querySelector('nav[aria-label="Navegação móvel"]')).toBeNull();
+  });
+
+  it('marca a rota atual também no painel e distingue as duas navegações', async () => {
+    const { fixture, element } = await render(['ADMIN']);
+    await TestBed.inject(Router).navigateByUrl('/admin');
+    element.querySelector<HTMLButtonElement>('button[aria-controls]')?.click();
+    await fixture.whenStable();
+    const navs = Array.from(element.querySelectorAll('nav'));
+    const panel = element.querySelector('nav[aria-label="Navegação móvel"]');
+
+    expect(navs).toHaveLength(2);
+    expect(navs[0]?.getAttribute('aria-label')).not.toBe(navs[1]?.getAttribute('aria-label'));
+    expect(panel?.querySelector('a[href="/admin"]')?.getAttribute('aria-current')).toBe('page');
+    expect(panel?.querySelector('a[href="/"]')?.hasAttribute('aria-current')).toBe(false);
+    expect(panel?.querySelector('a[href="/catalog"]')?.hasAttribute('aria-current')).toBe(false);
+  });
+
+  it('fecha o painel com Escape e devolve o foco ao botão de menu', async () => {
+    const { fixture, element } = await render();
+    const toggle = element.querySelector<HTMLButtonElement>('button[aria-controls]');
+    toggle?.click();
+    await fixture.whenStable();
+    const home = element.querySelector<HTMLAnchorElement>(
+      'nav[aria-label="Navegação móvel"] a[href="/"]',
+    );
+    expect(home).not.toBeNull();
+    home?.focus();
+    expect(document.activeElement).toBe(home);
+
+    home?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await fixture.whenStable();
+    expect(element.querySelector('nav[aria-label="Navegação móvel"]')).toBeNull();
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it('fecha o painel ao iniciar o login', async () => {
+    const { fixture, element } = await render();
+    element.querySelector<HTMLButtonElement>('button[aria-controls]')?.click();
+    await fixture.whenStable();
+    const login = element.querySelector<HTMLButtonElement>(
+      'nav[aria-label="Navegação móvel"] button',
+    );
+    expect(login?.textContent?.trim()).toBe('ENTRAR');
+
+    login?.click();
+    await fixture.whenStable();
+    expect(element.querySelector('nav[aria-label="Navegação móvel"]')).toBeNull();
+    expect(assign).toHaveBeenCalledExactlyOnceWith('/oauth2/authorization/keycloak');
+  });
+
+  it('fecha o painel ao iniciar o logout', async () => {
+    const { fixture, element } = await render(['CUSTOMER']);
+    element.querySelector<HTMLButtonElement>('button[aria-controls]')?.click();
+    await fixture.whenStable();
+    const logout = element.querySelector<HTMLButtonElement>(
+      'nav[aria-label="Navegação móvel"] button',
+    );
+    expect(logout?.textContent?.trim()).toBe('SAIR');
+
+    logout?.click();
+    await fixture.whenStable();
+    expect(element.querySelector('nav[aria-label="Navegação móvel"]')).toBeNull();
+    http.expectOne('/logout').flush(null, {
+      status: 202,
+      statusText: 'Accepted',
+      headers: { Location: '/' },
+    });
+    expect(assign).toHaveBeenCalledExactlyOnceWith('/');
+  });
 });

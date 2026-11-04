@@ -6,7 +6,7 @@ import { NavigationEnd, provideRouter, Router, withComponentInputBinding } from 
 import { RouterTestingHarness } from '@angular/router/testing';
 import { filter, firstValueFrom } from 'rxjs';
 import { catalogRoutes } from '../catalog.routes';
-import { Product } from '../data-access/product';
+import { Product } from '../../../shared/data-access/product/product';
 
 describe('ProductDetail', () => {
   let http: HttpTestingController;
