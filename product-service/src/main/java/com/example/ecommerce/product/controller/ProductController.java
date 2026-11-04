@@ -16,6 +16,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import com.example.ecommerce.product.infra.http.EntityTags;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequestMapping(value = "/api/product")
@@ -62,7 +64,7 @@ public class ProductController {
     }
 
     @Operation(
-            description = "Get products paginated",
+            description = "Get products paginated, optionally filtered by name and category",
             summary = "List products",
             responses = {
                     @ApiResponse(description = "Ok", responseCode = "200"),
@@ -71,9 +73,25 @@ public class ProductController {
     )
     @GetMapping
     public ResponseEntity<PageResponseDTO<ProductResponseDTO>> findAll(
+            @Parameter(description = "Parte do nome do produto, sem diferenciar maiúsculas", example = "teclado")
+            @RequestParam(required = false) @Size(max = 100) String name,
+            @Parameter(description = "Categoria exata", example = "Periféricos")
+            @RequestParam(required = false) @Size(max = 100) String category,
             @RequestParam(defaultValue = "0") @PositiveOrZero int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return ResponseEntity.ok(productService.findAll(page, size));
+        return ResponseEntity.ok(productService.findAll(name, category, page, size));
+    }
+
+    @Operation(
+            description = "Get the distinct product categories, sorted",
+            summary = "List categories",
+            responses = {
+                    @ApiResponse(description = "Ok", responseCode = "200"),
+            }
+    )
+    @GetMapping("/categories")
+    public ResponseEntity<List<String>> findCategories() {
+        return ResponseEntity.ok(productService.findCategories());
     }
 
     @Operation(
