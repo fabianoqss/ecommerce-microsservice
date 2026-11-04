@@ -2,6 +2,7 @@ package com.example.ecommerce.gateway.security;
 
 import com.example.ecommerce.common.security.KeycloakJwtAuthenticationConverter;
 import com.example.ecommerce.gateway.bff.BffProperties;
+import com.example.ecommerce.gateway.bff.SpaAwareRedirectStrategy;
 import com.example.ecommerce.gateway.bff.relay.SessionTokenRelayFilter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
@@ -88,6 +89,7 @@ public class SecurityConfig {
         authorizationRequestResolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
 
         var logoutSuccessHandler = new OidcClientInitiatedLogoutSuccessHandler(clientRegistrations);
+        logoutSuccessHandler.setRedirectStrategy(new SpaAwareRedirectStrategy());
         if (StringUtils.hasText(properties.postLogoutRedirectUri())) {
             logoutSuccessHandler.setPostLogoutRedirectUri(properties.postLogoutRedirectUri());
         }
