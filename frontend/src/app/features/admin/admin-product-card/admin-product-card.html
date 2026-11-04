@@ -1,0 +1,65 @@
+<article
+  class="grid w-full min-w-0 grid-cols-[149px_minmax(0,1fr)] overflow-hidden rounded-[10px] bg-surface-0 font-sans text-color shadow-[0px_4px_20px_0px_rgba(0,0,0,0.25)] md:h-[160px] md:grid-cols-[149px_minmax(0,1fr)_230px] dark:bg-surface-900"
+>
+  <div class="flex items-center justify-center border-r border-surface-200">
+    @if (product().imageUrl; as imageUrl) {
+      <img
+        [src]="imageUrl"
+        [alt]="product().name"
+        width="103"
+        height="103"
+        loading="lazy"
+        decoding="async"
+        class="size-[103px] object-contain"
+      />
+    } @else {
+      <span class="pi pi-image text-6xl text-muted-color" aria-hidden="true"></span>
+    }
+  </div>
+  <div class="min-w-0 overflow-hidden px-4 pt-[27px] pb-[23px] md:pr-4 md:pl-[28px]">
+    <h2 class="truncate pl-[3px] text-lg leading-[25px] font-bold tracking-[-0.27px]">
+      {{ product().name }}
+    </h2>
+    <p class="mt-px flex h-[36px] items-baseline gap-[7px] overflow-hidden pl-[7px]">
+      <span class="sr-only">R$ {{ price().integer }}{{ price().decimal }}</span>
+      <span class="shrink-0 text-sm tracking-[-0.21px] text-muted-color" aria-hidden="true"
+        >R$</span
+      >
+      <span class="whitespace-nowrap font-bold tracking-[-0.27px] text-primary" aria-hidden="true"
+        ><span class="text-2xl leading-[36px]" data-testid="price-integer">{{
+          price().integer
+        }}</span
+        ><span class="text-sm" data-testid="price-decimal"
+          ><span class="text-lg">{{ price().decimal.slice(0, 1) }}</span
+          >{{ price().decimal.slice(1) }}</span
+        ></span
+      >
+    </p>
+    <div
+      class="mt-[15px] flex h-[33px] w-[138px] max-w-full items-center justify-center rounded-[10px] bg-[#C4C4C4] px-2 text-sm font-bold tracking-[-0.21px] text-[#424242]"
+      data-testid="category"
+    >
+      <span class="truncate">{{ product().category }}</span>
+    </div>
+  </div>
+  <div
+    class="col-span-2 flex min-w-0 gap-3 p-4 md:col-span-1 md:flex-col md:gap-[22px] md:pt-[31px] md:pr-[17px] md:pb-[31px] md:pl-0"
+  >
+    <button
+      type="button"
+      [attr.aria-label]="'Editar ' + product().name"
+      (click)="edit.emit(product())"
+      class="h-[38px] min-w-0 flex-1 rounded-[10px] border border-[#9E9E9E] bg-transparent text-sm font-bold tracking-[-0.21px] text-muted-color transition-colors hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:w-[213px] md:shrink-0 md:flex-none dark:hover:bg-surface-800"
+    >
+      EDITAR
+    </button>
+    <button
+      type="button"
+      [attr.aria-label]="'Excluir ' + product().name"
+      (click)="remove.emit(product())"
+      class="h-[38px] min-w-0 flex-1 rounded-[10px] border border-[#DF5753] bg-transparent text-sm font-bold tracking-[-0.21px] text-[#DF5753] transition-colors hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:w-[213px] md:shrink-0 md:flex-none dark:hover:bg-surface-800"
+    >
+      EXCLUIR
+    </button>
+  </div>
+</article>

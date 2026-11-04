@@ -6,10 +6,10 @@ import { ProductFilter } from './product-filter';
 
 @Service()
 export class ProductApi {
-  list(filter: () => ProductFilter) {
+  list(filter: () => ProductFilter, size = 8) {
     return httpResource<Page<Product>>(() => {
       const { page, name, category } = filter();
-      let params = new HttpParams().set('page', page).set('size', 8);
+      let params = new HttpParams().set('page', page).set('size', size);
       if (name.trim()) {
         params = params.set('name', name.trim());
       }
