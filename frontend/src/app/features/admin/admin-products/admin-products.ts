@@ -1,6 +1,18 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, input, linkedSignal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import {
+  Component,
+  computed,
+  DestroyRef,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { ConfirmDialog } from 'primeng/confirmdialog';
+import { finalize } from 'rxjs';
 import { Message } from 'primeng/message';
 import { Skeleton } from 'primeng/skeleton';
 import { Page } from '../../../shared/data-access/product/page';
@@ -8,9 +20,11 @@ import { Product } from '../../../shared/data-access/product/product';
 import { ProductApi } from '../../../shared/data-access/product/product-api';
 import { ProductSearch } from '../../../shared/ui/product-search/product-search';
 import { AdminProductCard } from '../admin-product-card/admin-product-card';
+import { AdminProductApi } from '../data-access/admin-product-api';
+import { problemDetail } from '../data-access/problem-detail';
 
 @Component({
-  imports: [ProductSearch, AdminProductCard, Message, Skeleton],
+  imports: [ProductSearch, AdminProductCard, Message, Skeleton, RouterLink, ConfirmDialog],
   selector: 'app-admin-products',
   templateUrl: './admin-products.html',
 })
@@ -20,6 +34,12 @@ export class AdminProducts {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ProductApi);
+  private readonly writeApi = inject(AdminProductApi);
+  private readonly confirmation = inject(ConfirmationService);
+  private readonly messages = inject(MessageService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly confirming = signal(false);
+  private readonly deleting = signal(false);
   private readonly categoryResource = this.api.categories();
   protected readonly categories = computed(() =>
     this.categoryResource.hasValue() ? this.categoryResource.value() : [],
@@ -51,20 +71,9 @@ export class AdminProducts {
     () => !this.initialLoadFinished() && this.products.isLoading(),
   );
   protected readonly hasFilters = computed(() => !!(this.filter().name || this.filter().category));
-  protected readonly errorMessage = computed(() => {
-    const error = this.products.error();
-    const problem: unknown = error instanceof HttpErrorResponse ? error.error : undefined;
-    if (
-      problem &&
-      typeof problem === 'object' &&
-      'detail' in problem &&
-      typeof problem.detail === 'string' &&
-      problem.detail.trim()
-    ) {
-      return problem.detail;
-    }
-    return 'Não foi possível carregar os produtos. Tente novamente.';
-  });
+  protected readonly errorMessage = computed(() =>
+    problemDetail(this.products.error(), 'Não foi possível carregar os produtos. Tente novamente.'),
+  );
   protected readonly announcement = computed(() => {
     if (this.products.isLoading()) {
       return 'Carregando produtos.';
@@ -75,6 +84,65 @@ export class AdminProducts {
     const total = this.productPage()?.totalElements ?? 0;
     return total === 1 ? '1 produto encontrado.' : `${total} produtos encontrados.`;
   });
+
+  protected edit(product: Product): Promise<boolean> {
+    return this.router.navigate(['/admin/products', product.id, 'edit'], {
+      queryParamsHandling: 'preserve',
+    });
+  }
+
+  protected remove(product: Product): void {
+    if (this.confirming() || this.deleting()) return;
+    this.confirming.set(true);
+    let accepted = false;
+    this.confirmation.confirm({
+      header: 'Excluir produto',
+      message: `Excluir "${product.name}"? Esta ação não pode ser desfeita.`,
+      acceptLabel: 'Excluir',
+      rejectLabel: 'Cancelar',
+      defaultFocus: 'reject',
+      acceptButtonProps: { severity: 'danger' },
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept: () => {
+        if (accepted || this.deleting()) return;
+        accepted = true;
+        this.confirming.set(false);
+        this.deleting.set(true);
+        this.writeApi
+          .remove(product.id, product.version)
+          .pipe(
+            takeUntilDestroyed(this.destroyRef),
+            finalize(() => this.deleting.set(false)),
+          )
+          .subscribe({
+            next: () => {
+              this.products.reload();
+              this.messages.add({
+                severity: 'success',
+                summary: 'Produto excluído',
+                detail: 'Produto excluído com sucesso.',
+              });
+            },
+            error: (error: unknown) => {
+              const status = error instanceof HttpErrorResponse ? error.status : undefined;
+              const detail =
+                status === 412
+                  ? 'O produto foi alterado por outra pessoa e não foi excluído. A lista será atualizada; confira os dados antes de tentar novamente.'
+                  : status === 404
+                    ? 'O produto não existe mais. A lista será atualizada.'
+                    : problemDetail(error, 'Não foi possível excluir o produto. Tente novamente.');
+              this.messages.add({
+                severity: status === 412 || status === 404 ? 'warn' : 'error',
+                summary: 'Exclusão não realizada',
+                detail,
+              });
+              if (status === 412 || status === 404) this.products.reload();
+            },
+          });
+      },
+      reject: () => this.confirming.set(false),
+    });
+  }
 
   protected changeName(name: string): Promise<boolean> {
     return this.router.navigate([], {
