@@ -56,9 +56,9 @@
         }
       </ul>
       @if (result.totalPages > 1) {
-        <div class="mt-[30px]">
+        <div class="mt-[30px]" [class.opacity-50]="products.isLoading()">
           <app-pagination
-            [page]="filter().page"
+            [page]="products.isLoading() ? result.page : filter().page"
             [totalPages]="result.totalPages"
             (pageChange)="changePage($event)"
           />

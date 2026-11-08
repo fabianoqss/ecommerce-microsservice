@@ -1,9 +1,11 @@
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { NavigationEnd, provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { filter, firstValueFrom } from 'rxjs';
+import { ProductSearch } from '../../../shared/ui/product-search/product-search';
 import { ProductList } from './product-list';
 
 describe('ProductList', () => {
@@ -228,6 +230,89 @@ describe('ProductList', () => {
     await settle(harness);
     expect(scroll).toHaveBeenCalledWith({ block: 'start' });
   });
+
+  it('descarta a rolagem pendente quando a paginação falha', async () => {
+    const { harness, element } = await render('/catalog?name=Teclado&category=Perif%C3%A9ricos');
+    http.expectOne('/api/product/categories').flush(['Periféricos', 'Monitores']);
+    http.expectOne('/api/product?page=0&size=8&name=Teclado&category=Perif%C3%A9ricos').flush({
+      ...emptyPage,
+      content: [product],
+      totalElements: 24,
+      totalPages: 3,
+    });
+    await settle(harness);
+    const results = element.querySelector<HTMLElement>('[aria-busy]');
+    if (!results) throw new Error('Região de resultados ausente');
+    const scroll = vi.fn();
+    results.scrollIntoView = scroll;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    element.querySelector<HTMLButtonElement>('[aria-label="Página 2"]')?.click();
+    await navigate.mock.results[0]?.value;
+    TestBed.tick();
+    http
+      .expectOne('/api/product?page=1&size=8&name=Teclado&category=Perif%C3%A9ricos')
+      .flush({ detail: 'Falha ao paginar.' }, { status: 503, statusText: 'Unavailable' });
+    await settle(harness);
+    expect(element.querySelector('p-message')?.textContent).toContain('Falha ao paginar.');
+    expect(scroll).not.toHaveBeenCalled();
+    await harness.navigateByUrl('/catalog?name=Monitor');
+    TestBed.tick();
+    http.expectOne('/api/product?page=0&size=8&name=Monitor').flush({
+      ...emptyPage,
+      content: [product],
+      totalElements: 1,
+      totalPages: 1,
+    });
+    await settle(harness);
+    expect(element.querySelectorAll('article').length).toBeGreaterThan(0);
+    expect(scroll).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['nameChange', 'Monitor', 'name=Monitor&category=Perif%C3%A9ricos'],
+    ['categoryChange', 'Monitores', 'name=Teclado&category=Monitores'],
+    ['clear', undefined, ''],
+  ])(
+    'descarta a rolagem pendente ao receber %s durante a paginação',
+    async (event, value, query) => {
+      const { harness, element } = await render('/catalog?name=Teclado&category=Perif%C3%A9ricos');
+      http.expectOne('/api/product/categories').flush(['Periféricos', 'Monitores']);
+      http.expectOne('/api/product?page=0&size=8&name=Teclado&category=Perif%C3%A9ricos').flush({
+        ...emptyPage,
+        content: [product],
+        totalElements: 24,
+        totalPages: 3,
+      });
+      await settle(harness);
+      const results = element.querySelector<HTMLElement>('[aria-busy]');
+      if (!results) throw new Error('Região de resultados ausente');
+      const scroll = vi.fn();
+      results.scrollIntoView = scroll;
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+      element.querySelector<HTMLButtonElement>('[aria-label="Página 2"]')?.click();
+      await navigate.mock.results[0]?.value;
+      TestBed.tick();
+      const pending = http.expectOne(
+        '/api/product?page=1&size=8&name=Teclado&category=Perif%C3%A9ricos',
+      );
+      const search = harness.routeDebugElement?.query(By.directive(ProductSearch));
+      if (!search) throw new Error('Busca de produtos ausente');
+      const filterNavigation = nextNavigation();
+      search.triggerEventHandler(event, value);
+      await filterNavigation;
+      TestBed.tick();
+      expect(pending.cancelled).toBe(true);
+      http.expectOne('/api/product?page=0&size=8' + (query ? '&' + query : '')).flush({
+        ...emptyPage,
+        content: [product],
+        totalElements: 1,
+        totalPages: 1,
+      });
+      await settle(harness);
+      expect(element.querySelectorAll('article').length).toBeGreaterThan(0);
+      expect(scroll).not.toHaveBeenCalled();
+    },
+  );
 
   it('ignora parâmetros repetidos em vez de quebrar a página', async () => {
     const { harness } = await render(
