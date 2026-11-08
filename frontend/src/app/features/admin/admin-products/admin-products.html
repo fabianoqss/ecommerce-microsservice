@@ -20,7 +20,7 @@
 </div>
 
 <p aria-live="polite" aria-atomic="true" class="sr-only">{{ announcement() }}</p>
-<div class="mt-[43px]" [attr.aria-busy]="products.isLoading()">
+<div #results class="mt-[43px] scroll-mt-5" [attr.aria-busy]="products.isLoading()">
   @if (initialLoading()) {
     <ul aria-hidden="true" class="grid gap-[21px]">
       @for (skeleton of skeletons; track skeleton) {
@@ -55,6 +55,15 @@
           </li>
         }
       </ul>
+      @if (result.totalPages > 1) {
+        <div class="mt-[30px]">
+          <app-pagination
+            [page]="filter().page"
+            [totalPages]="result.totalPages"
+            (pageChange)="changePage($event)"
+          />
+        </div>
+      }
     } @else {
       <div
         class="flex flex-col items-center gap-5 rounded-[10px] bg-surface-0 px-5 py-12 text-color dark:bg-surface-900"
