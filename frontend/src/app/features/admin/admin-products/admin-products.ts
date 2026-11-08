@@ -24,7 +24,7 @@ import { Skeleton } from 'primeng/skeleton';
 import { Page } from '../../../shared/data-access/product/page';
 import { Product } from '../../../shared/data-access/product/product';
 import { ProductApi } from '../../../shared/data-access/product/product-api';
-import { ProductFilter } from '../../../shared/data-access/product/product-filter';
+import { parseProductFilter } from '../../../shared/data-access/product/product-filter';
 import { Pagination } from '../../../shared/ui/pagination/pagination';
 import { ProductSearch } from '../../../shared/ui/product-search/product-search';
 import { AdminProductCard } from '../admin-product-card/admin-product-card';
@@ -64,35 +64,29 @@ export class AdminProducts {
   protected readonly categories = computed(() =>
     this.categoryResource.hasValue() ? this.categoryResource.value() : [],
   );
-  protected readonly filter = computed<ProductFilter>(() => {
-    const rawPage = this.page() ?? '1';
-    const page = typeof rawPage === 'string' && /^\d+$/.test(rawPage) ? Number(rawPage) : 1;
-    const name = this.name();
-    const category = this.category();
-    return {
-      page: Number.isSafeInteger(page) && page > 0 && page <= 2147483647 ? page - 1 : 0,
-      name: typeof name === 'string' ? name.trim().slice(0, 100) : '',
-      category: typeof category === 'string' ? category.trim() : '',
-    };
-  });
+  protected readonly filter = computed(() =>
+    parseProductFilter({ page: this.page(), name: this.name(), category: this.category() }),
+  );
 
   protected readonly products = this.api.list(this.filter, 4);
   protected readonly skeletons = [0, 1, 2, 3];
+  private readonly resolvedPage = computed(() => {
+    if (this.products.isLoading() || !this.products.hasValue()) return undefined;
+    const result = this.products.value();
+    return result.totalPages > 0 && this.filter().page >= result.totalPages ? undefined : result;
+  });
   protected readonly productPage = linkedSignal<
     Page<Product> | undefined,
     Page<Product> | undefined
   >({
-    source: () => (this.products.hasValue() ? this.products.value() : undefined),
+    source: this.resolvedPage,
     computation: (value, previous) => value ?? previous?.value,
   });
   private readonly initialLoadFinished = linkedSignal({
-    source: () => this.products.status(),
-    computation: (status, previous) =>
-      previous?.value === true || status === 'resolved' || status === 'error',
+    source: () => this.resolvedPage() !== undefined || this.products.status() === 'error',
+    computation: (finished, previous) => previous?.value === true || finished,
   });
-  protected readonly initialLoading = computed(
-    () => !this.initialLoadFinished() && this.products.isLoading(),
-  );
+  protected readonly initialLoading = computed(() => !this.initialLoadFinished());
   protected readonly hasFilters = computed(() => !!(this.filter().name || this.filter().category));
   protected readonly errorMessage = computed(() =>
     problemDetail(this.products.error(), 'Não foi possível carregar os produtos. Tente novamente.'),
@@ -110,7 +104,11 @@ export class AdminProducts {
 
   constructor() {
     effect(() => {
-      const rendered = this.products.hasValue() && !this.products.isLoading();
+      if (this.products.error()) {
+        untracked(() => this.scrollToResultsPending.set(false));
+        return;
+      }
+      const rendered = this.resolvedPage() !== undefined;
       if (rendered && this.scrollToResultsPending()) {
         untracked(() => this.scrollToResultsPending.set(false));
         afterNextRender(() => this.results()?.nativeElement.scrollIntoView({ block: 'start' }), {
@@ -192,6 +190,7 @@ export class AdminProducts {
   }
 
   protected changeName(name: string): Promise<boolean> {
+    this.scrollToResultsPending.set(false);
     return this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { name: name || null, page: null },
@@ -201,6 +200,7 @@ export class AdminProducts {
   }
 
   protected changeCategory(category: string): Promise<boolean> {
+    this.scrollToResultsPending.set(false);
     return this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { category: category || null, page: null },
@@ -209,6 +209,7 @@ export class AdminProducts {
   }
 
   protected clearFilters(): Promise<boolean> {
+    this.scrollToResultsPending.set(false);
     return this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { name: null, category: null, page: null },
