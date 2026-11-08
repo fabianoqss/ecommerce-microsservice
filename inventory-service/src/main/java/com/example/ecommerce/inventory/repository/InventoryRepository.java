@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface InventoryRepository extends JpaRepository <Inventory, Long> {
 
@@ -20,4 +21,5 @@ public interface InventoryRepository extends JpaRepository <Inventory, Long> {
     @Query("UPDATE Inventory i SET i.quantity = i.quantity + :qty WHERE i.skuCode = :sku")
     int increment(@Param("sku") String skuCode, @Param("qty") Integer quantity);
 
+    Optional<Inventory> findBySkuCode(String skuCode);
 }

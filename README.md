@@ -65,7 +65,7 @@ O BFF mantém os tokens no servidor e usa sessão no Redis. Requisições que al
 | PUT, DELETE | `/api/product/{id}` | `ROLE_ADMIN` |
 | GET | `/api/inventory?skuCode=id` | Público |
 | POST | `/api/inventory` | `ROLE_ADMIN` |
-| PUT | `/api/inventory/{id}` | `ROLE_ADMIN` |
+| PUT | `/api/inventory/{skuCode}` | `ROLE_ADMIN` |
 | GET | `/api/order` | Autenticado; usuário vê seus pedidos, admin vê todos |
 | GET | `/api/order/{id}` | Dono ou admin |
 | POST | `/api/order` | Autenticado |

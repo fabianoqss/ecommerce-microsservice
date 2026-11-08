@@ -83,9 +83,9 @@ public class InventoryService {
         return false;
     }
 
-    public InventoryDTO update(Long id, InventoryUpdateDTO dto) {
-        Inventory inventory = inventoryRepository.findById(id)
-                .orElseThrow(() -> new InventoryNotFoundException(id));
+    public InventoryDTO update(String skuCode, InventoryUpdateDTO dto) {
+        Inventory inventory = inventoryRepository.findBySkuCode(skuCode)
+                .orElseThrow(() -> new InventoryNotFoundException(skuCode));
         inventory.setQuantity(dto.quantity());
         inventory = inventoryRepository.save(inventory);
         return new InventoryDTO(inventory);
