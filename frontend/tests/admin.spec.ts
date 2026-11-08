@@ -10,6 +10,38 @@ const products = Array.from({ length: 4 }, (_, index) => ({
   version: 0,
 }));
 const productPage = { content: products, page: 0, size: 4, totalElements: 4, totalPages: 1 };
+const paginatedProducts = Array.from({ length: 9 }, (_, index) => ({
+  ...products[0],
+  id: String(index + 1),
+  name: index < 6 ? `Teclado ${index + 1}` : `Monitor ${index + 1}`,
+  category: index < 6 ? 'Periféricos' : 'Monitores',
+}));
+
+async function mockPaginatedProducts(page: Page) {
+  await page.route('**/api/product?**', async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const currentPage = Number(params.get('page'));
+    expect(params.get('size')).toBe('4');
+    const name = params.get('name')?.toLowerCase() ?? '';
+    const category = params.get('category');
+    const filtered = paginatedProducts.filter(
+      (product) =>
+        product.name.toLowerCase().includes(name) && (!category || product.category === category),
+    );
+    await route.fulfill({
+      json: {
+        content: filtered.slice(currentPage * 4, currentPage * 4 + 4),
+        page: currentPage,
+        size: 4,
+        totalElements: filtered.length,
+        totalPages: Math.ceil(filtered.length / 4),
+      },
+    });
+  });
+  await page.route('**/api/product/categories', (route) =>
+    route.fulfill({ json: ['Periféricos', 'Monitores'] }),
+  );
+}
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/bff/me', async (route) => {
@@ -31,6 +63,96 @@ test.beforeEach(async ({ page }) => {
     await route.fulfill({ json: [] });
   });
 });
+
+test('pagina a lista administrativa pela URL e mostra os cards da página 2', async ({ page }) => {
+  await mockPaginatedProducts(page);
+  await page.goto('/admin/products?extra=1');
+  const list = page.getByRole('list', { name: 'Produtos', exact: true });
+  await expect(list.getByRole('heading')).toHaveText([
+    'Teclado 1',
+    'Teclado 2',
+    'Teclado 3',
+    'Teclado 4',
+  ]);
+  await page.getByRole('button', { name: 'Página 2', exact: true }).click();
+  await expect(page).toHaveURL('/admin/products?extra=1&page=2');
+  await expect(list.getByRole('article')).toHaveCount(4);
+  await expect(list.getByRole('heading')).toHaveText([
+    'Teclado 5',
+    'Teclado 6',
+    'Monitor 7',
+    'Monitor 8',
+  ]);
+  await expect(page.getByRole('button', { name: 'Página 2', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+});
+
+for (const filter of ['nome', 'categoria', 'limpar']) {
+  test(`filtro ${filter} remove a página da URL e busca a primeira página`, async ({ page }) => {
+    await mockPaginatedProducts(page);
+    await page.goto(
+      filter === 'limpar'
+        ? '/admin/products?page=2&name=Teclado&category=Perif%C3%A9ricos&extra=1'
+        : '/admin/products?page=2&extra=1',
+    );
+    await expect(page.getByRole('button', { name: 'Página 2', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    if (filter === 'nome') {
+      await page.getByRole('searchbox', { name: 'Nome do produto', exact: true }).fill('Monitor');
+    } else if (filter === 'categoria') {
+      await page
+        .getByRole('combobox', { name: 'Categoria', exact: true })
+        .selectOption('Monitores');
+    } else {
+      await page.getByRole('button', { name: 'LIMPAR FILTRO', exact: true }).click();
+    }
+    await expect(page).toHaveURL(
+      filter === 'nome'
+        ? '/admin/products?extra=1&name=Monitor'
+        : filter === 'categoria'
+          ? '/admin/products?extra=1&category=Monitores'
+          : '/admin/products?extra=1',
+    );
+    await expect(
+      page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('heading'),
+    ).toHaveText(
+      filter === 'limpar'
+        ? ['Teclado 1', 'Teclado 2', 'Teclado 3', 'Teclado 4']
+        : ['Monitor 7', 'Monitor 8', 'Monitor 9'],
+    );
+  });
+}
+
+for (const action of ['CANCELAR', 'SALVAR']) {
+  test(`editar da página 2 e ${action} retorna à mesma página`, async ({ page }) => {
+    await mockPaginatedProducts(page);
+    const product = paginatedProducts[4];
+    await page.route('**/api/product/5', async (route) => {
+      if (route.request().method() === 'GET') return route.fulfill({ json: product });
+      expect(route.request().method()).toBe('PUT');
+      await route.fulfill({ json: { ...product, version: 1 } });
+    });
+    await page.goto('/admin/products?extra=1');
+    await page.getByRole('button', { name: 'Página 2', exact: true }).click();
+    await expect(page).toHaveURL('/admin/products?extra=1&page=2');
+    await page.getByRole('button', { name: 'Editar Teclado 5', exact: true }).click();
+    await expect(page).toHaveURL('/admin/products/5/edit?extra=1&page=2');
+    await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue('Teclado 5');
+    await page.getByRole('button', { name: action, exact: true }).click();
+    await expect(page).toHaveURL('/admin/products?extra=1&page=2');
+    await expect(
+      page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('heading'),
+    ).toHaveText(['Teclado 5', 'Teclado 6', 'Monitor 7', 'Monitor 8']);
+    await expect(page.getByRole('button', { name: 'Página 2', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+}
 
 test('admin chega a Produtos com menu encostado à esquerda no desktop', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
