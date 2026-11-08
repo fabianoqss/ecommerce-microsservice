@@ -1,0 +1,133 @@
+<section
+  aria-labelledby="checkout-heading"
+  [attr.aria-busy]="view.isLoading() || submitting()"
+  class="rounded-[20px] bg-surface-0 p-5 text-color shadow-[0px_4px_20px_0px_rgba(0,0,0,0.25)] lg:p-[60px] dark:bg-surface-900"
+>
+  <h1 id="checkout-heading" class="mb-8 text-[28px] font-bold tracking-[-0.54px] lg:text-4xl">
+    Revisar pedido
+  </h1>
+  @if (placed()) {
+    <p role="status" class="text-xl">Pedido realizado. Abrindo a confirmação…</p>
+  } @else if (cart.distinctCount() === 0) {
+    <div class="flex flex-col items-start gap-5" role="status">
+      <p class="text-xl">Seu carrinho está vazio</p>
+      <a
+        routerLink="/catalog"
+        class="rounded-sm font-bold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        >Ver catálogo</a
+      >
+    </div>
+  } @else {
+    <div class="grid grid-cols-1 items-start gap-[30px] lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div class="min-w-0">
+        @if (view.isLoading()) {
+          <p role="status" class="sr-only">Carregando pedido.</p>
+          <div aria-hidden="true" class="flex flex-col gap-6">
+            @for (item of cart.items(); track item.productId) {
+              <p-skeleton width="100%" height="160px" />
+            }
+          </div>
+        } @else {
+          @if (view.error()) {
+            <div class="mb-6 flex flex-col items-start gap-5">
+              <p-message severity="error">{{ loadError() }}</p-message>
+              <p-button label="Tentar novamente" (onClick)="view.reload()" />
+            </div>
+          }
+          <ul
+            aria-label="Produtos no pedido"
+            class="divide-y divide-surface-200 dark:divide-surface-700"
+          >
+            @for (line of lines(); track line.productId) {
+              <li>
+                <article [attr.aria-label]="line.name" class="flex flex-col gap-5 py-6 sm:flex-row">
+                  <div
+                    class="flex h-28 w-28 shrink-0 items-center justify-center rounded-[20px] border border-surface-200 p-3 dark:border-surface-700"
+                  >
+                    @if (line.product?.imageUrl; as imageUrl) {
+                      <img
+                        [src]="imageUrl"
+                        [alt]="line.name"
+                        width="88"
+                        height="88"
+                        loading="lazy"
+                        decoding="async"
+                        class="max-h-full max-w-full object-contain"
+                      />
+                    } @else {
+                      <span class="pi pi-image text-4xl text-muted-color" aria-hidden="true"></span>
+                    }
+                  </div>
+                  <div class="flex min-w-0 flex-1 flex-col gap-4">
+                    <h2 class="text-xl font-bold wrap-anywhere">{{ line.name }}</h2>
+                    @if (line.product) {
+                      <p class="text-muted-color">
+                        Preço unitário:
+                        <span>R$ {{ line.unitPrice.integer }}{{ line.unitPrice.decimal }}</span>
+                      </p>
+                    }
+                    <p>Quantidade: {{ line.quantity }}</p>
+                    @switch (line.status) {
+                      @case ('error') {
+                        <p-message severity="error"
+                          >Não foi possível carregar este produto.</p-message
+                        >
+                      }
+                      @case ('out-of-stock') {
+                        <p-message severity="warn">Sem estoque</p-message>
+                      }
+                      @case ('insufficient-stock') {
+                        <p-message severity="warn">Apenas {{ line.stock }} em estoque</p-message>
+                      }
+                      @case ('ok') {
+                        <p class="font-bold text-primary">
+                          Total: <span>R$ {{ line.total.integer }}{{ line.total.decimal }}</span>
+                        </p>
+                      }
+                    }
+                  </div>
+                </article>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+      <aside
+        aria-labelledby="summary-heading"
+        class="flex min-w-0 flex-col gap-6 rounded-[20px] border border-surface-200 p-5 dark:border-surface-700"
+      >
+        <h2 id="summary-heading" class="text-2xl font-bold">Resumo do pedido</h2>
+        <div class="flex flex-wrap items-baseline justify-between gap-2" aria-live="polite">
+          <span>Total</span>
+          @if (view.isLoading()) {
+            <p-skeleton width="100px" height="28px" />
+          } @else {
+            <span class="text-2xl font-bold text-primary"
+              >R$ {{ total().integer }}{{ total().decimal }}</span
+            >
+          }
+        </div>
+        @if (!view.isLoading() && !view.error() && !view.canCheckout()) {
+          <p class="text-muted-color">
+            Volte ao carrinho para remover produtos indisponíveis ou ajustar as quantidades.
+          </p>
+        }
+        @if (submitError(); as error) {
+          <p-message severity="error">{{ error }}</p-message>
+        }
+        <p-button
+          label="Finalizar pedido"
+          [fluid]="true"
+          [loading]="submitting()"
+          [disabled]="submitting() || !view.canCheckout()"
+          (onClick)="submit()"
+        />
+        <a
+          routerLink="/cart"
+          class="rounded-sm text-center font-bold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+          >Voltar ao carrinho</a
+        >
+      </aside>
+    </div>
+  }
+</section>
