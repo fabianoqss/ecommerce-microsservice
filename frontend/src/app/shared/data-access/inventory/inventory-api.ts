@@ -1,5 +1,5 @@
-import { computed, Service } from '@angular/core';
-import { HttpParams, httpResource } from '@angular/common/http';
+import { computed, inject, Service } from '@angular/core';
+import { HttpClient, HttpParams, httpResource } from '@angular/common/http';
 import { InventoryItem } from './inventory';
 
 const sameCodes = (a: readonly string[], b: readonly string[]) =>
@@ -7,6 +7,13 @@ const sameCodes = (a: readonly string[], b: readonly string[]) =>
 
 @Service()
 export class InventoryApi {
+  private readonly http = inject(HttpClient);
+
+  getBySkus(skus: string[]) {
+    const params = new HttpParams({ fromObject: { skuCode: skus } });
+    return this.http.get<InventoryItem[]>('/api/inventory', { params });
+  }
+
   bySkus(skus: () => string[]) {
     const codes = computed(() => skus(), { equal: sameCodes });
     return httpResource<InventoryItem[]>(() => {

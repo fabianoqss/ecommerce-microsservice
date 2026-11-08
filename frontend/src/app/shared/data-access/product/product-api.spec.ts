@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { firstValueFrom } from 'rxjs';
 import { ApplicationRef, signal } from '@angular/core';
 import { ProductApi } from './product-api';
 import { Product } from './product';
@@ -91,6 +92,23 @@ describe('ProductApi', () => {
     http.expectOne('/api/product/outro-id').flush({ ...product, id: 'outro-id' });
     await TestBed.inject(ApplicationRef).whenStable();
     expect(result.value()?.id).toBe('outro-id');
+  });
+
+  it('oferece leitura combinável por id com URL codificada', async () => {
+    const result = firstValueFrom(api.getById('a/b &'));
+    const request = http.expectOne('/api/product/a%2Fb%20%26');
+    expect(request.request.method).toBe('GET');
+    const product: Product = {
+      id: 'a/b &',
+      name: 'Teclado',
+      price: 12.5,
+      description: '',
+      category: '',
+      imageUrl: null,
+      version: 0,
+    };
+    request.flush(product);
+    expect(await result).toEqual(product);
   });
 
   it('carrega categorias em um recurso independente', async () => {
