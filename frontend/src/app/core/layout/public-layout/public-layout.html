@@ -1,3 +1,18 @@
 <div class="mx-auto max-w-[1440px] px-5 py-10 lg:px-10">
   <router-outlet />
 </div>
+<p-toast key="cart" [breakpoints]="{ '640px': { width: 'calc(100% - 2rem)', right: '1rem' } }">
+  <ng-template #message let-message>
+    <div class="flex flex-col gap-2">
+      <p>{{ message.detail }}</p>
+      @if (message.severity === 'success') {
+        <a
+          routerLink="/cart"
+          (click)="closeCartToast()"
+          class="rounded-sm font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
+          >Ver carrinho</a
+        >
+      }
+    </div>
+  </ng-template>
+</p-toast>

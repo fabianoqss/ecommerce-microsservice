@@ -29,7 +29,7 @@ import { Pagination } from '../../../shared/ui/pagination/pagination';
 import { ProductSearch } from '../../../shared/ui/product-search/product-search';
 import { AdminProductCard } from '../admin-product-card/admin-product-card';
 import { AdminProductApi } from '../data-access/admin-product-api';
-import { problemDetail } from '../data-access/problem-detail';
+import { problemDetail } from '../../../core/http/problem-detail';
 
 @Component({
   imports: [

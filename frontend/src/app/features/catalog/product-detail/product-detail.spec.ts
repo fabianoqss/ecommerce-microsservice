@@ -6,10 +6,17 @@ import { NavigationEnd, provideRouter, Router, withComponentInputBinding } from 
 import { RouterTestingHarness } from '@angular/router/testing';
 import { filter, firstValueFrom } from 'rxjs';
 import { catalogRoutes } from '../catalog.routes';
+import { MessageService } from 'primeng/api';
+import { AuthService } from '../../../core/auth/auth.service';
+import { AUTH_LOCATION } from '../../../core/auth/auth-location';
+import { Cart } from '../../../core/cart/cart';
+import { CartStore } from '../../../core/cart/cart-store';
+import { LocalStorageCartStore } from '../../../core/cart/local-storage-cart-store';
 import { Product } from '../../../shared/data-access/product/product';
 
 describe('ProductDetail', () => {
   let http: HttpTestingController;
+  let login: ReturnType<typeof vi.fn>;
   const product: Product = {
     id: '670000000000000000000001',
     name: 'Teclado Mecânico TKL',
@@ -22,8 +29,13 @@ describe('ProductDetail', () => {
   const url = '/catalog/' + product.id;
 
   beforeEach(() => {
+    localStorage.clear();
+    login = vi.fn();
     TestBed.configureTestingModule({
       providers: [
+        MessageService,
+        { provide: CartStore, useClass: LocalStorageCartStore },
+        { provide: AUTH_LOCATION, useValue: { assign: login } },
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(
@@ -35,11 +47,24 @@ describe('ProductDetail', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
 
-  async function render(path = url) {
+  async function render(path = url, loadInventory = true) {
     const harness = await RouterTestingHarness.create(path);
     TestBed.tick();
+    if (loadInventory) {
+      for (const request of http.match((request) => request.url === '/api/inventory')) {
+        request.flush(
+          request.request.params
+            .getAll('skuCode')
+            ?.map((skuCode) => ({ skuCode, quantity: 10, inStock: true })) ?? [],
+        );
+      }
+    }
     const element = harness.routeNativeElement;
     if (!element) {
       throw new Error('A rota do produto não foi renderizada');
@@ -48,6 +73,14 @@ describe('ProductDetail', () => {
   }
 
   async function settle(harness: RouterTestingHarness) {
+    TestBed.tick();
+    for (const request of http.match((request) => request.url === '/api/inventory')) {
+      request.flush(
+        request.request.params
+          .getAll('skuCode')
+          ?.map((skuCode) => ({ skuCode, quantity: 10, inStock: true })) ?? [],
+      );
+    }
     await harness.fixture.whenStable();
     harness.detectChanges();
   }
@@ -179,4 +212,143 @@ describe('ProductDetail', () => {
       expect(TestBed.inject(Title).getTitle()).toBe('Catálogo | DS Catalog');
     },
   );
+  async function authenticate() {
+    const pending = TestBed.inject(AuthService).load();
+    http
+      .expectOne('/bff/me')
+      .flush({ sub: 'ana', name: 'Ana', email: 'ana@example.com', roles: ['CUSTOMER'] });
+    await pending;
+  }
+
+  function addButton(element: HTMLElement) {
+    const button = Array.from(element.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Adicionar ao carrinho'),
+    );
+    expect(button).toBeDefined();
+    return button;
+  }
+
+  it('inicia login quando visitante tenta adicionar ao carrinho', async () => {
+    const { harness, element } = await render();
+    http.expectOne('/api/product/' + product.id).flush(product);
+    await settle(harness);
+    addButton(element)?.click();
+    expect(login).toHaveBeenCalledExactlyOnceWith('/oauth2/authorization/keycloak');
+    expect(TestBed.inject(Cart).items()).toEqual([]);
+  });
+
+  it('adiciona produto e notifica o usuário sem sair da página', async () => {
+    await authenticate();
+    const messages = vi.spyOn(TestBed.inject(MessageService), 'add');
+    const { harness, element } = await render();
+    http.expectOne('/api/product/' + product.id).flush(product);
+    await settle(harness);
+    const add = vi.spyOn(TestBed.inject(Cart), 'add');
+    addButton(element)?.click();
+    expect(add).toHaveBeenCalledExactlyOnceWith(product.id);
+    expect(TestBed.inject(Cart).totalQuantity()).toBe(1);
+    expect(messages).toHaveBeenCalledWith(
+      expect.objectContaining({ severity: 'success', detail: 'Produto adicionado ao carrinho' }),
+    );
+    expect(TestBed.inject(Router).url).toBe(url);
+  });
+
+  it.each([
+    ['limit-products', 'O carrinho pode ter no máximo 50 produtos diferentes.'],
+    ['limit-quantity', 'Você pode adicionar no máximo 10000 unidades de cada produto.'],
+  ] as const)('informa o motivo quando o limite é atingido: %s', async (result, detail) => {
+    await authenticate();
+    const messages = vi.spyOn(TestBed.inject(MessageService), 'add');
+    vi.spyOn(TestBed.inject(Cart), 'add').mockReturnValue(result);
+    const { harness, element } = await render();
+    http.expectOne('/api/product/' + product.id).flush(product);
+    await settle(harness);
+    addButton(element)?.click();
+    expect(messages).toHaveBeenCalledWith(expect.objectContaining({ severity: 'error', detail }));
+  });
+
+  it('desabilita a adição até o estoque carregar e mostra Sem estoque quando indisponível', async () => {
+    const { harness, element } = await render(url, false);
+    http.expectOne('/api/product/' + product.id).flush(product);
+    await vi.waitFor(() => {
+      harness.detectChanges();
+      expect(element.querySelector('h1')).not.toBeNull();
+    });
+    expect(element.textContent).toContain('Consultando estoque');
+    expect(element.querySelector('button')?.disabled).toBe(true);
+    http
+      .expectOne('/api/inventory?skuCode=' + product.id)
+      .flush([{ skuCode: product.id, quantity: 0, inStock: false }]);
+    await settle(harness);
+    const button = Array.from(element.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Sem estoque'),
+    );
+    expect(button?.disabled).toBe(true);
+  });
+
+  it('mostra ProblemDetail de estoque, bloqueia adição e permite tentar novamente', async () => {
+    const { harness, element } = await render(url, false);
+    http.expectOne('/api/product/' + product.id).flush(product);
+    await vi.waitFor(() => {
+      harness.detectChanges();
+      expect(element.querySelector('h1')).not.toBeNull();
+    });
+    http
+      .expectOne('/api/inventory?skuCode=' + product.id)
+      .flush({ detail: 'Estoque indisponível.' }, { status: 503, statusText: 'Unavailable' });
+    await settle(harness);
+    expect(element.querySelector('p-message')?.textContent).toContain('Estoque indisponível.');
+    expect(addButton(element)?.disabled).toBe(true);
+    Array.from(element.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Consultar estoque novamente'))
+      ?.click();
+    TestBed.tick();
+    http
+      .expectOne('/api/inventory?skuCode=' + product.id)
+      .flush([{ skuCode: product.id, quantity: 2, inStock: true }]);
+    await settle(harness);
+    expect(addButton(element)?.disabled).toBe(false);
+  });
+
+  it('trata estoque ausente como indisponível sem permitir adicionar', async () => {
+    const { harness, element } = await render(url, false);
+    http.expectOne('/api/product/' + product.id).flush(product);
+    await vi.waitFor(() => {
+      harness.detectChanges();
+      expect(element.querySelector('h1')).not.toBeNull();
+    });
+    http.expectOne('/api/inventory?skuCode=' + product.id).flush([]);
+    await settle(harness);
+    expect(element.textContent).not.toContain('Não foi possível consultar o estoque');
+    expect(element.querySelector('p-message')).toBeNull();
+    const button = Array.from(element.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Sem estoque'),
+    );
+    expect(button?.disabled).toBe(true);
+  });
+
+  it('não adiciona além do estoque disponível e informa a quantidade', async () => {
+    await authenticate();
+    const messages = vi.spyOn(TestBed.inject(MessageService), 'add');
+    const { harness, element } = await render(url, false);
+    http.expectOne('/api/product/' + product.id).flush(product);
+    await vi.waitFor(() => {
+      harness.detectChanges();
+      expect(element.querySelector('h1')).not.toBeNull();
+    });
+    http
+      .expectOne('/api/inventory?skuCode=' + product.id)
+      .flush([{ skuCode: product.id, quantity: 2, inStock: true }]);
+    await settle(harness);
+    addButton(element)?.click();
+    addButton(element)?.click();
+    addButton(element)?.click();
+    expect(TestBed.inject(Cart).totalQuantity()).toBe(2);
+    expect(messages).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        severity: 'error',
+        detail: 'Apenas 2 em estoque. Você já tem 2 no carrinho.',
+      }),
+    );
+  });
 });
