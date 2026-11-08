@@ -2,9 +2,12 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { NavigationEnd, provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { filter, firstValueFrom } from 'rxjs';
+import { ProductSearch } from '../../../shared/ui/product-search/product-search';
+import { Pagination } from '../../../shared/ui/pagination/pagination';
 import { AdminProducts } from './admin-products';
 
 describe('AdminProducts', () => {
@@ -90,11 +93,11 @@ describe('AdminProducts', () => {
     expect(heading?.hasAttribute('aria-hidden')).toBe(false);
   });
 
-  it('ADICIONAR é um link que preserva os filtros', async () => {
-    const { element } = await render('/admin/products?name=Teclado&extra=1');
+  it('ADICIONAR é um link que preserva os filtros e a página', async () => {
+    const { element } = await render('/admin/products?name=Teclado&extra=1&page=2');
     const link = element.querySelector('a');
     expect(link?.textContent?.trim()).toBe('ADICIONAR');
-    expect(link?.getAttribute('href')).toBe('/admin/products/new?name=Teclado&extra=1');
+    expect(link?.getAttribute('href')).toBe('/admin/products/new?name=Teclado&extra=1&page=2');
   });
 
   it('preenche a busca com os filtros da URL e acompanha novas navegações', async () => {
@@ -111,7 +114,7 @@ describe('AdminProducts', () => {
   });
 
   it('atualiza nome na URL preservando categoria e substituindo o histórico', async () => {
-    const { harness, element } = await render('/admin/products?category=Perif%C3%A9ricos');
+    const { harness, element } = await render('/admin/products?page=3&category=Perif%C3%A9ricos');
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
     const field = element.querySelector('input');
     if (!field) throw new Error('Campo de nome ausente');
@@ -125,7 +128,7 @@ describe('AdminProducts', () => {
   });
 
   it('atualiza categoria na URL preservando nome', async () => {
-    const { harness, element } = await render('/admin/products?name=Teclado');
+    const { harness, element } = await render('/admin/products?page=3&name=Teclado');
     const select = element.querySelector('select');
     if (!select) throw new Error('Seletor de categoria ausente');
     const navigation = nextNavigation();
@@ -138,7 +141,7 @@ describe('AdminProducts', () => {
 
   it('remove nome e categoria da URL ao limpar', async () => {
     const { harness, element } = await render(
-      '/admin/products?name=Teclado&category=Perif%C3%A9ricos&extra=1',
+      '/admin/products?page=3&name=Teclado&category=Perif%C3%A9ricos&extra=1',
     );
     const navigation = nextNavigation();
     Array.from(element.querySelectorAll('button'))
@@ -159,6 +162,95 @@ describe('AdminProducts', () => {
     expect(element.querySelector('input')?.disabled).toBe(false);
   });
 
+  it('descarta a rolagem pendente quando a paginação falha', async () => {
+    const { harness, element } = await render(
+      '/admin/products?name=Teclado&category=Perif%C3%A9ricos',
+      false,
+      false,
+    );
+    http.expectOne('/api/product?page=0&size=4&name=Teclado&category=Perif%C3%A9ricos').flush({
+      ...emptyPage,
+      content: products,
+      totalElements: 12,
+      totalPages: 3,
+    });
+    await settle(harness);
+    const results = element.querySelector<HTMLElement>('[aria-busy]');
+    if (!results) throw new Error('Região de resultados ausente');
+    const scroll = vi.fn();
+    results.scrollIntoView = scroll;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    element.querySelector<HTMLButtonElement>('[aria-label="Página 2"]')?.click();
+    await navigate.mock.results[0]?.value;
+    TestBed.tick();
+    http
+      .expectOne('/api/product?page=1&size=4&name=Teclado&category=Perif%C3%A9ricos')
+      .flush({ detail: 'Falha ao paginar.' }, { status: 503, statusText: 'Unavailable' });
+    await settle(harness);
+    expect(element.querySelector('p-message')?.textContent).toContain('Falha ao paginar.');
+    expect(scroll).not.toHaveBeenCalled();
+    await harness.navigateByUrl('/admin/products?name=Monitor');
+    TestBed.tick();
+    http.expectOne('/api/product?page=0&size=4&name=Monitor').flush({
+      ...emptyPage,
+      content: products,
+      totalElements: 1,
+      totalPages: 1,
+    });
+    await settle(harness);
+    expect(element.querySelectorAll('article').length).toBeGreaterThan(0);
+    expect(scroll).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['nameChange', 'Monitor', 'name=Monitor&category=Perif%C3%A9ricos'],
+    ['categoryChange', 'Monitores', 'name=Teclado&category=Monitores'],
+    ['clear', undefined, ''],
+  ])(
+    'descarta a rolagem pendente ao receber %s durante a paginação',
+    async (event, value, query) => {
+      const { harness, element } = await render(
+        '/admin/products?name=Teclado&category=Perif%C3%A9ricos',
+        false,
+        false,
+      );
+      http.expectOne('/api/product?page=0&size=4&name=Teclado&category=Perif%C3%A9ricos').flush({
+        ...emptyPage,
+        content: products,
+        totalElements: 12,
+        totalPages: 3,
+      });
+      await settle(harness);
+      const results = element.querySelector<HTMLElement>('[aria-busy]');
+      if (!results) throw new Error('Região de resultados ausente');
+      const scroll = vi.fn();
+      results.scrollIntoView = scroll;
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+      element.querySelector<HTMLButtonElement>('[aria-label="Página 2"]')?.click();
+      await navigate.mock.results[0]?.value;
+      TestBed.tick();
+      const pending = http.expectOne(
+        '/api/product?page=1&size=4&name=Teclado&category=Perif%C3%A9ricos',
+      );
+      const search = harness.routeDebugElement?.query(By.directive(ProductSearch));
+      if (!search) throw new Error('Busca de produtos ausente');
+      const filterNavigation = nextNavigation();
+      search.triggerEventHandler(event, value);
+      await filterNavigation;
+      TestBed.tick();
+      expect(pending.cancelled).toBe(true);
+      http.expectOne('/api/product?page=0&size=4' + (query ? '&' + query : '')).flush({
+        ...emptyPage,
+        content: products,
+        totalElements: 1,
+        totalPages: 1,
+      });
+      await settle(harness);
+      expect(element.querySelectorAll('article').length).toBeGreaterThan(0);
+      expect(scroll).not.toHaveBeenCalled();
+    },
+  );
+
   it('ignora parâmetros repetidos sem quebrar a busca', async () => {
     const { element } = await render('/admin/products?name=A&name=B&category=A&category=B');
     expect(element.querySelector('input')?.value).toBe('');
@@ -178,16 +270,221 @@ describe('AdminProducts', () => {
     );
   });
 
-  it('envia os filtros da URL e sempre solicita a página zero', async () => {
+  it('envia os filtros e a página da URL mantendo quatro produtos por página', async () => {
     const { harness } = await render(
       '/admin/products?page=3&name=Teclado&category=Perif%C3%A9ricos',
       false,
       false,
     );
     http
-      .expectOne('/api/product?page=0&size=4&name=Teclado&category=Perif%C3%A9ricos')
-      .flush(productPage);
+      .expectOne('/api/product?page=2&size=4&name=Teclado&category=Perif%C3%A9ricos')
+      .flush({ ...productPage, page: 2, totalElements: 12, totalPages: 3 });
     await settle(harness);
+  });
+
+  it.each(['', '0', '-1', 'abc', '1.5', '1e2', '2147483648', '999999999999999999999', '1&page=2'])(
+    'normaliza a página inválida ou repetida %s para a primeira',
+    async (page) => {
+      const { harness } = await render('/admin/products?page=' + page, false, false);
+      http.expectOne('/api/product?page=0&size=4').flush(emptyPage);
+      await settle(harness);
+    },
+  );
+
+  it.each([
+    ['0002', '1'],
+    ['2147483647', '2147483646'],
+  ])('converte a página válida %s para o índice %s da API', async (page, index) => {
+    const { harness } = await render('/admin/products?page=' + page, false, false);
+    http.expectOne('/api/product?page=' + index + '&size=4').flush(emptyPage);
+    await settle(harness);
+  });
+
+  it.each([0, 1, 3])(
+    'mostra paginação somente quando há mais de uma página: %s',
+    async (totalPages) => {
+      const { harness, element } = await render('/admin/products', false, false);
+      http.expectOne('/api/product?page=0&size=4').flush({
+        ...productPage,
+        content: totalPages ? products : [],
+        totalElements: totalPages * 4,
+        totalPages,
+      });
+      await settle(harness);
+      expect(element.querySelectorAll('app-pagination')).toHaveLength(totalPages > 1 ? 1 : 0);
+      expect(element.querySelectorAll('nav[aria-label="Paginação"]')).toHaveLength(
+        totalPages > 1 ? 1 : 0,
+      );
+    },
+  );
+
+  it('pagina preservando filtros e cards durante a carga e rola após renderizar os resultados', async () => {
+    const { harness, element } = await render('/admin/products?name=Teclado&extra=1', false, false);
+    http.expectOne('/api/product?page=0&size=4&name=Teclado').flush({
+      ...productPage,
+      totalElements: 12,
+      totalPages: 3,
+    });
+    await settle(harness);
+    const results = element.querySelector<HTMLElement>('[aria-busy]');
+    if (!results) throw new Error('Região de resultados ausente');
+    const scroll = vi.fn();
+    results.scrollIntoView = scroll;
+    const cards = Array.from(element.querySelectorAll('article'));
+    const navigation = nextNavigation();
+    element.querySelector<HTMLButtonElement>('[aria-label="Página 2"]')?.click();
+    await navigation;
+    TestBed.tick();
+    harness.detectChanges();
+    expect(queryParams()).toEqual({ name: 'Teclado', extra: '1', page: '2' });
+    expect(Array.from(element.querySelectorAll('article'))).toEqual(cards);
+    expect(element.querySelector('ul[aria-label="Produtos"]')?.classList).toContain('opacity-50');
+    expect(element.querySelector('p-skeleton')).toBeNull();
+    expect(element.querySelector('[aria-live]')?.textContent).toContain('Carregando produtos.');
+    expect(scroll).not.toHaveBeenCalled();
+    expect.soft(element.querySelector('[aria-current="page"]')?.textContent?.trim()).toBe('1');
+    expect
+      .soft(element.querySelector('app-pagination')?.parentElement?.classList)
+      .toContain('opacity-50');
+    http.expectOne('/api/product?page=1&size=4&name=Teclado').flush({
+      ...productPage,
+      page: 1,
+      content: [{ ...products[0], id: 'page-2', name: 'Teclado da segunda página' }],
+      totalElements: 5,
+      totalPages: 2,
+    });
+    await settle(harness);
+    expect(element.querySelectorAll('article')).toHaveLength(1);
+    expect(element.querySelector('article')?.textContent).toContain('Teclado da segunda página');
+    expect(element.querySelector('[aria-current="page"]')?.textContent?.trim()).toBe('2');
+    expect(element.querySelector('app-pagination')?.parentElement?.classList).not.toContain(
+      'opacity-50',
+    );
+    expect(scroll).toHaveBeenCalledWith({ block: 'start' });
+  });
+
+  it('ignora a página atual e páginas fora do intervalo', async () => {
+    const { harness } = await render('/admin/products?page=2', false, false);
+    http.expectOne('/api/product?page=1&size=4').flush({
+      ...productPage,
+      page: 1,
+      totalElements: 12,
+      totalPages: 3,
+    });
+    await settle(harness);
+    const pagination = harness.routeDebugElement
+      ?.query(By.directive(Pagination))
+      .injector.get(Pagination);
+    expect(pagination).toBeDefined();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    for (const page of [1, -1, 3]) pagination?.pageChange.emit(page);
+    await settle(harness);
+    expect(navigate).not.toHaveBeenCalled();
+    http.expectNone((req) => req.url === '/api/product');
+  });
+
+  it('corrige uma URL além da última página preservando filtros e substituindo o histórico', async () => {
+    const { harness, element } = await render(
+      '/admin/products?page=999&name=Teclado&extra=1',
+      false,
+      false,
+    );
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    const navigation = nextNavigation();
+    http.expectOne('/api/product?page=998&size=4&name=Teclado').flush({
+      ...emptyPage,
+      page: 998,
+      totalElements: 9,
+      totalPages: 3,
+    });
+    await Promise.resolve();
+    TestBed.tick();
+    harness.detectChanges();
+    expect.soft(element.textContent).not.toContain('Nenhum produto encontrado.');
+    expect.soft(element.querySelectorAll('p-skeleton')).toHaveLength(4);
+    await navigation;
+    TestBed.tick();
+    harness.detectChanges();
+    expect.soft(element.querySelectorAll('p-skeleton')).toHaveLength(4);
+    expect.soft(element.textContent).not.toContain('Nenhum produto encontrado.');
+    expect(queryParams()).toEqual({ page: '3', name: 'Teclado', extra: '1' });
+    expect(navigate).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({
+        queryParams: { page: 3 },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      }),
+    );
+    http.expectOne('/api/product?page=2&size=4&name=Teclado').flush({
+      ...productPage,
+      page: 2,
+      totalElements: 9,
+      totalPages: 3,
+    });
+    await settle(harness);
+    expect(element.querySelector('p-skeleton')).toBeNull();
+    expect(element.querySelectorAll('article')).toHaveLength(4);
+  });
+
+  it('aguarda a página corrigida antes de rolar quando a paginação retorna fora do intervalo', async () => {
+    const { harness, element } = await render('/admin/products', false, false);
+    http.expectOne('/api/product?page=0&size=4').flush({
+      ...productPage,
+      totalElements: 9,
+      totalPages: 3,
+    });
+    await settle(harness);
+    const results = element.querySelector<HTMLElement>('[aria-busy]');
+    if (!results) throw new Error('Região de resultados ausente');
+    const scroll = vi.fn();
+    results.scrollIntoView = scroll;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    element.querySelector<HTMLButtonElement>('[aria-label="Página 3"]')?.click();
+    await navigate.mock.results[0]?.value;
+    TestBed.tick();
+    const correction = nextNavigation();
+    http.expectOne('/api/product?page=2&size=4').flush({
+      ...emptyPage,
+      page: 2,
+      totalElements: 8,
+      totalPages: 2,
+    });
+    await Promise.resolve();
+    TestBed.tick();
+    harness.detectChanges();
+    expect.soft(scroll).not.toHaveBeenCalled();
+    await correction;
+    TestBed.tick();
+    harness.detectChanges();
+    expect.soft(scroll).not.toHaveBeenCalled();
+    expect.soft(element.textContent).not.toContain('Nenhum produto encontrado.');
+    http.expectOne('/api/product?page=1&size=4').flush({
+      ...productPage,
+      page: 1,
+      totalElements: 8,
+      totalPages: 2,
+    });
+    await settle(harness);
+    expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'start' });
+    expect(element.querySelector('[aria-current="page"]')?.textContent?.trim()).toBe('2');
+  });
+
+  it('aguarda os novos resultados antes de corrigir uma página usando o total anterior', async () => {
+    const { harness } = await render('/admin/products', false, false);
+    http.expectOne('/api/product?page=0&size=4').flush(productPage);
+    await settle(harness);
+    await harness.navigateByUrl('/admin/products?page=3&category=Monitores');
+    TestBed.tick();
+    expect(queryParams()).toEqual({ page: '3', category: 'Monitores' });
+    http.expectOne('/api/product?page=2&size=4&category=Monitores').flush({
+      ...productPage,
+      page: 2,
+      totalElements: 12,
+      totalPages: 3,
+    });
+    await settle(harness);
+    expect(queryParams()).toEqual({ page: '3', category: 'Monitores' });
   });
 
   it('preserva os mesmos cards com opacidade reduzida enquanto troca os filtros', async () => {
@@ -349,6 +646,50 @@ describe('AdminProducts', () => {
     expect(messages).toHaveBeenCalledWith(expect.objectContaining({ severity: 'success' }));
     expect(element.textContent).toContain('Nenhum produto encontrado.');
   });
+
+  it.each([1, 2])(
+    'após excluir na página 2, mantém ou corrige a página conforme o total %s',
+    async (totalPages) => {
+      const { harness, element } = await render('/admin/products?page=2&extra=1', false, false);
+      http.expectOne('/api/product?page=1&size=4').flush({
+        ...productPage,
+        page: 1,
+        content: totalPages === 1 ? [products[0]] : products.slice(0, 2),
+        totalElements: totalPages === 1 ? 5 : 6,
+        totalPages: 2,
+      });
+      await settle(harness);
+      const confirm = vi.spyOn(TestBed.inject(ConfirmationService), 'confirm');
+      element.querySelectorAll<HTMLButtonElement>('article button')[1]?.click();
+      confirm.mock.calls[0]?.[0].accept?.();
+      http.expectOne('/api/product/0').flush(null, { status: 204, statusText: 'No Content' });
+      TestBed.tick();
+      expect(queryParams()).toEqual({ page: '2', extra: '1' });
+      const navigation = totalPages === 1 ? nextNavigation() : undefined;
+      http.expectOne('/api/product?page=1&size=4').flush({
+        ...productPage,
+        page: 1,
+        content: totalPages === 1 ? [] : [products[1]],
+        totalElements: totalPages === 1 ? 4 : 5,
+        totalPages,
+      });
+      await Promise.resolve();
+      TestBed.tick();
+      harness.detectChanges();
+      expect.soft(element.textContent).not.toContain('Nenhum produto encontrado.');
+      if (navigation) {
+        await navigation;
+        TestBed.tick();
+        harness.detectChanges();
+        expect.soft(element.textContent).not.toContain('Nenhum produto encontrado.');
+        expect.soft(element.querySelectorAll('article')).toHaveLength(1);
+        http.expectOne('/api/product?page=0&size=4').flush(productPage);
+      }
+      await settle(harness);
+      expect(queryParams()).toEqual({ page: String(totalPages), extra: '1' });
+      expect(element.querySelectorAll('article')).toHaveLength(totalPages === 1 ? 4 : 1);
+    },
+  );
 
   it.each([
     [412, 'alterado'],

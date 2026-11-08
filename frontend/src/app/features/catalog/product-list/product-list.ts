@@ -17,7 +17,7 @@ import { Message } from 'primeng/message';
 import { Skeleton } from 'primeng/skeleton';
 import { Pagination } from '../../../shared/ui/pagination/pagination';
 import { ProductApi } from '../../../shared/data-access/product/product-api';
-import { ProductFilter } from '../../../shared/data-access/product/product-filter';
+import { parseProductFilter } from '../../../shared/data-access/product/product-filter';
 import { ProductCard } from '../product-card/product-card';
 import { ProductSearch } from '../../../shared/ui/product-search/product-search';
 
@@ -37,17 +37,9 @@ export class ProductList {
   private readonly scrollToResultsPending = signal(false);
   private readonly results = viewChild<ElementRef<HTMLElement>>('results');
   protected readonly skeletons = Array.from({ length: 8 }, (_, index) => index);
-  protected readonly filter = computed<ProductFilter>(() => {
-    const rawPage = this.page() ?? '1';
-    const page = typeof rawPage === 'string' && /^\d+$/.test(rawPage) ? Number(rawPage) : 1;
-    const name = this.name();
-    const category = this.category();
-    return {
-      page: Number.isSafeInteger(page) && page > 0 && page <= 2147483647 ? page - 1 : 0,
-      name: typeof name === 'string' ? name.trim().slice(0, 100) : '',
-      category: typeof category === 'string' ? category.trim() : '',
-    };
-  });
+  protected readonly filter = computed(() =>
+    parseProductFilter({ page: this.page(), name: this.name(), category: this.category() }),
+  );
   protected readonly products = this.api.list(this.filter);
   private readonly categoryResource = this.api.categories();
   protected readonly categories = computed(() =>
@@ -83,6 +75,10 @@ export class ProductList {
 
   constructor() {
     effect(() => {
+      if (this.products.error()) {
+        untracked(() => this.scrollToResultsPending.set(false));
+        return;
+      }
       const rendered = this.productPage() !== undefined && !this.products.isLoading();
       if (rendered && this.scrollToResultsPending()) {
         untracked(() => this.scrollToResultsPending.set(false));
@@ -105,6 +101,7 @@ export class ProductList {
   }
 
   protected changeName(name: string): Promise<boolean> {
+    this.scrollToResultsPending.set(false);
     return this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { name: name || null, page: null },
@@ -114,6 +111,7 @@ export class ProductList {
   }
 
   protected changeCategory(category: string): Promise<boolean> {
+    this.scrollToResultsPending.set(false);
     return this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { category: category || null, page: null },
@@ -122,6 +120,7 @@ export class ProductList {
   }
 
   protected clearFilters(): Promise<boolean> {
+    this.scrollToResultsPending.set(false);
     return this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { name: null, category: null, page: null },
