@@ -167,8 +167,8 @@ class InventoryErrorResponseTest {
     }
 
     @Test
-    void invalidParameterPreservesBadRequestContract() throws Exception {
-        mvc.perform(put("/api/inventory/invalid")
+    void invalidSkuCodeInPathPreservesBadRequestContract() throws Exception {
+        mvc.perform(put("/api/inventory/inv@lid")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":1}"))
                 .andExpect(status().isBadRequest())
@@ -180,10 +180,10 @@ class InventoryErrorResponseTest {
 
     @Test
     void missingInventoryReturnsProblemDetail() throws Exception {
-        when(inventoryService.update(99L, new InventoryUpdateDTO(1)))
-                .thenThrow(new InventoryNotFoundException(99L));
+        when(inventoryService.update("SKU-99", new InventoryUpdateDTO(1)))
+                .thenThrow(new InventoryNotFoundException("SKU-99"));
 
-        mvc.perform(put("/api/inventory/99")
+        mvc.perform(put("/api/inventory/SKU-99")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":1}"))
                 .andExpect(status().isNotFound())
@@ -191,8 +191,8 @@ class InventoryErrorResponseTest {
                 .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.title").value("Not Found"))
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.detail").value("Item de estoque não encontrado com id: 99"))
-                .andExpect(jsonPath("$.instance").value("/api/inventory/99"));
+                .andExpect(jsonPath("$.detail").value("Item de estoque não encontrado com skuCode: SKU-99"))
+                .andExpect(jsonPath("$.instance").value("/api/inventory/SKU-99"));
     }
 
     @Test

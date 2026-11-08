@@ -110,12 +110,12 @@ class InventorySecurityTest {
 
         mvc.perform(post("/api/inventory").with(admin).contentType(MediaType.APPLICATION_JSON).content(INSERT_BODY))
                 .andExpect(allowed());
-        mvc.perform(put("/api/inventory/1").with(admin).contentType(MediaType.APPLICATION_JSON).content(UPDATE_BODY))
+        mvc.perform(put("/api/inventory/SKU-1").with(admin).contentType(MediaType.APPLICATION_JSON).content(UPDATE_BODY))
                 .andExpect(allowed());
 
         mvc.perform(post("/api/inventory").with(customer).contentType(MediaType.APPLICATION_JSON).content(INSERT_BODY))
                 .andExpect(status().isForbidden());
-        mvc.perform(put("/api/inventory/1").with(service).contentType(MediaType.APPLICATION_JSON).content(UPDATE_BODY))
+        mvc.perform(put("/api/inventory/SKU-1").with(service).contentType(MediaType.APPLICATION_JSON).content(UPDATE_BODY))
                 .andExpect(status().isForbidden());
     }
 }

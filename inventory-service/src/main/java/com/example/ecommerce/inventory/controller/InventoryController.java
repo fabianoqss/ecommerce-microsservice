@@ -75,20 +75,22 @@ public class InventoryController {
     }
 
     @Operation(
-            description = "Update quantity of an inventory item",
-            summary = "Update inventory item",
+            description = "Update the quantity of the inventory item identified by its SKU code (the product id)",
+            summary = "Update inventory item by SKU code",
             responses = {
                     @ApiResponse(description = "Ok", responseCode = "200"),
-                    @ApiResponse(description = "Not Found", responseCode = "404"),
-                    @ApiResponse(description = "Bad Request", responseCode = "400")
+                    @ApiResponse(description = "Not Found - no inventory item for the SKU code", responseCode = "404"),
+                    @ApiResponse(description = "Bad Request - invalid SKU code or payload", responseCode = "400")
             }
     )
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/{id}")
+    @PutMapping("/{skuCode}")
     @ResponseStatus(HttpStatus.OK)
-    public InventoryDTO update(@PathVariable Long id, @Valid @RequestBody InventoryUpdateDTO dto) {
-        return inventoryService.update(id, dto);
+    public InventoryDTO update(
+            @PathVariable @Pattern(regexp = SkuCodeRules.PATTERN, message = SkuCodeRules.MESSAGE) String skuCode,
+            @Valid @RequestBody InventoryUpdateDTO dto) {
+        return inventoryService.update(skuCode, dto);
     }
 
     @Operation(
