@@ -1,0 +1,86 @@
+<section
+  aria-labelledby="confirmation-heading"
+  [attr.aria-busy]="orderResource.isLoading()"
+  class="rounded-[20px] bg-surface-0 p-5 text-color shadow-[0px_4px_20px_0px_rgba(0,0,0,0.25)] lg:p-[60px] dark:bg-surface-900"
+>
+  @if (orderResource.isLoading()) {
+    <h1 id="confirmation-heading" class="mb-8 text-[28px] font-bold tracking-[-0.54px] lg:text-4xl">
+      Confirmação do pedido
+    </h1>
+    <p role="status" class="sr-only">Carregando pedido.</p>
+    <div aria-hidden="true" class="flex flex-col gap-6">
+      <p-skeleton width="60%" height="28px" />
+      <p-skeleton width="100%" height="160px" />
+      <p-skeleton width="100%" height="160px" />
+    </div>
+  } @else if (notFound()) {
+    <h1 id="confirmation-heading" class="text-[28px] font-bold tracking-[-0.54px] lg:text-4xl">
+      Pedido não encontrado.
+    </h1>
+  } @else if (orderResource.error()) {
+    <h1 id="confirmation-heading" class="mb-8 text-[28px] font-bold tracking-[-0.54px] lg:text-4xl">
+      Confirmação do pedido
+    </h1>
+    <div class="flex flex-col items-start gap-5">
+      <p-message severity="error">{{ errorMessage() }}</p-message>
+      <p-button label="Tentar novamente" (onClick)="orderResource.reload()" />
+    </div>
+  } @else if (order(); as order) {
+    <h1 id="confirmation-heading" class="mb-8 text-[28px] font-bold tracking-[-0.54px] lg:text-4xl">
+      Pedido realizado!
+    </h1>
+    <dl class="mb-8 flex flex-col gap-5">
+      <div>
+        <dt class="text-muted-color">Número do pedido</dt>
+        <dd class="font-bold wrap-anywhere">{{ order.id }}</dd>
+      </div>
+      <div>
+        <dt class="text-muted-color">Data do pedido</dt>
+        <dd>
+          <time [attr.datetime]="order.orderTime">{{ formattedOrderTime() }}</time>
+        </dd>
+      </div>
+      <div>
+        <dt class="text-muted-color">Status</dt>
+        <dd class="font-bold">{{ statusLabel(order.status) }}</dd>
+      </div>
+    </dl>
+    @if (order.status === 'PENDING') {
+      <p role="status" class="mb-6 text-muted-color">Estamos confirmando a reserva do estoque.</p>
+    }
+    <div class="grid grid-cols-1 items-start gap-[30px] lg:grid-cols-[minmax(0,1fr)_320px]">
+      <ul
+        aria-label="Produtos no pedido"
+        class="min-w-0 divide-y divide-surface-200 dark:divide-surface-700"
+      >
+        @for (line of lines(); track line.productId) {
+          <li class="flex flex-col gap-4 py-6">
+            <h2 class="text-xl font-bold wrap-anywhere">{{ line.productName }}</h2>
+            <p class="text-muted-color">
+              Preço unitário:
+              <span>R$ {{ line.unitPrice.integer }}{{ line.unitPrice.decimal }}</span>
+            </p>
+            <p>Quantidade: {{ line.quantity }}</p>
+          </li>
+        }
+      </ul>
+      <aside
+        aria-labelledby="summary-heading"
+        class="flex min-w-0 flex-col gap-6 rounded-[20px] border border-surface-200 p-5 dark:border-surface-700"
+      >
+        <h2 id="summary-heading" class="text-2xl font-bold">Resumo do pedido</h2>
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <span>Total</span>
+          <span class="text-2xl font-bold text-primary"
+            >R$ {{ total().integer }}{{ total().decimal }}</span
+          >
+        </div>
+      </aside>
+    </div>
+  }
+  <a
+    routerLink="/catalog"
+    class="mt-8 inline-flex min-h-11 items-center rounded-sm font-bold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+    >Continuar comprando</a
+  >
+</section>

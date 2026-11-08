@@ -37,6 +37,9 @@ test.beforeEach(async ({ page }) => {
         json: [{ skuCode: product.id, quantity: 10, inStock: true }],
       });
     }
+    if (url.pathname === '/api/order/' + order.id) {
+      return route.fulfill({ json: order });
+    }
     return route.fulfill({ status: 404, json: { detail: 'Recurso não encontrado.' } });
   });
 });
@@ -86,9 +89,54 @@ test('revisa itens sem editar e cria um único pedido limpando o carrinho após 
   await expect(page.getByRole('link', { name: 'Carrinho, 1 item', exact: true })).toHaveText('1');
   expect(posts).toBe(1);
   releaseResponse();
+  await expect(page).toHaveURL('/orders/' + order.id + '/confirmation');
+  await expect(page).toHaveTitle('Pedido realizado | DS Catalog');
+  await expect(page.getByRole('heading', { name: 'Pedido realizado!', exact: true })).toBeVisible();
+  await expect(page.getByText(order.id, { exact: true })).toBeVisible();
+  await expect(page.getByText('Processando', { exact: true })).toBeVisible();
+  await expect(page.getByText('Estamos confirmando a reserva do estoque.')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Produtos no pedido' })).toContainText(product.name);
+  await expect(page.getByRole('list', { name: 'Produtos no pedido' })).toContainText(
+    'Quantidade: 1',
+  );
+  await expect(page.getByRole('list', { name: 'Produtos no pedido' })).toContainText(
+    'Preço unitário: R$ 349,90',
+  );
+  await expect(page.getByRole('complementary', { name: 'Resumo do pedido' })).toContainText(
+    'R$ 349,90',
+  );
+  await expect(page.getByText('08/11/2026 10:30', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Continuar comprando', exact: true }),
+  ).toHaveAttribute('href', '/catalog');
   await expect(page.getByRole('link', { name: 'Carrinho, 0 itens', exact: true })).toHaveText('');
+  await expect(
+    page
+      .getByRole('link', { name: 'Carrinho, 0 itens', exact: true })
+      .getByText('1', { exact: true }),
+  ).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => localStorage.getItem('cart:ana'))).toBe('[]');
   expect(posts).toBe(1);
+});
+
+test('mostra pedido não encontrado na navegação direta quando a API retorna 404', async ({
+  page,
+}) => {
+  await page.route('**/api/order/' + order.id, (route) =>
+    route.fulfill({
+      status: 404,
+      json: { status: 404, title: 'Não encontrado', detail: 'Pedido não encontrado.' },
+    }),
+  );
+  await page.goto('/orders/' + order.id + '/confirmation');
+  await expect(page).toHaveURL('/orders/' + order.id + '/confirmation');
+  await expect(page.getByText('Pedido não encontrado.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pedido realizado!', exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole('link', { name: 'Continuar comprando', exact: true }),
+  ).toHaveAttribute('href', '/catalog');
 });
 
 test('mostra conflito, mantém badge e reutiliza chave e itens ao voltar ao checkout', async ({

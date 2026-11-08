@@ -25,6 +25,9 @@ export class OrderApi {
   }
 
   byId(id: () => string) {
-    return httpResource<Order>(() => '/api/order/' + encodeURIComponent(id()));
+    return httpResource<Order>(() => {
+      const orderId = id();
+      return orderId ? '/api/order/' + encodeURIComponent(orderId) : undefined;
+    });
   }
 }

@@ -72,4 +72,21 @@ describe('OrderApi', () => {
     await TestBed.inject(ApplicationRef).whenStable();
     expect(resource.value()?.id).toBe('pedido-2');
   });
+
+  it('não busca enquanto o id está vazio e descarta o pedido ao esvaziar o id', async () => {
+    const id = signal('');
+    const resource = TestBed.runInInjectionContext(() => TestBed.inject(OrderApi).byId(id));
+    TestBed.tick();
+    http.expectNone((request) => request.url.startsWith('/api/order'));
+    id.set('pedido-1');
+    TestBed.tick();
+    http.expectOne('/api/order/pedido-1').flush(order);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(resource.value()).toEqual(order);
+    id.set('');
+    TestBed.tick();
+    await TestBed.inject(ApplicationRef).whenStable();
+    http.expectNone((request) => request.url.startsWith('/api/order'));
+    expect(resource.hasValue()).toBe(false);
+  });
 });
