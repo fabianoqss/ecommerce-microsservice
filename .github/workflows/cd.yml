@@ -36,7 +36,7 @@ jobs:
     env:
       DEPLOY_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.event.workflow_run.head_sha }}
       REPOSITORY: ${{ github.repository }}
-      SERVICES: product-service inventory-service notification-service order-service api-gateway
+      SERVICES: product-service inventory-service notification-service order-service api-gateway frontend
       OCI_CLI_VERSION: 3.94.2
       PUBLIC_URL: https://loja.fabianoquirinos.com.br
     steps:
@@ -137,6 +137,8 @@ jobs:
             [[ $status == "$expected" ]] || { echo "::error::$path respondeu $status, esperado $expected"; return 1; }
             echo "$path -> $status"
           }
+          check 200 /
+          check 200 /cart
           check 200 /api/product
           check 401 /api/order
           check 403 /actuator/health
