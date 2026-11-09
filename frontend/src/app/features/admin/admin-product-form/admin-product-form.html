@@ -110,6 +110,47 @@
             }
           </div>
           <div>
+            <label for="imageUrl" class="sr-only">URL da imagem</label>
+            <input
+              id="imageUrl"
+              type="text"
+              inputmode="url"
+              formControlName="imageUrl"
+              placeholder="URL da imagem (opcional)"
+              autocomplete="off"
+              [attr.aria-invalid]="!!fieldError('imageUrl')"
+              [attr.aria-describedby]="
+                fieldError('imageUrl')
+                  ? 'imageUrl-error'
+                  : imagePreviewFailed()
+                    ? 'imageUrl-hint'
+                    : null
+              "
+              class="h-[50px] w-full min-w-0 rounded-[10px] border border-surface-200 bg-transparent px-5 text-lg tracking-[-0.27px] placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            />
+            @if (fieldError('imageUrl'); as error) {
+              <p id="imageUrl-error" class="mt-2 text-sm text-red-600 dark:text-red-400">
+                {{ error }}
+              </p>
+            }
+            @if (imagePreviewUrl(); as url) {
+              @if (imagePreviewFailed()) {
+                <p id="imageUrl-hint" class="mt-2 text-sm text-muted-color" aria-live="polite">
+                  Não foi possível carregar a imagem
+                </p>
+              } @else {
+                <img
+                  [src]="url"
+                  alt="Pré-visualização da imagem do produto"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                  (error)="imagePreviewFailed.set(true)"
+                  class="mt-2 max-h-24 max-w-24 object-contain"
+                />
+              }
+            }
+          </div>
+          <div>
             <label for="quantity" class="mb-2 block text-sm font-bold">Estoque</label>
             <input
               id="quantity"

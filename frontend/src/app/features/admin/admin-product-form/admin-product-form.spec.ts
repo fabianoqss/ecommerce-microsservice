@@ -96,6 +96,13 @@ describe('AdminProductForm', () => {
     harness.detectChanges();
   }
 
+  function fillImageUrl(value: string) {
+    const input = field('imageUrl');
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+    harness.detectChanges();
+  }
+
   function click(text: string) {
     const button = Array.from(element.querySelectorAll('button')).find(
       (item) => item.textContent?.trim() === text,
@@ -136,19 +143,116 @@ describe('AdminProductForm', () => {
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ severity: 'success' }));
   });
 
-  it('carrega edição, formata preço e reenvia a imagem existente e ETag', async () => {
+  it('cria com a URL da imagem aparada', async () => {
+    await render();
+    fill();
+    fillImageUrl(' https://example.com/new.png ');
+    submit();
+    const req = http.expectOne('/api/product');
+    expect(req.request.body.imageUrl).toBe('https://example.com/new.png');
+    req.flush(product);
+    stockSaved();
+    await settle();
+  });
+
+  it('envia imagem nula quando a URL contém apenas espaços', async () => {
+    await render();
+    fill();
+    fillImageUrl('   ');
+    submit();
+    const req = http.expectOne('/api/product');
+    expect(req.request.body.imageUrl).toBeNull();
+    req.flush(product);
+    stockSaved();
+    await settle();
+  });
+
+  it('carrega edição, formata preço e envia a imagem alterada e ETag', async () => {
     await render(true);
     expect(field('price').value).toBe('1.234,56');
     expect(field('name').value).toBe('Teclado');
     expect(field('quantity').value).toBe('8');
+    expect(field('imageUrl').value).toBe(product.imageUrl);
+    fillImageUrl(' https://example.com/changed.png ');
     submit();
     const req = http.expectOne('/api/product/1');
     expect(req.request.method).toBe('PUT');
     expect(req.request.headers.get('If-Match')).toBe('"3"');
-    expect(req.request.body.imageUrl).toBe('https://example.com/image.png');
+    expect(req.request.body.imageUrl).toBe('https://example.com/changed.png');
     req.flush({ ...product, version: 4 });
     stockSaved('PUT');
     await settle();
+  });
+
+  it('preenche imagem nula com campo vazio', async () => {
+    await render(true, false);
+    http.expectOne('/api/product/1').flush({ ...product, imageUrl: null });
+    await settle();
+    expect(field('imageUrl').value).toBe('');
+    expect(element.querySelector('img')).toBeNull();
+  });
+
+  it('permite remover a imagem existente', async () => {
+    await render(true);
+    fillImageUrl('');
+    submit();
+    const req = http.expectOne('/api/product/1');
+    expect(req.request.body.imageUrl).toBeNull();
+    req.flush({ ...product, imageUrl: null, version: 4 });
+    stockSaved('PUT');
+    await settle();
+  });
+
+  it.each([
+    ['http://example.com/image.png', 'Informe uma URL https válida'],
+    ['https://example.com/' + 'a'.repeat(2029), 'A URL deve ter no máximo 2048 caracteres'],
+  ])('bloqueia URL inválida e mostra erro acessível: %s', async (url, message) => {
+    await render();
+    fill();
+    fillImageUrl(url);
+    submit();
+    http.expectNone((req) => req.method !== 'GET');
+    expect(field('imageUrl').getAttribute('aria-invalid')).toBe('true');
+    expect(field('imageUrl').getAttribute('aria-describedby')).toBe('imageUrl-error');
+    expect(element.querySelector('#imageUrl-error')?.textContent).toContain(message);
+    expect(element.querySelector('img')).toBeNull();
+  });
+
+  it('mostra prévia válida e troca por aviso sem bloquear o envio quando a imagem falha', async () => {
+    await render();
+    fill();
+    expect(element.querySelector('img')).toBeNull();
+    fillImageUrl(' https://example.com/image.png ');
+    const preview = element.querySelector('img');
+    if (!preview) throw new Error('Pré-visualização ausente');
+    expect(preview.getAttribute('src')).toBe(product.imageUrl);
+    expect(preview.getAttribute('alt')).toBe('Pré-visualização da imagem do produto');
+    expect(preview.getAttribute('loading')).toBe('lazy');
+    expect(preview.getAttribute('referrerpolicy')).toBe('no-referrer');
+    preview.dispatchEvent(new Event('error'));
+    harness.detectChanges();
+    expect(element.querySelector('img')).toBeNull();
+    expect(element.textContent).toContain('Não foi possível carregar a imagem');
+    expect(field('imageUrl').getAttribute('aria-invalid')).toBe('false');
+    expect(field('imageUrl').getAttribute('aria-describedby')).toBe('imageUrl-hint');
+    submit();
+    const req = http.expectOne('/api/product');
+    expect(req.request.body.imageUrl).toBe(product.imageUrl);
+    req.flush(product);
+    stockSaved();
+    await settle();
+  });
+
+  it('tenta uma nova prévia após alterar a URL que falhou', async () => {
+    await render();
+    fillImageUrl(product.imageUrl);
+    element.querySelector('img')?.dispatchEvent(new Event('error'));
+    harness.detectChanges();
+    fillImageUrl('https://example.com/other.png');
+    expect(element.querySelector('img')?.getAttribute('src')).toBe('https://example.com/other.png');
+    expect(element.textContent).not.toContain('Não foi possível carregar a imagem');
+    fillImageUrl('');
+    expect(element.querySelector('img')).toBeNull();
   });
 
   it('não envia formulário inválido e conecta mensagens acessíveis aos campos', async () => {
@@ -203,7 +307,7 @@ describe('AdminProductForm', () => {
     http.expectOne('/api/product').flush(
       {
         detail: 'Revise os dados enviados.',
-        fields: { name: 'Nome já utilizado.', imageUrl: 'Imagem inválida.' },
+        fields: { name: 'Nome já utilizado.', unknownField: 'Campo inválido.' },
       },
       { status: 400, statusText: 'Bad Request' },
     );
@@ -322,6 +426,7 @@ describe('AdminProductForm', () => {
           category: 'Categoria inválida.',
           price: 'Preço inválido.',
           description: 'Descrição inválida.',
+          imageUrl: 'Imagem inválida.',
         },
       },
       { status: 400, statusText: 'Bad Request' },
@@ -332,6 +437,7 @@ describe('AdminProductForm', () => {
       category: 'Categoria inválida.',
       price: 'Preço inválido.',
       description: 'Descrição inválida.',
+      imageUrl: 'Imagem inválida.',
     })) {
       expect(element.querySelector('#' + id + '-error')?.textContent).toContain(message);
       expect(field(id).getAttribute('aria-invalid')).toBe('true');

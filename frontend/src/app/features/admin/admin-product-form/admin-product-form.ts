@@ -1,5 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  inject,
+  linkedSignal,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -13,8 +21,9 @@ import { ProductApi } from '../../../shared/data-access/product/product-api';
 import { AdminProductApi, AdminProductRequest } from '../data-access/admin-product-api';
 import { problemDetail, problemFields } from '../../../core/http/problem-detail';
 import { parsePrice } from './parse-price';
+import { httpsUrlValidator } from './https-url.validator';
 
-type Field = 'name' | 'category' | 'price' | 'description' | 'quantity';
+type Field = 'name' | 'category' | 'price' | 'imageUrl' | 'description' | 'quantity';
 
 function trimmedLength(min: number, max: number, message: string): ValidatorFn {
   return (control) => {
@@ -107,10 +116,24 @@ export class AdminProductForm {
         },
       ],
     }),
+    imageUrl: new FormControl('', {
+      nonNullable: true,
+      validators: [httpsUrlValidator],
+    }),
     description: new FormControl('', {
       nonNullable: true,
       validators: [trimmedLength(10, 2000, 'Informe uma descrição entre 10 e 2000 caracteres.')],
     }),
+  });
+  private readonly imageUrlEvents = toSignal(this.form.controls.imageUrl.events);
+  protected readonly imagePreviewUrl = computed(() => {
+    this.imageUrlEvents();
+    const control = this.form.controls.imageUrl;
+    return control.valid ? control.value.trim() : '';
+  });
+  protected readonly imagePreviewFailed = linkedSignal({
+    source: this.imagePreviewUrl,
+    computation: () => false,
   });
 
   constructor() {
@@ -127,6 +150,7 @@ export class AdminProductForm {
           quantity: inventory?.quantity ?? 0,
           name: product.name,
           category: product.category,
+          imageUrl: product.imageUrl ?? '',
           description: product.description,
           price: new Intl.NumberFormat('pt-BR', {
             minimumFractionDigits: 2,
@@ -182,7 +206,7 @@ export class AdminProductForm {
       category: values.category.trim(),
       description: values.description.trim(),
       price,
-      imageUrl: product?.imageUrl ?? null,
+      imageUrl: values.imageUrl.trim() || null,
     };
     this.saving.set(true);
     this.saveError.set('');
@@ -243,6 +267,7 @@ export class AdminProductForm {
                 (field === 'name' ||
                   field === 'category' ||
                   field === 'price' ||
+                  field === 'imageUrl' ||
                   field === 'description') &&
                 typeof message === 'string' &&
                 message.trim()
