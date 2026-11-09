@@ -1,6 +1,6 @@
 # E-commerce baseado em microsserviços
 
-Backend de e-commerce com Spring Boot, Spring Cloud, identidade OIDC via Keycloak, comunicação síncrona e assíncrona e observabilidade.
+E-commerce com frontend Angular, backend Spring Boot, Spring Cloud, identidade OIDC via Keycloak, comunicação síncrona e assíncrona e observabilidade.
 
 O fluxo principal inclui estoque atômico, cancelamento de pedidos, Outbox, DLQ e autorização por dono do pedido. O gateway oferece login pelo navegador como BFF e acesso à API com Bearer token.
 
@@ -8,6 +8,7 @@ O fluxo principal inclui estoque atômico, cancelamento de pedidos, Outbox, DLQ 
 
 | Componente | Porta no container | Persistência | Responsabilidade |
 |---|---:|---|---|
+| Frontend Angular | 8080 (host `127.0.0.1:8008`) | — | SPA, catálogo, carrinho e pedidos; nginx sem privilégios |
 | API Gateway | 8080; gerenciamento 8090 | Redis | BFF OIDC, sessão, token relay e autorização de borda |
 | Product Service | 8082 | MongoDB | Catálogo e CRUD de produtos |
 | Inventory Service | 8083 | PostgreSQL | Consulta, manutenção e reserva atômica de estoque |
@@ -15,11 +16,12 @@ O fluxo principal inclui estoque atômico, cancelamento de pedidos, Outbox, DLQ 
 | Notification Service | 8084 | Redis | Consumo idempotente de eventos, retry e DLQ; notificação no log |
 | Keycloak | 8080; gerenciamento 9000 | PostgreSQL | Identidade, cadastro, login, recuperação de senha e emissão de tokens |
 
-As cinco aplicações Java são Gateway, Product, Inventory, Order e Notification; o sexto módulo é a biblioteca `common-security`. Os serviços de negócio validam assinatura, issuer e audience dos tokens localmente. A identidade do pedido é o `sub` do Keycloak, e as roles de usuário são `CUSTOMER` e `ADMIN`.
+O frontend é o sexto app implantado. As cinco aplicações Java são Gateway, Product, Inventory, Order e Notification; o sexto módulo é a biblioteca `common-security`. Os serviços de negócio validam assinatura, issuer e audience dos tokens localmente. A identidade do pedido é o `sub` do Keycloak, e as roles de usuário são `CUSTOMER` e `ADMIN`.
 
 ```text
-Navegador -> Gateway BFF <-> Keycloak -> PostgreSQL
-                 |-> Redis (sessões)
+Navegador -> nginx da borda -> Frontend Angular
+                          `-> Gateway BFF <-> Keycloak -> PostgreSQL
+                                      `-> Redis (sessões)
 Cliente Bearer -> Gateway
                     |-> Product -> MongoDB
                     |-> Inventory -> PostgreSQL
@@ -267,7 +269,7 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
    sudo ./scripts/prod/edge-setup.sh
    ```
 
-   Instala nginx do AppStream e certbot via EPEL restrito aos pacotes do certbot e suas dependências listadas. Libera HTTP/HTTPS no `firewalld`, habilita `httpd_can_network_relay` no SELinux e rotula `8180` como `http_port_t` (`8080` já é `http_cache_port_t`). Emite certificado Let's Encrypt por HTTP-01 para os dois domínios, instala `scripts/prod/nginx/ecommerce.conf` e ativa `certbot-renew.timer`, com reload do nginx após renovação. A borda redireciona HTTP para HTTPS e usa TLS 1.2/1.3; antes da subida dos containers, os proxies ainda podem retornar `502`.
+   Instala nginx do AppStream e certbot via EPEL restrito aos pacotes do certbot e suas dependências listadas. Libera HTTP/HTTPS no `firewalld`, habilita `httpd_can_network_relay` no SELinux e rotula `8180` como `http_port_t` (`8080` já é `http_cache_port_t`; `8008`, usada pelo frontend, já é `http_port_t`). Emite certificado Let's Encrypt por HTTP-01 para os dois domínios, instala `scripts/prod/nginx/ecommerce.conf` e ativa `certbot-renew.timer`, com reload do nginx após renovação. A borda redireciona HTTP para HTTPS e usa TLS 1.2/1.3; antes da subida dos containers, os proxies ainda podem retornar `502`.
 
 5. **Segredos aleatórios.** Na máquina de administração, use OCI CLI autenticada como usuário autorizado a consultar o Vault e gerenciar segredos, além de Python 3. Na raiz do checkout, informe os OCIDs do Vault e da chave:
 
@@ -312,7 +314,7 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
    sudo docker compose up -d --remove-orphans
    ```
 
-   Os apps não são compilados na VM: o override de produção remove o `build` (`!reset`) e aponta cada app para `${IMAGE_REGISTRY}/ecommerce-<serviço>:${IMAGE_TAG}`, as imagens publicadas pelo CI no GHCR com SBOM e atestado de proveniência. O pull é anônimo (pacotes públicos), sem credencial do GitHub na VM. O `.env` define `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` e `COMPOSE_PROFILES=monitoring,apps`. Na primeira aplicação do `frontendUrl` do master, `keycloak-config` pode sair com `401`: o atributo já foi gravado, mas o token do CLI ainda tem o issuer anterior (comentários em `scripts/prod/keycloak/realm-master.yaml`). Nesse caso, execute novamente e confirme saída `0`; depois retome a subida das aplicações:
+   Os seis apps (cinco serviços Java e o frontend Angular) não são compilados na VM: o override de produção remove o `build` (`!reset`) e aponta cada app para `${IMAGE_REGISTRY}/ecommerce-<serviço>:${IMAGE_TAG}`, as imagens publicadas pelo CI no GHCR com SBOM e atestado de proveniência. O pull é anônimo (pacotes públicos), sem credencial do GitHub na VM. O `.env` define `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` e `COMPOSE_PROFILES=monitoring,apps`. Na primeira aplicação do `frontendUrl` do master, `keycloak-config` pode sair com `401`: o atributo já foi gravado, mas o token do CLI ainda tem o issuer anterior (comentários em `scripts/prod/keycloak/realm-master.yaml`). Nesse caso, execute novamente e confirme saída `0`; depois retome a subida das aplicações:
 
    ```bash
    sudo docker compose run --rm keycloak-config
@@ -336,17 +338,30 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
     sudo ./scripts/prod/deploy.sh <sha-completo-do-commit>
     ```
 
-    Use o SHA de um commit da `main` cujo job de publicação de imagens no CI terminou com sucesso. O `deploy.sh` baixa as imagens antes de alterar qualquer coisa, registra os digests, grava a tag no `.env` de forma atômica, recria somente os cinco apps e aguarda `running+healthy` (`DEPLOY_HEALTH_TIMEOUT`, padrão 300 s). Se algo falhar depois da troca, volta sozinho para a tag anterior e sai com erro. A versão no ar é a linha `IMAGE_TAG` do `.env`; rollback manual é rodar o script com o SHA anterior. O rollback não desfaz migrations: mantenha-as aditivas e faça `pg_dump` antes de releases com mudança de schema. Mudanças em realm, topologia do RabbitMQ ou infraestrutura não são aplicadas pelo `deploy.sh`: rode `sudo docker compose run --rm keycloak-config`, `sudo docker compose up -d --remove-orphans` conforme o caso.
+    Use o SHA de um commit da `main` cujo job de publicação de imagens no CI terminou com sucesso. O `deploy.sh` baixa as imagens antes de alterar qualquer coisa, registra os digests, grava a tag no `.env` de forma atômica, recria somente os seis apps e aguarda `running+healthy` (`DEPLOY_HEALTH_TIMEOUT`, padrão 300 s). Se algo falhar depois da troca, volta sozinho para a tag anterior e sai com erro. A versão no ar é a linha `IMAGE_TAG` do `.env`; rollback manual é rodar o script com o SHA anterior. O rollback não desfaz migrations: mantenha-as aditivas e faça `pg_dump` antes de releases com mudança de schema. Mudanças em realm, topologia do RabbitMQ ou infraestrutura não são aplicadas pelo `deploy.sh`: rode `sudo docker compose run --rm keycloak-config`, `sudo docker compose up -d --remove-orphans` conforme o caso.
 
-    Se configuração pública ou segredos mudaram, regenere o `.env` pelo passo 7 antes da subida; mudanças na borda exigem reaplicar o passo 4. Alterar um segredo não rotaciona automaticamente credenciais persistidas: coordene a rotação com cada serviço/banco. Após a primeira subida e a cada atualização, aguarde os healthchecks e execute os smoke tests sem sessão (saídas esperadas: `200`, `401`, `403`):
+    Na primeira versão com frontend, reinstale uma vez a configuração da borda versionada, após atualizar o checkout e subir o sexto app:
 
     ```bash
+    sudo install -o root -g root -m 0644 scripts/prod/nginx/ecommerce.conf /etc/nginx/conf.d/ecommerce.conf
+    sudo nginx -t && sudo systemctl reload nginx
+    ```
+
+    A borda envia `/api`, `/bff`, `/oauth2`, `/login/oauth2`, `/logout` e `/actuator` ao gateway; as demais rotas, inclusive `/cart`, vão para a SPA em `127.0.0.1:8008`. O healthcheck `/healthz` é interno ao container. O nginx do frontend serve `index.html` sem cache, assets com hash com cache imutável de um ano e CSP com scripts apenas da mesma origem. O build desativa CSS crítico inline para evitar o script inline gerado pelo Angular; estilos inline continuam necessários ao PrimeNG. PID e arquivos temporários do nginx ficam no tmpfs `/tmp`; o restante do filesystem é somente leitura.
+
+    Regenere o `.env` pelo passo 7 nesta primeira atualização para aplicar o retorno de login para `/` e de logout para `https://loja.fabianoquirinos.com.br/`. O realm já permite esse retorno via `GATEWAY_PUBLIC_URL`; `webOrigins` vazio é intencional, pois a SPA usa o BFF na mesma origem. Rollback entre versões com frontend exige as seis imagens publicadas no SHA de destino; um SHA antigo que só tenha cinco imagens não é um destino completo para o novo deploy. Na transição inicial, se for necessário voltar à versão sem frontend, use o checkout e o `deploy.sh` anteriores, junto com a configuração anterior da borda.
+
+    Se configuração pública ou segredos mudaram, regenere o `.env` pelo passo 7 antes da subida; mudanças na borda exigem reaplicar o passo 4. Alterar um segredo não rotaciona automaticamente credenciais persistidas: coordene a rotação com cada serviço/banco. Após a primeira subida e a cada atualização, aguarde os healthchecks e execute os smoke tests sem sessão (saídas esperadas: `200`, `200`, `200`, `401`, `403`):
+
+    ```bash
+    curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/
+    curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/cart
     curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/api/product
     curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/api/order
     curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/actuator/health
     ```
 
-11. **Deploy contínuo.** `.github/workflows/cd.yml` roda quando o CI da `main` termina com sucesso, ou manualmente com um SHA (redeploy/rollback). O job usa o environment `production`, que exige aprovação; depois valida o SHA, confirma que o commit está na `main`, verifica o atestado SLSA das cinco imagens e executa na VM, pelo OCI Run Command (sem SSH aberto), `sudo /opt/ecommerce/scripts/prod/release.sh <sha>`. O `release.sh` posiciona o repositório no commit e chama o `deploy.sh`; o workflow termina com os smoke tests externos. Configuração única:
+11. **Deploy contínuo.** `.github/workflows/cd.yml` roda quando o CI da `main` termina com sucesso, ou manualmente com um SHA (redeploy/rollback). O job usa o environment `production`, que exige aprovação; depois valida o SHA, confirma que o commit está na `main`, verifica o atestado SLSA das seis imagens e executa na VM, pelo OCI Run Command (sem SSH aberto), `sudo /opt/ecommerce/scripts/prod/release.sh <sha>`. O `release.sh` posiciona o repositório no commit e chama o `deploy.sh`; o workflow termina com os smoke tests externos. Configuração única:
 
     - **IAM do CI:** usuário `github-cd-deployer` sem console, só com API key; grupo `ecommerce-deployers` com `manage instance-agent-command-family`, `read instance-agent-command-execution-family` e `read instances` restrito à VM (`where target.instance.id = '<OCID da VM>'`); sem esta última, a criação do comando responde `NotAuthorizedOrNotFound`. A VM precisa de `use instance-agent-command-execution-family` para o dynamic group `ecommerce-vm-dg`, com `where request.instance.id = target.instance.id`.
     - **VM:** plugin *Compute Instance Run Command* ativo (após criar a policy do dynamic group, `sudo systemctl restart oracle-cloud-agent` faz o agente buscar comandos na hora, em vez de até 30 minutos depois) e a regra de sudoers versionada, que permite ao usuário `ocarun` executar apenas o `release.sh`:
@@ -356,6 +371,7 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
       sudo visudo -c
       ```
 
+    - **Ruleset da `main`:** exija também o check `Frontend: lint, testes e build` e `Validar imagem (frontend)`, além dos checks existentes. A publicação das seis imagens depende de `Build e testes` e `Frontend: lint, testes e build`; cada imagem usa como tag o SHA completo e recebe SBOM e atestado.
     - **GitHub:** environment `production` com revisor obrigatório e deploy restrito à `main`. Secrets: `OCI_USER_OCID`, `OCI_TENANCY_OCID`, `OCI_FINGERPRINT`, `OCI_PRIVATE_KEY`. Variables: `OCI_REGION`, `OCI_COMPARTMENT_OCID`, `OCI_INSTANCE_OCID`.
 
 ## Testes
@@ -374,4 +390,4 @@ As chamadas externas passam pelo gateway; o login de usuário usa Authorization 
 
 ## Escopo
 
-Não há frontend, Payment Service ou AI Service neste repositório. A prioridade é estabilizar e ampliar a validação dos seis módulos Java atuais antes de adicionar novos serviços ou interface gráfica.
+O frontend Angular acompanha os cinco serviços Java no deploy de produção. Não há Payment Service ou AI Service neste repositório. A prioridade é estabilizar e ampliar a validação do fluxo completo de catálogo, carrinho e pedidos.

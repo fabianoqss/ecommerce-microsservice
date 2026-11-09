@@ -35,6 +35,41 @@ jobs:
       - name: Build e testes
         run: ./mvnw -B -ntp verify
 
+  frontend:
+    name: 'Frontend: lint, testes e build'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configurar npm
+        run: npm install --global npm@11.19.1
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npx ng lint
+
+      - name: Testes unitários
+        run: npx ng test --watch=false
+
+      - name: Build de produção
+        run: npx ng build
+
   validate-images:
     name: Validar imagem (${{ matrix.service }})
     if: github.event_name == 'pull_request'
@@ -43,7 +78,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api-gateway, product-service, inventory-service, order-service, notification-service]
+        include:
+          - service: api-gateway
+            context: .
+            file: api-gateway/Dockerfile
+          - service: product-service
+            context: .
+            file: product-service/Dockerfile
+          - service: inventory-service
+            context: .
+            file: inventory-service/Dockerfile
+          - service: order-service
+            context: .
+            file: order-service/Dockerfile
+          - service: notification-service
+            context: .
+            file: notification-service/Dockerfile
+          - service: frontend
+            context: frontend
+            file: frontend/Dockerfile
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -56,22 +109,40 @@ jobs:
       - name: Build sem push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
-          context: .
-          file: ${{ matrix.service }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           platforms: linux/amd64
           push: false
           cache-from: type=gha,scope=${{ matrix.service }}
 
   publish-images:
     name: Publicar imagem (${{ matrix.service }})
-    needs: build
+    needs: [build, frontend]
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        service: [api-gateway, product-service, inventory-service, order-service, notification-service]
+        include:
+          - service: api-gateway
+            context: .
+            file: api-gateway/Dockerfile
+          - service: product-service
+            context: .
+            file: product-service/Dockerfile
+          - service: inventory-service
+            context: .
+            file: inventory-service/Dockerfile
+          - service: order-service
+            context: .
+            file: order-service/Dockerfile
+          - service: notification-service
+            context: .
+            file: notification-service/Dockerfile
+          - service: frontend
+            context: frontend
+            file: frontend/Dockerfile
     permissions:
       contents: read
       packages: write
@@ -110,8 +181,8 @@ jobs:
         id: image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
-          context: .
-          file: ${{ matrix.service }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.metadata.outputs.tags }}

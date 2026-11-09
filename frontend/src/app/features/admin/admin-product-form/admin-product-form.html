@@ -5,7 +5,7 @@
   <h1 id="product-heading" class="text-2xl leading-[29px] font-bold tracking-[-0.36px]">
     DADOS DO PRODUTO
   </h1>
-  @if (productResource?.isLoading()) {
+  @if (loading()) {
     <div
       class="mt-[47px] grid gap-8 md:grid-cols-2"
       aria-label="Carregando produto"
@@ -28,7 +28,7 @@
         >Voltar para a lista</a
       >
     </div>
-  } @else if (productResource?.error()) {
+  } @else if (productResource?.error() || inventoryResource.error()) {
     <div class="mt-10 flex flex-col items-start gap-5">
       <p-message severity="error">{{ loadError() }}</p-message>
       <button
@@ -105,6 +105,28 @@
             />
             @if (fieldError('price'); as error) {
               <p id="price-error" class="mt-2 text-sm text-red-600 dark:text-red-400">
+                {{ error }}
+              </p>
+            }
+          </div>
+          <div>
+            <label for="quantity" class="mb-2 block text-sm font-bold">Estoque</label>
+            <input
+              id="quantity"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              max="2147483647"
+              step="1"
+              required
+              formControlName="quantity"
+              placeholder="Estoque"
+              [attr.aria-invalid]="!!fieldError('quantity')"
+              [attr.aria-describedby]="fieldError('quantity') ? 'quantity-error' : null"
+              class="h-[50px] w-full min-w-0 rounded-[10px] border border-surface-200 bg-transparent px-5 text-lg tracking-[-0.27px] placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            />
+            @if (fieldError('quantity'); as error) {
+              <p id="quantity-error" class="mt-2 text-sm text-red-600 dark:text-red-400">
                 {{ error }}
               </p>
             }

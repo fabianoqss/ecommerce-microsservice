@@ -44,11 +44,24 @@
     </div>
   } @else if (productPage(); as result) {
     @if (result.content.length) {
+      @if (inventory.error()) {
+        <div class="mb-5 flex flex-wrap items-center gap-4">
+          <p-message severity="error">{{ stockError() }}</p-message>
+          <button
+            type="button"
+            (click)="inventory.reload()"
+            class="rounded-[10px] border border-surface-200 px-5 py-3 font-bold text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+          >
+            Recarregar estoque
+          </button>
+        </div>
+      }
       <ul aria-label="Produtos" class="grid gap-[21px]" [class.opacity-50]="products.isLoading()">
         @for (product of result.content; track product.id) {
           <li class="min-w-0">
             <app-admin-product-card
               [product]="product"
+              [quantity]="stockBySku() ? (stockBySku()?.get(product.id) ?? 0) : undefined"
               (edit)="edit($event)"
               (remove)="remove($event)"
             />

@@ -1,5 +1,5 @@
 <article
-  class="grid w-full min-w-0 grid-cols-[149px_minmax(0,1fr)] overflow-hidden rounded-[10px] bg-surface-0 font-sans text-color shadow-[0px_4px_20px_0px_rgba(0,0,0,0.25)] md:h-[160px] md:grid-cols-[149px_minmax(0,1fr)_230px] dark:bg-surface-900"
+  class="grid w-full min-w-0 grid-cols-[149px_minmax(0,1fr)] overflow-hidden rounded-[10px] bg-surface-0 font-sans text-color shadow-[0px_4px_20px_0px_rgba(0,0,0,0.25)] md:min-h-[160px] md:grid-cols-[149px_minmax(0,1fr)_230px] dark:bg-surface-900"
 >
   <div class="flex items-center justify-center border-r border-surface-200">
     @if (product().imageUrl; as imageUrl) {
@@ -35,11 +35,18 @@
         ></span
       >
     </p>
-    <div
-      class="mt-[15px] flex h-[33px] w-[138px] max-w-full items-center justify-center rounded-[10px] bg-[#C4C4C4] px-2 text-sm font-bold tracking-[-0.21px] text-[#424242]"
-      data-testid="category"
-    >
-      <span class="truncate">{{ product().category }}</span>
+    <div class="mt-[15px] flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div
+        class="flex h-[33px] w-[138px] max-w-full items-center justify-center rounded-[10px] bg-[#C4C4C4] px-2 text-sm font-bold tracking-[-0.21px] text-[#424242]"
+        data-testid="category"
+      >
+        <span class="truncate">{{ product().category }}</span>
+      </div>
+      @if (quantity() !== undefined) {
+        <p class="text-sm text-muted-color">Estoque: {{ quantity() }}</p>
+      } @else {
+        <p class="text-sm text-muted-color">Estoque: indisponível</p>
+      }
     </div>
   </div>
   <div

@@ -62,6 +62,24 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/product/categories', async (route) => {
     await route.fulfill({ json: [] });
   });
+  await page.route('**/api/inventory**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'GET') {
+      const codes = new URL(request.url()).searchParams.getAll('skuCode');
+      return route.fulfill({
+        json: codes.map((skuCode) => ({ skuCode, quantity: 12, inStock: true })),
+      });
+    }
+    const body: { skuCode?: string; quantity: number } = request.postDataJSON();
+    await route.fulfill({
+      status: request.method() === 'POST' ? 201 : 200,
+      json: {
+        skuCode: body.skuCode ?? new URL(request.url()).pathname.split('/').at(-1),
+        quantity: body.quantity,
+        inStock: body.quantity > 0,
+      },
+    });
+  });
 });
 
 test('pagina a lista administrativa pela URL e mostra os cards da página 2', async ({ page }) => {
@@ -455,15 +473,29 @@ async function fillProduct(page: Page) {
   await page.getByLabel('Nome do Produto', { exact: true }).fill(' Teclado novo ');
   await page.getByLabel('Categorias', { exact: true }).fill(' Nova categoria ');
   await page.getByLabel('Preço', { exact: true }).fill('1.234,56');
+  await page.getByLabel('Estoque', { exact: true }).fill('8');
   await page.getByLabel('Descrição', { exact: true }).fill(' Teclado mecânico para trabalho ');
 }
 
-test('cria produto com categoria nova, imagem nula e retorna com filtros e toast', async ({
+test('cria produto com estoque, categoria nova e CSRF e retorna com filtros e toast', async ({
   page,
+  baseURL,
 }) => {
+  if (!baseURL) throw new Error('URL de testes ausente');
+  await page.context().addCookies([{ name: 'XSRF-TOKEN', value: 'stock-csrf', url: baseURL }]);
   let created = false;
+  let stockCreated = false;
+  await page.route('**/api/inventory', async (route) => {
+    expect(created).toBe(true);
+    expect(route.request().method()).toBe('POST');
+    expect(route.request().headers()['x-xsrf-token']).toBe('stock-csrf');
+    expect(route.request().postDataJSON()).toEqual({ skuCode: 'new', quantity: 8 });
+    stockCreated = true;
+    await route.fulfill({ status: 201, json: { skuCode: 'new', quantity: 8, inStock: true } });
+  });
   await page.route('**/api/product', async (route) => {
     expect(route.request().method()).toBe('POST');
+    expect(route.request().headers()['x-xsrf-token']).toBe('stock-csrf');
     const body: unknown = route.request().postDataJSON();
     expect(body).toEqual({
       name: 'Teclado novo',
@@ -483,11 +515,20 @@ test('cria produto com categoria nova, imagem nula e retorna com filtros e toast
   await expect(page).toHaveURL('/admin/products?name=Teclado&extra=1');
   await expect(page.getByText('Produto criado com sucesso.', { exact: true })).toBeVisible();
   expect(created).toBe(true);
+  expect(stockCreated).toBe(true);
 });
 
 test('edita com If-Match entre aspas e preserva imageUrl', async ({ page }) => {
   const loaded = { ...products[0], imageUrl: 'https://example.com/existing.png', version: 3 };
   let updated = false;
+  let stockUpdated = false;
+  await page.route('**/api/inventory/1', async (route) => {
+    expect(updated).toBe(true);
+    expect(route.request().method()).toBe('PUT');
+    expect(route.request().postDataJSON()).toEqual({ quantity: 8 });
+    stockUpdated = true;
+    await route.fulfill({ json: { skuCode: '1', quantity: 8, inStock: true } });
+  });
   await page.route('**/api/product/1', async (route) => {
     if (route.request().method() === 'GET') return route.fulfill({ json: loaded });
     expect(route.request().method()).toBe('PUT');
@@ -507,10 +548,12 @@ test('edita com If-Match entre aspas e preserva imageUrl', async ({ page }) => {
   await expect(page).toHaveURL('/admin/products/1/edit?extra=1');
   await expect(page).toHaveTitle('Editar produto | DS Catalog');
   await expect(page.getByLabel('Preço', { exact: true })).toHaveValue('2.779,00');
+  await expect(page.getByLabel('Estoque', { exact: true })).toHaveValue('12');
   await fillProduct(page);
   await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
   await expect(page).toHaveURL('/admin/products?extra=1');
   expect(updated).toBe(true);
+  expect(stockUpdated).toBe(true);
 });
 
 test('exclui somente após confirmar, enviando ETag', async ({ page }) => {
@@ -659,4 +702,101 @@ test('formulário móvel não transborda em 414px e SALVAR aparece primeiro', as
   expect(save.width).toBe(name.width);
   expect(save.y).toBeLessThan(cancel.y);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(414);
+});
+
+for (const editing of [false, true]) {
+  test(`falha no estoque preserva produto ${editing ? 'editado' : 'criado'} e permite repetir`, async ({
+    page,
+  }) => {
+    let creates = 0;
+    let updates = 0;
+    let stockWrites = 0;
+    const stockMethods: string[] = [];
+    await page.route('**/api/product', async (route) => {
+      creates++;
+      await route.fulfill({ status: 201, json: { ...products[0], version: 1 } });
+    });
+    await page.route('**/api/product/1', async (route) => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({ json: products[0] });
+      }
+      updates++;
+      expect(route.request().headers()['if-match']).toBe(`"${editing ? updates - 1 : updates}"`);
+      await route.fulfill({ json: { ...products[0], version: editing ? updates : updates + 1 } });
+    });
+    await page.route('**/api/inventory**', async (route) => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({ json: [{ skuCode: '1', quantity: 12, inStock: true }] });
+      }
+      stockWrites++;
+      stockMethods.push(route.request().method());
+      if (stockWrites === 1) {
+        return route.fulfill({
+          status: 503,
+          json: { detail: 'Estoque temporariamente indisponível.' },
+        });
+      }
+      if (!editing && stockWrites === 2) {
+        return route.fulfill({ status: 404, json: { detail: 'Estoque ainda não cadastrado.' } });
+      }
+      expect(route.request().postDataJSON()).toEqual(
+        route.request().method() === 'POST' ? { skuCode: '1', quantity: 8 } : { quantity: 8 },
+      );
+      await route.fulfill({
+        status: route.request().method() === 'POST' ? 201 : 200,
+        json: { skuCode: '1', quantity: 8, inStock: true },
+      });
+    });
+    await page.goto(editing ? '/admin/products/1/edit?extra=1' : '/admin/products/new?extra=1');
+    await fillProduct(page);
+    await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+    await expect(page.getByText(/O produto foi salvo, mas o estoque não/)).toBeVisible();
+    await expect(page.getByText(/Estoque temporariamente indisponível/)).toBeVisible();
+    await expect(page.getByText(/Produto (criado|atualizado) com sucesso/)).toHaveCount(0);
+    await expect(page.getByLabel('Estoque', { exact: true })).toHaveValue('8');
+    await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue(' Teclado novo ');
+    await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+    await expect(page).toHaveURL('/admin/products?extra=1');
+    expect(creates).toBe(editing ? 0 : 1);
+    expect(updates).toBe(editing ? 2 : 1);
+    expect(stockMethods).toEqual(editing ? ['PUT', 'PUT'] : ['POST', 'PUT', 'POST']);
+  });
+}
+
+test('mostra estoque dos cards com uma consulta em lote por página', async ({ page }) => {
+  const batches: string[][] = [];
+  await mockPaginatedProducts(page);
+  await page.route('**/api/inventory?**', async (route) => {
+    const codes = new URL(route.request().url()).searchParams.getAll('skuCode');
+    batches.push(codes);
+    await route.fulfill({
+      json: codes.map((skuCode) => ({ skuCode, quantity: Number(skuCode), inStock: true })),
+    });
+  });
+  await page.goto('/admin/products');
+  const cards = page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('article');
+  await expect(cards.nth(0).getByText('Estoque: 1', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Página 2', exact: true }).click();
+  await expect(cards.nth(0).getByText('Estoque: 5', { exact: true })).toBeVisible();
+  expect(batches).toEqual([
+    ['1', '2', '3', '4'],
+    ['5', '6', '7', '8'],
+  ]);
+});
+
+test('estoque dos cards permanece dentro do card em largura intermediária', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.goto('/admin/products');
+  const cards = page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('article');
+  await expect(cards).toHaveCount(4);
+  for (const card of await cards.all()) {
+    const stock = card.getByText('Estoque: 12', { exact: true });
+    await expect(stock).toBeVisible();
+    const bounds = await card.boundingBox();
+    const stockBounds = await stock.boundingBox();
+    if (!bounds || !stockBounds) throw new Error('Card ou estoque ausente');
+    expect(stockBounds.y + stockBounds.height).toBeLessThanOrEqual(bounds.y + bounds.height);
+    expect(stockBounds.x + stockBounds.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1024);
 });
