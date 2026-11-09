@@ -44,12 +44,17 @@ describe('AdminProductForm', () => {
   });
   afterEach(() => http.verify());
 
-  async function render(edit = false, complete = true) {
+  async function render(edit = false, complete = true, quantity: number | null = 8) {
     harness = await RouterTestingHarness.create(
       '/admin/products/' + (edit ? '1/edit' : 'new') + '?name=Teclado&extra=1',
     );
     TestBed.tick();
     http.expectOne('/api/product/categories').flush(['Periféricos']);
+    if (edit) {
+      http
+        .expectOne('/api/inventory?skuCode=1')
+        .flush(quantity === null ? [] : [{ skuCode: '1', quantity, inStock: quantity > 0 }]);
+    }
     if (edit && complete) http.expectOne('/api/product/1').flush(product);
     if (!edit || complete) await settle();
     else harness.detectChanges();
@@ -74,8 +79,9 @@ describe('AdminProductForm', () => {
     description = ' Teclado mecânico ',
     category = ' Nova categoria ',
     price = '1.234,56',
+    quantity = '8',
   ) {
-    for (const [key, value] of Object.entries({ name, description, category, price })) {
+    for (const [key, value] of Object.entries({ name, description, category, price, quantity })) {
       const input = field(key);
       input.value = value;
       input.dispatchEvent(new Event('input'));
@@ -98,6 +104,15 @@ describe('AdminProductForm', () => {
     button.click();
   }
 
+  function stockSaved(method: 'POST' | 'PUT' = 'POST', quantity = 8) {
+    const request = http.expectOne(method === 'POST' ? '/api/inventory' : '/api/inventory/1');
+    expect(request.request.method).toBe(method);
+    expect(request.request.body).toEqual(
+      method === 'POST' ? { skuCode: '1', quantity } : { quantity },
+    );
+    request.flush({ skuCode: '1', quantity, inStock: quantity > 0 });
+  }
+
   it('cria com campos aparados, preço numérico e imagem nula e preserva os filtros', async () => {
     await render();
     expect(element.querySelector('datalist option')?.getAttribute('value')).toBe('Periféricos');
@@ -112,7 +127,10 @@ describe('AdminProductForm', () => {
       price: 1234.56,
       imageUrl: null,
     });
+    http.expectNone((req) => req.url.startsWith('/api/inventory'));
     req.flush(product, { status: 201, statusText: 'Created' });
+    expect(toast).not.toHaveBeenCalled();
+    stockSaved();
     await settle();
     expect(TestBed.inject(Router).url).toBe('/admin/products?name=Teclado&extra=1');
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ severity: 'success' }));
@@ -122,12 +140,14 @@ describe('AdminProductForm', () => {
     await render(true);
     expect(field('price').value).toBe('1.234,56');
     expect(field('name').value).toBe('Teclado');
+    expect(field('quantity').value).toBe('8');
     submit();
     const req = http.expectOne('/api/product/1');
     expect(req.request.method).toBe('PUT');
     expect(req.request.headers.get('If-Match')).toBe('"3"');
     expect(req.request.body.imageUrl).toBe('https://example.com/image.png');
     req.flush({ ...product, version: 4 });
+    stockSaved('PUT');
     await settle();
   });
 
@@ -170,6 +190,9 @@ describe('AdminProductForm', () => {
     expect(element.querySelector('form')?.getAttribute('aria-busy')).toBe('true');
     expect(element.textContent).toContain('SALVANDO');
     requests[0].flush(product);
+    submit();
+    http.expectNone('/api/product');
+    stockSaved();
     await settle();
   });
 
@@ -212,13 +235,18 @@ describe('AdminProductForm', () => {
       version: 8,
       imageUrl: 'https://example.com/new.png',
     });
+    http
+      .expectOne('/api/inventory?skuCode=1')
+      .flush([{ skuCode: '1', quantity: 21, inStock: true }]);
     await settle();
     expect(field('name').value).toBe('Atualizado');
+    expect(field('quantity').value).toBe('21');
     submit();
     const req = http.expectOne('/api/product/1');
     expect(req.request.headers.get('If-Match')).toBe('"8"');
     expect(req.request.body.imageUrl).toBe('https://example.com/new.png');
     req.flush({ ...product, version: 9 });
+    stockSaved('PUT', 21);
     await settle();
   });
 
@@ -279,6 +307,7 @@ describe('AdminProductForm', () => {
     expect(field('name').value).toBe(' Teclado ');
     submit();
     http.expectOne('/api/product').flush(product);
+    stockSaved();
     await settle();
   });
   it('mapeia todos os campos conhecidos do 400 sem erro global redundante', async () => {
@@ -331,6 +360,153 @@ describe('AdminProductForm', () => {
     expect(field('category').disabled).toBe(false);
     submit();
     http.expectOne('/api/product').flush(product);
+    stockSaved();
+    await settle();
+  });
+  it.each(['', '-1', '1.5', '2147483648'])(
+    'recusa estoque inválido %s com erro acessível',
+    async (quantity) => {
+      await render();
+      fill(undefined, undefined, undefined, undefined, quantity);
+      submit();
+      http.expectNone((req) => req.method !== 'GET');
+      expect(field('quantity').getAttribute('aria-invalid')).toBe('true');
+      expect(field('quantity').getAttribute('aria-describedby')).toBe('quantity-error');
+      expect(element.querySelector('#quantity-error')?.textContent).toContain('inteiro');
+    },
+  );
+
+  it.each([0, 2147483647])('aceita o limite de estoque %s', async (quantity) => {
+    await render();
+    fill(undefined, undefined, undefined, undefined, String(quantity));
+    submit();
+    http.expectOne('/api/product').flush(product);
+    stockSaved('POST', quantity);
+    await settle();
+  });
+
+  it('prefill zero sem linha e cria estoque ao salvar a edição', async () => {
+    await render(true, true, null);
+    expect(field('quantity').value).toBe('0');
+    submit();
+    http.expectOne('/api/product/1').flush({ ...product, version: 4 });
+    stockSaved('POST', 0);
+    await settle();
+  });
+
+  it('cria estoque quando o PUT encontra uma linha removida', async () => {
+    await render(true);
+    submit();
+    http.expectOne('/api/product/1').flush({ ...product, version: 4 });
+    http.expectOne('/api/inventory/1').flush({}, { status: 404, statusText: 'Not Found' });
+    stockSaved();
+    await settle();
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ severity: 'success' }));
+  });
+
+  it.each([400, 409, 503])(
+    'preserva produto criado e permite repetir após erro %s no estoque',
+    async (status) => {
+      await render();
+      fill();
+      submit();
+      http.expectOne('/api/product').flush({ ...product, version: 4 });
+      http
+        .expectOne('/api/inventory')
+        .flush(
+          { detail: 'Falha no estoque.', fields: { quantity: 'Quantidade recusada.' } },
+          { status, statusText: 'Error' },
+        );
+      await settle();
+      expect(element.textContent).toContain('O produto foi salvo, mas o estoque não');
+      expect(element.textContent).toContain('Falha no estoque.');
+      expect(element.textContent).toContain('Tente salvar novamente');
+      expect(field('quantity').value).toBe('8');
+      expect(toast).not.toHaveBeenCalled();
+      expect(TestBed.inject(Router).url).toContain('/admin/products/new');
+      fill();
+      submit();
+      http.expectNone('/api/product');
+      const update = http.expectOne('/api/product/1');
+      expect(update.request.method).toBe('PUT');
+      expect(update.request.headers.get('If-Match')).toBe('"4"');
+      update.flush({ ...product, version: 5 });
+      stockSaved('PUT');
+      await settle();
+      expect(TestBed.inject(Router).url).toBe('/admin/products?name=Teclado&extra=1');
+    },
+  );
+
+  it('não faz POST para falha de PUT diferente de 404 e mantém a nova versão', async () => {
+    await render(true);
+    submit();
+    http.expectOne('/api/product/1').flush({ ...product, version: 4 });
+    http.expectOne('/api/inventory/1').flush({}, { status: 503, statusText: 'Unavailable' });
+    await settle();
+    http.expectNone('/api/inventory');
+    expect(element.textContent).toContain('O produto foi salvo, mas o estoque não');
+    expect(toast).not.toHaveBeenCalled();
+    submit();
+    const update = http.expectOne('/api/product/1');
+    expect(update.request.headers.get('If-Match')).toBe('"4"');
+    update.flush({ ...product, version: 5 });
+    http.expectOne('/api/inventory/1').flush({}, { status: 404, statusText: 'Not Found' });
+    stockSaved();
+    await settle();
+  });
+
+  it('aguarda estoque e permite repetir consulta que falhou sem assumir zero', async () => {
+    harness = await RouterTestingHarness.create('/admin/products/1/edit');
+    TestBed.tick();
+    http.expectOne('/api/product/categories').flush([]);
+    http.expectOne('/api/product/1').flush(product);
+    await Promise.resolve();
+    harness.detectChanges();
+    const root = harness.routeNativeElement;
+    if (!root) throw new Error('Formulário ausente');
+    element = root;
+    expect(element.querySelector('form')).toBeNull();
+    http
+      .expectOne('/api/inventory?skuCode=1')
+      .flush({ detail: 'Estoque indisponível.' }, { status: 503, statusText: 'Unavailable' });
+    await settle();
+    expect(element.textContent).toContain('Estoque indisponível.');
+    expect(element.querySelector('form')).toBeNull();
+    click('Tentar novamente');
+    TestBed.tick();
+    http
+      .expectOne('/api/inventory?skuCode=1')
+      .flush([{ skuCode: '1', quantity: 12, inStock: true }]);
+    await settle();
+    expect(field('quantity').value).toBe('12');
+  });
+  it('permite recarregar conflito após criar produto com falha de estoque', async () => {
+    await render();
+    fill();
+    submit();
+    http.expectOne('/api/product').flush({ ...product, version: 4 });
+    http.expectOne('/api/inventory').flush({}, { status: 503, statusText: 'Unavailable' });
+    await settle();
+    submit();
+    http.expectOne('/api/product/1').flush({}, { status: 412, statusText: 'Precondition Failed' });
+    await settle();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    click('Recarregar dados');
+    await navigate.mock.results[0]?.value;
+    TestBed.tick();
+    http.expectOne('/api/product/categories').flush([]);
+    http.expectOne('/api/product/1').flush({ ...product, version: 8 });
+    http.expectOne('/api/inventory?skuCode=1').flush([]);
+    await settle();
+    expect(TestBed.inject(Router).url).toBe('/admin/products/1/edit?name=Teclado&extra=1');
+    const root = harness.routeNativeElement;
+    if (!root) throw new Error('Formulário ausente');
+    element = root;
+    submit();
+    const request = http.expectOne('/api/product/1');
+    expect(request.request.headers.get('If-Match')).toBe('"8"');
+    request.flush({ ...product, version: 9 });
+    stockSaved('POST', 0);
     await settle();
   });
 });

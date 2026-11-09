@@ -6,14 +6,15 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { Message } from 'primeng/message';
 import { Skeleton } from 'primeng/skeleton';
-import { finalize } from 'rxjs';
+import { catchError, EMPTY, finalize, switchMap, throwError } from 'rxjs';
+import { InventoryApi } from '../../../shared/data-access/inventory/inventory-api';
 import { Product } from '../../../shared/data-access/product/product';
 import { ProductApi } from '../../../shared/data-access/product/product-api';
 import { AdminProductApi, AdminProductRequest } from '../data-access/admin-product-api';
 import { problemDetail, problemFields } from '../../../core/http/problem-detail';
 import { parsePrice } from './parse-price';
 
-type Field = 'name' | 'category' | 'price' | 'description';
+type Field = 'name' | 'category' | 'price' | 'description' | 'quantity';
 
 function trimmedLength(min: number, max: number, message: string): ValidatorFn {
   return (control) => {
@@ -33,16 +34,26 @@ export class AdminProductForm {
   private readonly router = inject(Router);
   private readonly api = inject(AdminProductApi);
   private readonly readApi = inject(ProductApi);
+  private readonly inventoryApi = inject(InventoryApi);
+  private readonly inventoryMissing = signal(false);
   private readonly messages = inject(MessageService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly params = toSignal(this.route.paramMap, {
     initialValue: this.route.snapshot.paramMap,
   });
   private readonly loadedProduct = signal<Product | undefined>(undefined);
-  protected readonly editing = this.route.snapshot.paramMap.has('id');
-  protected readonly productResource = this.editing
+  private readonly initialEditing = this.route.snapshot.paramMap.has('id');
+  protected readonly editing = computed(() => this.initialEditing || !!this.loadedProduct());
+  protected readonly productResource = this.initialEditing
     ? this.readApi.byId(() => this.params().get('id') ?? '')
     : undefined;
+  protected readonly inventoryResource = this.inventoryApi.bySkus(() => {
+    const id = this.params().get('id');
+    return this.initialEditing && id ? [id] : [];
+  });
+  protected readonly loading = computed(
+    () => !!this.productResource?.isLoading() || this.inventoryResource.isLoading(),
+  );
   private readonly categoryResource = this.readApi.categories();
   protected readonly categories = computed(() =>
     this.categoryResource.hasValue() ? this.categoryResource.value() : [],
@@ -56,11 +67,24 @@ export class AdminProductForm {
   });
   protected readonly loadError = computed(() =>
     problemDetail(
-      this.productResource?.error(),
+      this.productResource?.error() ?? this.inventoryResource.error(),
       'Não foi possível carregar o produto. Tente novamente.',
     ),
   );
   protected readonly form = new FormGroup({
+    quantity: new FormControl<number | null>(null, {
+      validators: [
+        (control) => {
+          const value: unknown = control.value;
+          return typeof value === 'number' &&
+            Number.isInteger(value) &&
+            value >= 0 &&
+            value <= 2147483647
+            ? null
+            : { validation: 'Informe um estoque inteiro entre 0 e 2.147.483.647.' };
+        },
+      ],
+    }),
     name: new FormControl('', {
       nonNullable: true,
       validators: [trimmedLength(1, 255, 'Informe um nome com até 255 caracteres.')],
@@ -92,10 +116,15 @@ export class AdminProductForm {
   constructor() {
     effect(() => {
       const resource = this.productResource;
-      if (resource?.hasValue() && !resource.isLoading()) {
+      if (resource?.hasValue() && this.inventoryResource.hasValue() && !this.loading()) {
         const product = resource.value();
+        const inventory = this.inventoryResource
+          .value()
+          .find((item) => item.skuCode === product.id);
+        this.inventoryMissing.set(!inventory);
         this.loadedProduct.set(product);
         this.form.reset({
+          quantity: inventory?.quantity ?? 0,
           name: product.name,
           category: product.category,
           description: product.description,
@@ -122,17 +151,32 @@ export class AdminProductForm {
   }
 
   protected reload(): void {
-    this.productResource?.reload();
+    if (this.productResource && this.conflict()) {
+      this.productResource.reload();
+      this.inventoryResource.reload();
+    } else if (this.inventoryResource.error()) this.inventoryResource.reload();
+    else if (this.productResource) this.productResource.reload();
+    else {
+      const product = this.loadedProduct();
+      if (product) {
+        void this.router.navigate(['/admin/products', product.id, 'edit'], {
+          queryParamsHandling: 'preserve',
+          replaceUrl: true,
+        });
+      }
+    }
   }
 
   protected save(): void {
-    if (this.saving() || this.conflict() || this.productResource?.isLoading()) return;
+    if (this.saving() || this.conflict() || this.loading() || this.inventoryResource.error())
+      return;
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
     const values = this.form.getRawValue();
     const price = parsePrice(values.price);
     const product = this.loadedProduct();
-    if (price === null || (this.editing && !product)) return;
+    const quantity = values.quantity;
+    if (price === null || quantity === null || (this.editing() && !product)) return;
     const body: AdminProductRequest = {
       name: values.name.trim(),
       category: values.category.trim(),
@@ -142,11 +186,38 @@ export class AdminProductForm {
     };
     this.saving.set(true);
     this.saveError.set('');
+    const createInventory = !product || this.inventoryMissing();
+    const wasEditing = this.editing();
     const request = product
       ? this.api.update(product.id, product.version, body)
       : this.api.create(body);
     request
       .pipe(
+        switchMap((savedProduct) => {
+          this.loadedProduct.set(savedProduct);
+          this.inventoryMissing.set(false);
+          const stock = createInventory
+            ? this.inventoryApi.create({ skuCode: savedProduct.id, quantity })
+            : this.inventoryApi
+                .update(savedProduct.id, { quantity })
+                .pipe(
+                  catchError((error: unknown) =>
+                    error instanceof HttpErrorResponse && error.status === 404
+                      ? this.inventoryApi.create({ skuCode: savedProduct.id, quantity })
+                      : throwError(() => error),
+                  ),
+                );
+          return stock.pipe(
+            catchError((error: unknown) => {
+              this.saveError.set(
+                'O produto foi salvo, mas o estoque não foi salvo. ' +
+                  problemDetail(error, 'Não foi possível salvar o estoque.') +
+                  ' Tente salvar novamente para atualizar o produto e o estoque.',
+              );
+              return EMPTY;
+            }),
+          );
+        }),
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.saving.set(false)),
       )
@@ -155,9 +226,7 @@ export class AdminProductForm {
           this.messages.add({
             severity: 'success',
             summary: 'Produto salvo',
-            detail: this.editing
-              ? 'Produto atualizado com sucesso.'
-              : 'Produto criado com sucesso.',
+            detail: wasEditing ? 'Produto atualizado com sucesso.' : 'Produto criado com sucesso.',
           });
           void this.cancel();
         },

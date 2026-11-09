@@ -64,6 +64,11 @@ describe('AdminProducts', () => {
   }
 
   async function settle(harness: RouterTestingHarness) {
+    await Promise.resolve();
+    TestBed.tick();
+    for (const request of http.match((req) => req.url === '/api/inventory')) {
+      request.flush([]);
+    }
     await harness.fixture.whenStable();
     harness.detectChanges();
   }
@@ -731,5 +736,52 @@ describe('AdminProducts', () => {
     cancel?.click();
     await settle(harness);
     http.expectNone((req) => req.method === 'DELETE');
+  });
+  it('consulta estoque em lote por página e distingue ausência de estoque indisponível', async () => {
+    const { harness, element } = await render('/admin/products', false, false);
+    http
+      .expectOne('/api/product?page=0&size=4')
+      .flush({ ...productPage, totalPages: 2, totalElements: 5 });
+    await Promise.resolve();
+    TestBed.tick();
+    const request = http.expectOne('/api/inventory?skuCode=0&skuCode=1&skuCode=2&skuCode=3');
+    expect(request.request.method).toBe('GET');
+    request.flush([{ skuCode: '0', quantity: 15, inStock: true }]);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(element.querySelectorAll('article')[0]?.textContent).toContain('Estoque: 15');
+    expect(element.querySelectorAll('article')[1]?.textContent).toContain('Estoque: 0');
+    await harness.navigateByUrl('/admin/products?page=2');
+    TestBed.tick();
+    http.expectOne('/api/product?page=1&size=4').flush({
+      ...productPage,
+      content: [{ ...products[0], id: '4' }],
+      page: 1,
+      totalPages: 2,
+      totalElements: 5,
+    });
+    await Promise.resolve();
+    TestBed.tick();
+    http
+      .expectOne('/api/inventory?skuCode=4')
+      .flush(
+        { detail: 'Consulta de estoque indisponível.' },
+        { status: 503, statusText: 'Unavailable' },
+      );
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(element.textContent).toContain('Consulta de estoque indisponível.');
+    expect(element.querySelector('article')?.textContent).not.toContain('Estoque: 0');
+    Array.from(element.querySelectorAll('button'))
+      .find((button) => button.textContent?.trim() === 'Recarregar estoque')
+      ?.click();
+    TestBed.tick();
+    http
+      .expectOne('/api/inventory?skuCode=4')
+      .flush([{ skuCode: '4', quantity: 7, inStock: true }]);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(element.querySelector('article')?.textContent).toContain('Estoque: 7');
+    expect(element.textContent).not.toContain('Consulta de estoque indisponível.');
   });
 });

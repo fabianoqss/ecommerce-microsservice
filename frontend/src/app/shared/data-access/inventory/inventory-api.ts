@@ -1,6 +1,6 @@
 import { computed, inject, Service } from '@angular/core';
 import { HttpClient, HttpParams, httpResource } from '@angular/common/http';
-import { InventoryItem } from './inventory';
+import { InventoryItem, InventoryRequest, InventoryUpdate } from './inventory';
 
 const sameCodes = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((code, index) => code === b[index]);
@@ -8,6 +8,14 @@ const sameCodes = (a: readonly string[], b: readonly string[]) =>
 @Service()
 export class InventoryApi {
   private readonly http = inject(HttpClient);
+
+  create(body: InventoryRequest) {
+    return this.http.post<InventoryItem>('/api/inventory', body);
+  }
+
+  update(skuCode: string, body: InventoryUpdate) {
+    return this.http.put<InventoryItem>('/api/inventory/' + encodeURIComponent(skuCode), body);
+  }
 
   getBySkus(skus: string[]) {
     const params = new HttpParams({ fromObject: { skuCode: skus } });
