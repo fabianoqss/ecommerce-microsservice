@@ -14,6 +14,17 @@ describe('InventoryApi', () => {
   });
   afterEach(() => http.verify());
 
+  it('consulta somente os SKUs solicitados com parâmetros repetidos e codificados', () => {
+    const result = vi.fn();
+    TestBed.inject(InventoryApi).getBySkus(['a', 'b/c &']).subscribe(result);
+    const request = http.expectOne((request) => request.url === '/api/inventory');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.getAll('skuCode')).toEqual(['a', 'b/c &']);
+    const response = [{ skuCode: 'a', quantity: 4, inStock: true }];
+    request.flush(response);
+    expect(result).toHaveBeenCalledExactlyOnceWith(response);
+  });
+
   it('busca estoque usando parâmetros repetidos e acompanha mudanças dos SKUs', async () => {
     const skus = signal(['a', 'b']);
     const resource = TestBed.runInInjectionContext(() => TestBed.inject(InventoryApi).bySkus(skus));

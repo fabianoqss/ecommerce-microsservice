@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from './core/auth/admin.guard';
+import { authGuard } from './core/auth/auth.guard';
 
 export const routes: Routes = [
   {
@@ -12,6 +13,13 @@ export const routes: Routes = [
         pathMatch: 'full',
         title: 'DS Catalog',
         loadComponent: () => import('./features/home/home/home').then((m) => m.Home),
+      },
+      {
+        path: 'cart',
+        canActivate: [authGuard],
+        title: 'Carrinho | DS Catalog',
+        loadChildren: () =>
+          import('./features/cart/cart.routes').then((module) => module.cartRoutes),
       },
       {
         path: 'catalog',
