@@ -80,6 +80,19 @@ export class Cart {
     this.update([]);
   }
 
+  removeOrdered(items: readonly CartItem[]): void {
+    const quantities = new Map<string, number>();
+    for (const { productId, quantity } of items) {
+      quantities.set(productId, (quantities.get(productId) ?? 0) + quantity);
+    }
+    this.update(
+      this.items().flatMap(({ productId, quantity }) => {
+        const remaining = quantity - (quantities.get(productId) ?? 0);
+        return remaining > 0 ? [{ productId, quantity: remaining }] : [];
+      }),
+    );
+  }
+
   private update(items: CartItem[]): void {
     const userId = this.userId();
     if (!userId) return;

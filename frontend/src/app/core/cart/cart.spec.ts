@@ -94,6 +94,50 @@ describe('Cart', () => {
     expect(localStorage.getItem('cart:ana')).toBe('[]');
   });
 
+  it('subtrai as quantidades pedidas do carrinho atual e persiste os itens restantes', () => {
+    cart.add('p1', 5);
+    cart.add('p2', 4);
+    const before = cart.items();
+    const ordered = Object.freeze([{ productId: 'p1', quantity: 2 }]);
+    cart.removeOrdered(ordered);
+    expect(cart.items()).toEqual([
+      { productId: 'p1', quantity: 3 },
+      { productId: 'p2', quantity: 4 },
+    ]);
+    expect(cart.totalQuantity()).toBe(7);
+    expect(JSON.parse(localStorage.getItem('cart:ana') ?? 'null')).toEqual([
+      { productId: 'p1', quantity: 3 },
+      { productId: 'p2', quantity: 4 },
+    ]);
+    expect(ordered).toEqual([{ productId: 'p1', quantity: 2 }]);
+    expect(before).toEqual([
+      { productId: 'p1', quantity: 5 },
+      { productId: 'p2', quantity: 4 },
+    ]);
+  });
+
+  it('remove itens com saldo zero ou negativo e não recria itens já removidos', () => {
+    cart.add('p1', 2);
+    cart.add('p2');
+    cart.add('p3', 4);
+    cart.removeOrdered([
+      { productId: 'p1', quantity: 2 },
+      { productId: 'p2', quantity: 3 },
+      { productId: 'ausente', quantity: 1 },
+    ]);
+    expect(cart.items()).toEqual([{ productId: 'p3', quantity: 4 }]);
+    expect(cart.totalQuantity()).toBe(4);
+    expect(cart.distinctCount()).toBe(1);
+  });
+
+  it('preserva o carrinho persistido ao receber itens pedidos sem usuário autenticado', () => {
+    cart.add('p1', 2);
+    user.set(null);
+    cart.removeOrdered([{ productId: 'p1', quantity: 2 }]);
+    expect(cart.items()).toEqual([]);
+    expect(localStorage.getItem('cart:ana')).toBe('[{"productId":"p1","quantity":2}]');
+  });
+
   it('isola as contas imediatamente e preserva o carrinho ao sair', () => {
     cart.add('p1');
     user.set(null);
