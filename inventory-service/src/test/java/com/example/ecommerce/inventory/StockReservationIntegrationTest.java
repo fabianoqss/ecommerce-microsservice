@@ -192,6 +192,27 @@ class StockReservationIntegrationTest {
     }
 
     @Test
+    void reserveAndReleaseIncrementInventoryVersion() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        long versionBefore = versionOf("SKU-A");
+
+        mvc.perform(put("/api/inventory/reservations/" + reservationId)
+                        .with(serviceToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"items": [{"skuCode": "SKU-A", "quantity": 10}]}
+                                """))
+                .andExpect(status().isCreated());
+
+        assertThat(versionOf("SKU-A")).isEqualTo(versionBefore + 1);
+
+        mvc.perform(delete("/api/inventory/reservations/" + reservationId).with(serviceToken()))
+                .andExpect(status().isNoContent());
+
+        assertThat(versionOf("SKU-A")).isEqualTo(versionBefore + 2);
+    }
+
+    @Test
     void releaseBeforeReserveCreatesTombstoneAndSubsequentReserveReturns410Gone() throws Exception {
         UUID reservationId = UUID.randomUUID();
         double tombstoneBefore = releaseMetric("tombstone");
@@ -435,6 +456,10 @@ class StockReservationIntegrationTest {
 
     private int quantityOf(String sku) {
         return inventoryRepository.findBySkuCodeIn(List.of(sku)).getFirst().getQuantity();
+    }
+
+    private long versionOf(String sku) {
+        return inventoryRepository.findBySkuCodeIn(List.of(sku)).getFirst().getVersion();
     }
 
     private double reservationMetric(String result) {
