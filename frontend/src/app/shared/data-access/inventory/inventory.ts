@@ -3,3 +3,11 @@ export interface InventoryItem {
   quantity: number;
   inStock: boolean;
 }
+
+export interface InventoryUpdate {
+  quantity: number;
+}
+
+export interface InventoryRequest extends InventoryUpdate {
+  skuCode: string;
+}

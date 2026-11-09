@@ -14,6 +14,38 @@ describe('InventoryApi', () => {
   });
   afterEach(() => http.verify());
 
+  it('cria estoque com SKU e quantidade usando URL relativa', () => {
+    const result = vi.fn();
+    TestBed.inject(InventoryApi).create({ skuCode: 'produto-1', quantity: 0 }).subscribe(result);
+    const request = http.expectOne('/api/inventory');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ skuCode: 'produto-1', quantity: 0 });
+    const response = { skuCode: 'produto-1', quantity: 0, inStock: false };
+    request.flush(response, { status: 201, statusText: 'Created' });
+    expect(result).toHaveBeenCalledExactlyOnceWith(response);
+  });
+
+  it('atualiza estoque codificando o SKU e enviando apenas quantity', () => {
+    const result = vi.fn();
+    TestBed.inject(InventoryApi).update('a/b &', { quantity: 2147483647 }).subscribe(result);
+    const request = http.expectOne('/api/inventory/a%2Fb%20%26');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ quantity: 2147483647 });
+    const response = { skuCode: 'a/b &', quantity: 2147483647, inStock: true };
+    request.flush(response);
+    expect(result).toHaveBeenCalledExactlyOnceWith(response);
+  });
+
+  it.each([400, 404, 409, 503])('propaga erro %s sem repetir a escrita', (status) => {
+    const error = vi.fn();
+    TestBed.inject(InventoryApi).update('produto-1', { quantity: 2 }).subscribe({ error });
+    http
+      .expectOne('/api/inventory/produto-1')
+      .flush({ detail: 'Falha no estoque.' }, { status, statusText: 'Error' });
+    expect(error).toHaveBeenCalledWith(expect.objectContaining({ status }));
+    http.expectNone(() => true);
+  });
+
   it('consulta somente os SKUs solicitados com parâmetros repetidos e codificados', () => {
     const result = vi.fn();
     TestBed.inject(InventoryApi).getBySkus(['a', 'b/c &']).subscribe(result);

@@ -21,6 +21,7 @@ import { ConfirmDialog } from 'primeng/confirmdialog';
 import { finalize } from 'rxjs';
 import { Message } from 'primeng/message';
 import { Skeleton } from 'primeng/skeleton';
+import { InventoryApi } from '../../../shared/data-access/inventory/inventory-api';
 import { Page } from '../../../shared/data-access/product/page';
 import { Product } from '../../../shared/data-access/product/product';
 import { ProductApi } from '../../../shared/data-access/product/product-api';
@@ -51,6 +52,7 @@ export class AdminProducts {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ProductApi);
+  private readonly inventoryApi = inject(InventoryApi);
   private readonly writeApi = inject(AdminProductApi);
   private readonly confirmation = inject(ConfirmationService);
   private readonly messages = inject(MessageService);
@@ -75,6 +77,17 @@ export class AdminProducts {
     const result = this.products.value();
     return result.totalPages > 0 && this.filter().page >= result.totalPages ? undefined : result;
   });
+  protected readonly inventory = this.inventoryApi.bySkus(
+    () => this.resolvedPage()?.content.map((product) => product.id) ?? [],
+  );
+  protected readonly stockBySku = computed(() =>
+    this.inventory.hasValue()
+      ? new Map(this.inventory.value().map((item) => [item.skuCode, item.quantity]))
+      : undefined,
+  );
+  protected readonly stockError = computed(() =>
+    problemDetail(this.inventory.error(), 'Não foi possível carregar o estoque. Tente novamente.'),
+  );
   protected readonly productPage = linkedSignal<
     Page<Product> | undefined,
     Page<Product> | undefined

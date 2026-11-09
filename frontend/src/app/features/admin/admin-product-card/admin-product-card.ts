@@ -8,6 +8,7 @@ import { priceParts } from '../../../shared/format/price-parts';
 })
 export class AdminProductCard {
   readonly product = input.required<Product>();
+  readonly quantity = input<number>();
   readonly edit = output<Product>();
   readonly remove = output<Product>();
   protected readonly price = computed(() => priceParts(this.product().price));

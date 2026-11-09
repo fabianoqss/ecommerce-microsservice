@@ -71,4 +71,15 @@ describe('AdminProductCard', () => {
     expect(edit).toHaveBeenCalledExactlyOnceWith(product);
     expect(remove).toHaveBeenCalledExactlyOnceWith(product);
   });
+  it.each([0, 12])('mostra o estoque informado %s', async (quantity) => {
+    const { fixture, element } = await render();
+    fixture.componentRef.setInput('quantity', quantity);
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Estoque: ' + quantity);
+  });
+
+  it('não apresenta estoque desconhecido como zero', async () => {
+    const { element } = await render();
+    expect(element.textContent).not.toContain('Estoque: 0');
+  });
 });
