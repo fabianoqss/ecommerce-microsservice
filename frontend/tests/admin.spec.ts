@@ -44,6 +44,7 @@ async function mockPaginatedProducts(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route('https://example.com/**', (route) => route.abort());
   await page.route('**/bff/me', async (route) => {
     await route.fulfill({
       json: {
@@ -502,7 +503,7 @@ test('cria produto com estoque, categoria nova e CSRF e retorna com filtros e to
       description: 'Teclado mecânico para trabalho',
       category: 'Nova categoria',
       price: 1234.56,
-      imageUrl: null,
+      imageUrl: 'https://example.com/new.png',
     });
     created = true;
     await route.fulfill({ status: 201, json: { ...products[0], id: 'new' } });
@@ -511,6 +512,7 @@ test('cria produto com estoque, categoria nova e CSRF e retorna com filtros e to
   await page.getByRole('link', { name: 'ADICIONAR', exact: true }).click();
   await expect(page).toHaveTitle('Novo produto | DS Catalog');
   await fillProduct(page);
+  await page.getByLabel('URL da imagem', { exact: true }).fill(' https://example.com/new.png ');
   await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
   await expect(page).toHaveURL('/admin/products?name=Teclado&extra=1');
   await expect(page.getByText('Produto criado com sucesso.', { exact: true })).toBeVisible();
