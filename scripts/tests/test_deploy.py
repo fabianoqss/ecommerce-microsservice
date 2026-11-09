@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ANTIGA = 'a' * 40
 NOVA = 'b' * 40
 APPS = ['product-service', 'inventory-service', 'notification-service',
-        'order-service', 'api-gateway']
+        'order-service', 'api-gateway', 'frontend']
 SEGREDO = 'segredo-que-nao-pode-aparecer'
 DOCKER_FAKE = r'''#!/usr/bin/env python3
 import json
@@ -75,9 +75,10 @@ elif args[:2] == ['image', 'inspect']:
 elif args[0] == 'inspect':
     assert args[1] == '--format' and '.State.Status' in args[2] and '.State.Health' in args[2], args
     ativa = estado.read_text()
-    falha = args[-1] == 'cid-order-service' and (
+    servico_falho = 'cid-frontend' if cenario == 'frontend_health' else 'cid-order-service'
+    falha = args[-1] == servico_falho and (
         cenario == 'rollback' or ativa == os.environ['FAKE_NOVA'])
-    if falha and cenario in ('health', 'rollback'):
+    if falha and cenario in ('health', 'rollback', 'frontend_health'):
         print('running unhealthy')
     elif falha and cenario == 'exited':
         print('exited healthy')
@@ -172,7 +173,7 @@ class DeployTest(DeployFixture):
         self.assertEqual(['compose', '--project-directory', str(self.root), 'pull', *APPS], chamadas[0]['args'])
         self.assertEqual(ANTIGA, chamadas[0]['tag_arquivo'])
         digests = [c for c in chamadas if c['args'][:2] == ['image', 'inspect']]
-        self.assertEqual(5, len(digests))
+        self.assertEqual(len(APPS), len(digests))
         for app in APPS:
             self.assertIn(f'ecommerce-{app}@sha256:' + 'c' * 64, resultado.stdout)
         validacao = next(c for c in chamadas if '--env-file' in c['args'])
@@ -194,7 +195,22 @@ class DeployTest(DeployFixture):
         self.assertIn('order-service', resultado.stderr)
         self.assertIn('Rollback concluído', resultado.stderr)
         inspecoes = [c for c in self.chamadas() if c['args'][0] == 'inspect' and c['tag_arquivo'] == ANTIGA]
-        self.assertEqual(5, len(inspecoes))
+        self.assertEqual(len(APPS), len(inspecoes))
+        self.assert_sem_segredos_ou_temporarios(resultado)
+
+    def test_frontend_nao_saudavel_dispara_rollback_dos_seis_apps(self):
+        resultado = self.executar(NOVA, cenario='frontend_health')
+        self.assertNotEqual(0, resultado.returncode)
+        self.assertEqual(self.original, self.env_file.read_text())
+        self.assertEqual([NOVA, ANTIGA], [c['image_tag'] for c in self.subidas()])
+        for subida in self.subidas():
+            self.assertEqual(APPS, subida['args'][-len(APPS):])
+        for tag in (NOVA, ANTIGA):
+            inspecoes = [c['args'][-1] for c in self.chamadas()
+                         if c['args'][0] == 'inspect' and c['tag_arquivo'] == tag]
+            self.assertEqual(['cid-' + app for app in APPS], inspecoes)
+        self.assertIn('frontend', resultado.stderr)
+        self.assertIn('Rollback concluído', resultado.stderr)
         self.assert_sem_segredos_ou_temporarios(resultado)
 
     def test_falha_do_rollback_e_informada_claramente(self):

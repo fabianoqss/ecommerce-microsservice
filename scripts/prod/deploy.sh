@@ -4,7 +4,7 @@ set -euo pipefail
 umask 077
 export LC_ALL=C
 
-readonly APPS=(product-service inventory-service notification-service order-service api-gateway)
+readonly APPS=(product-service inventory-service notification-service order-service api-gateway frontend)
 temp_file=''
 committed=0
 completed=0
