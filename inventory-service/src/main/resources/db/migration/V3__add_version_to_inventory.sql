@@ -1,0 +1,2 @@
+ALTER TABLE tb_inventory
+ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
