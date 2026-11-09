@@ -8,4 +8,11 @@ export const ordersRoutes: Routes = [
     title: 'Pedido | DS Catalog',
     loadComponent: () => import('./checkout/checkout').then((module) => module.Checkout),
   },
+  {
+    path: 'orders/:id/confirmation',
+    canActivate: [authGuard],
+    title: 'Pedido realizado | DS Catalog',
+    loadComponent: () =>
+      import('./order-confirmation/order-confirmation').then((module) => module.OrderConfirmation),
+  },
 ];
