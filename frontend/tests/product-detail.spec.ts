@@ -12,6 +12,12 @@ const product = {
 const detailUrl = '/catalog/' + product.id;
 
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/inventory**', async (route) => {
+    const skus = new URL(route.request().url()).searchParams.getAll('skuCode');
+    await route.fulfill({
+      json: skus.map((skuCode) => ({ skuCode, quantity: 10, inStock: true })),
+    });
+  });
   await page.route('**/api/product**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/product/categories') {

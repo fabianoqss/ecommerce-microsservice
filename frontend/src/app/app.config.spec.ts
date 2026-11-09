@@ -3,6 +3,9 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ApplicationInitStatus } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
+import { CartStore } from './core/cart/cart-store';
+import { LocalStorageCartStore } from './core/cart/local-storage-cart-store';
+import { MessageService } from 'primeng/api';
 import { appConfig } from './app.config';
 import { AUTH_LOCATION } from './core/auth/auth-location';
 import { AuthService } from './core/auth/auth.service';
@@ -26,6 +29,12 @@ describe('appConfig', () => {
   });
 
   afterEach(() => http.verify());
+
+  it('registra o adaptador do carrinho e as notificações públicas', () => {
+    http.expectOne('/bff/me').flush(null, { status: 401, statusText: 'Unauthorized' });
+    expect(TestBed.inject(CartStore)).toBeInstanceOf(LocalStorageCartStore);
+    expect(TestBed.inject(MessageService)).toBeInstanceOf(MessageService);
+  });
 
   it('carrega a sessão no bootstrap e registra o interceptor de sessão expirada', async () => {
     http.expectOne('/bff/me').flush({

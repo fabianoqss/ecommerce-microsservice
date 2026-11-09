@@ -10,7 +10,7 @@ import { finalize } from 'rxjs';
 import { Product } from '../../../shared/data-access/product/product';
 import { ProductApi } from '../../../shared/data-access/product/product-api';
 import { AdminProductApi, AdminProductRequest } from '../data-access/admin-product-api';
-import { problemDetail, problemFields } from '../data-access/problem-detail';
+import { problemDetail, problemFields } from '../../../core/http/problem-detail';
 import { parsePrice } from './parse-price';
 
 type Field = 'name' | 'category' | 'price' | 'description';

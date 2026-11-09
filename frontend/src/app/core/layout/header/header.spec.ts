@@ -6,6 +6,9 @@ import { provideRouter, Router } from '@angular/router';
 import { AUTH_LOCATION } from '../../auth/auth-location';
 import { AuthService } from '../../auth/auth.service';
 import { Header } from './header';
+import { Cart } from '../../cart/cart';
+import { CartStore } from '../../cart/cart-store';
+import { LocalStorageCartStore } from '../../cart/local-storage-cart-store';
 
 @Component({ template: '' })
 class RouteStub {}
@@ -15,9 +18,11 @@ describe('Header', () => {
   let assign: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    localStorage.clear();
     assign = vi.fn();
     TestBed.configureTestingModule({
       providers: [
+        { provide: CartStore, useClass: LocalStorageCartStore },
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: AUTH_LOCATION, useValue: { assign } },
@@ -35,6 +40,7 @@ describe('Header', () => {
   afterEach(() => {
     http.verify();
     vi.restoreAllMocks();
+    localStorage.clear();
   });
 
   async function render(roles?: string[], name = 'Ana Silva') {
@@ -58,6 +64,7 @@ describe('Header', () => {
     const buttons = Array.from(element.querySelectorAll('button'));
     const login = buttons.find((button) => button.textContent?.trim() === 'ENTRAR');
 
+    expect(element.querySelector('[aria-label*="Carrinho"]')).toBeNull();
     expect(login).toBeDefined();
     expect(login?.type).toBe('button');
     expect(buttons.some((button) => button.textContent?.includes('SAIR'))).toBe(false);
@@ -261,5 +268,24 @@ describe('Header', () => {
       headers: { Location: '/' },
     });
     expect(assign).toHaveBeenCalledExactlyOnceWith('/');
+  });
+  it('mostra link acessível e badge com a soma das quantidades no desktop e no mobile', async () => {
+    const { fixture, element } = await render(['CUSTOMER']);
+    TestBed.inject(Cart).add('p1', 2);
+    TestBed.inject(Cart).add('p2');
+    element.querySelector<HTMLButtonElement>('button[aria-controls]')?.click();
+    await fixture.whenStable();
+    const links = element.querySelectorAll('a[aria-label="Carrinho, 3 itens"]');
+    expect(links).toHaveLength(2);
+    for (const link of links) {
+      expect(link.getAttribute('href')).toBe('/cart');
+      expect(link.textContent?.trim()).toBe('3');
+      expect(link.querySelector('.pi-shopping-cart')).not.toBeNull();
+    }
+    TestBed.inject(Cart).clear();
+    await fixture.whenStable();
+    const empty = element.querySelector('a[aria-label="Carrinho, 0 itens"]');
+    expect(empty).not.toBeNull();
+    expect(empty?.textContent?.trim()).toBe('');
   });
 });

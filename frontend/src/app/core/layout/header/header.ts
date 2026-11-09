@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
+import { Cart } from '../../cart/cart';
 
 @Component({
   imports: [NgTemplateOutlet, RouterLink, RouterLinkActive],
@@ -13,6 +14,11 @@ import { AuthService } from '../../auth/auth.service';
 })
 export class Header {
   protected readonly auth = inject(AuthService);
+  protected readonly cart = inject(Cart);
+  protected readonly cartLabel = computed(() => {
+    const quantity = this.cart.totalQuantity();
+    return `Carrinho, ${quantity} ${quantity === 1 ? 'item' : 'itens'}`;
+  });
   protected readonly menuOpen = signal(false);
   protected readonly navigationLinks = computed(() => [
     { path: '/', label: 'HOME' },

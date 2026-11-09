@@ -14,13 +14,18 @@ import {
 import Aura from '@primeuix/themes/aura';
 import { definePreset } from '@primeuix/themes';
 import { providePrimeNG } from 'primeng/config';
+import { MessageService } from 'primeng/api';
 
 import { routes } from './app.routes';
 import { AuthService } from './core/auth/auth.service';
 import { sessionExpiredInterceptor } from './core/auth/session-expired.interceptor';
+import { CartStore } from './core/cart/cart-store';
+import { LocalStorageCartStore } from './core/cart/local-storage-cart-store';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    { provide: CartStore, useClass: LocalStorageCartStore },
+    MessageService,
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(

@@ -71,6 +71,21 @@
 
 <ng-template #account>
   @if (auth.isAuthenticated()) {
+    <a
+      routerLink="/cart"
+      [attr.aria-label]="cartLabel()"
+      (click)="closeMenu()"
+      class="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
+    >
+      <span class="pi pi-shopping-cart text-xl" aria-hidden="true"></span>
+      @if (cart.totalQuantity() > 0) {
+        <span
+          aria-hidden="true"
+          class="absolute -top-1 -right-1 rounded-full bg-primary-contrast px-1.5 py-0.5 text-xs font-bold text-primary"
+          >{{ cart.totalQuantity() }}</span
+        >
+      }
+    </a>
     <span class="wrap-anywhere md:font-normal">{{ firstName() }}</span>
   }
   <button
