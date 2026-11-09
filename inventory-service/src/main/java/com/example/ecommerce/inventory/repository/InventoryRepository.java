@@ -14,11 +14,11 @@ public interface InventoryRepository extends JpaRepository <Inventory, Long> {
     List<Inventory> findBySkuCodeIn(List<String> skuCode);
 
     @Modifying
-    @Query("UPDATE Inventory i SET i.quantity = i.quantity - :qty WHERE i.skuCode = :sku AND i.quantity >= :qty")
+    @Query("UPDATE Inventory i SET i.quantity = i.quantity - :qty, i.version = i.version + 1 WHERE i.skuCode = :sku AND i.quantity >= :qty")
     int decrement(@Param("sku") String skuCode, @Param("qty") Integer quantity);
 
     @Modifying
-    @Query("UPDATE Inventory i SET i.quantity = i.quantity + :qty WHERE i.skuCode = :sku")
+    @Query("UPDATE Inventory i SET i.quantity = i.quantity + :qty, i.version = i.version + 1 WHERE i.skuCode = :sku")
     int increment(@Param("sku") String skuCode, @Param("qty") Integer quantity);
 
     Optional<Inventory> findBySkuCode(String skuCode);
