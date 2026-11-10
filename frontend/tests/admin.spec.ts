@@ -83,6 +83,24 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+test('mostra os cursores de ação e de indisponibilidade nos botões administrativos', async ({
+  page,
+}) => {
+  await mockPaginatedProducts(page);
+  await page.goto('/admin/products');
+
+  const pageNumber = page.getByRole('button', { name: 'Página 2', exact: true });
+  const previousPage = page.getByRole('button', { name: 'Página anterior', exact: true });
+  const edit = page.getByRole('button', { name: 'Editar Teclado 1', exact: true });
+
+  await expect(pageNumber).toBeEnabled();
+  await expect(pageNumber).toHaveCSS('cursor', 'pointer');
+  await expect(previousPage).toBeDisabled();
+  await expect(previousPage).toHaveCSS('cursor', 'not-allowed');
+  await expect(edit).toBeEnabled();
+  await expect(edit).toHaveCSS('cursor', 'pointer');
+});
+
 test('pagina a lista administrativa pela URL e mostra os cards da página 2', async ({ page }) => {
   await mockPaginatedProducts(page);
   await page.goto('/admin/products?extra=1');
