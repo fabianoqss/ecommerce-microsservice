@@ -1,6 +1,7 @@
 package com.example.ecommerce.product.repository;
 
 import com.example.ecommerce.product.domain.entity.Product;
+import org.bson.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -12,7 +13,6 @@ import java.text.Collator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
 
@@ -45,8 +45,9 @@ class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
         var criteria = new ArrayList<Criteria>();
 
         if (hasText(name)) {
-            var containsIgnoringCase = Pattern.compile(Pattern.quote(name.trim()), Pattern.CASE_INSENSITIVE);
-            criteria.add(Criteria.where("name").regex(containsIgnoringCase));
+            var containsIgnoringCase = new Document("$regex", escapeRegexLiteral(name.trim()))
+                    .append("$options", "i");
+            criteria.add(Criteria.where("name").is(containsIgnoringCase));
         }
         if (hasText(category)) {
             criteria.add(Criteria.where("category").is(category.trim()));
@@ -57,6 +58,18 @@ class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
             query.addCriteria(new Criteria().andOperator(criteria));
         }
         return query;
+    }
+
+    private static String escapeRegexLiteral(String value) {
+        var escaped = new StringBuilder(value.length());
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if ("\\.^$|?*+()[]{}-/#".indexOf(character) >= 0) {
+                escaped.append('\\');
+            }
+            escaped.append(character);
+        }
+        return escaped.toString();
     }
 
     private static boolean hasText(String value) {
