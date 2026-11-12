@@ -33,6 +33,18 @@ class OrderEventDTOCompatibilityTest {
 
         assertThat(event.version()).isEqualTo(2);
         assertThat(event.orderId()).isEqualTo("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b");
+        assertThat(event.customerEmail()).isNull();
+    }
+
+    @Test
+    void readsEventWithCustomerEmail() {
+        OrderEventDTO event = read("""
+                {"eventId":"5f0c6a3e-1b2d-4c5e-8f9a-0b1c2d3e4f50","version":2,"orderId":"019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b",
+                 "userId":"user-sub","customerEmail":"customer@example.com","status":"CONFIRMED","totalValue":10.50,
+                 "orderTime":"2026-10-20T10:00:00"}
+                """);
+
+        assertThat(event.customerEmail()).isEqualTo("customer@example.com");
     }
 
     @Test
