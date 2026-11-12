@@ -4,6 +4,6 @@ import java.util.UUID;
 
 public class ReservationConflictException extends RuntimeException {
     public ReservationConflictException(UUID reservationId) {
-        super("Reserva já existe com itens divergentes: " + reservationId);
+        super("Reservation already exists with different items: " + reservationId);
     }
 }

@@ -88,7 +88,7 @@ class InventoryUpdateIntegrationTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.detail").value("Item de estoque não encontrado com skuCode: " + unknownSku));
+                .andExpect(jsonPath("$.detail").value("Inventory item not found with skuCode: " + unknownSku));
     }
 
     private static Inventory inventory(String skuCode, int quantity) {

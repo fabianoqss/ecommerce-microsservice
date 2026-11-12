@@ -19,7 +19,7 @@ public class InventoryClientConfig {
             var client = authorizedClientManager.authorize(request);
             if (client == null || client.getAccessToken() == null || client.getAccessToken().getTokenValue().isBlank()) {
                 throw new OAuth2AuthorizationException(new OAuth2Error("service_token_unavailable",
-                        "Não foi possível obter o token de serviço para o inventory-service", null));
+                        "Could not obtain the service token for inventory-service", null));
             }
             template.removeHeader(HttpHeaders.AUTHORIZATION);
             template.header(HttpHeaders.AUTHORIZATION, "Bearer " + client.getAccessToken().getTokenValue());

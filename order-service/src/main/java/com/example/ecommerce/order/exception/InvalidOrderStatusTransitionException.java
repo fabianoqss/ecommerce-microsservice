@@ -6,6 +6,6 @@ import java.util.UUID;
 
 public class InvalidOrderStatusTransitionException extends RuntimeException {
     public InvalidOrderStatusTransitionException(UUID id, OrderStatus from, OrderStatus to) {
-        super("Pedido " + id + " não pode passar de " + from + " para " + to);
+        super("Order " + id + " cannot transition from " + from + " to " + to);
     }
 }

@@ -7,7 +7,7 @@ public class OrderInProgressException extends RuntimeException {
     private final UUID orderId;
 
     public OrderInProgressException(UUID orderId) {
-        super("O pedido " + orderId + " com esta chave de idempotência ainda está em processamento");
+        super("Order " + orderId + " with this idempotency key is still being processed");
         this.orderId = orderId;
     }
 

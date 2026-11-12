@@ -67,7 +67,7 @@ class OrderReconciliationIntegrationTest {
         reconciler.setMaxBackoff(Duration.ofHours(1));
         doAnswer(inv -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            throw new IllegalStateException("Inventory indisponível");
+            throw new IllegalStateException("Inventory unavailable");
         }).when(inventoryClient).releaseReservation(any());
     }
 

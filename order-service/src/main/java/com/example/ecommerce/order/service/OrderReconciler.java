@@ -65,13 +65,13 @@ public class OrderReconciler {
         this.meterRegistry = meterRegistry;
 
         Gauge.builder("orders.pending", orderRepository, repo -> repo.countByStatusIn(PENDING_AND_EXPIRED))
-                .description("Contagem de pedidos PENDING e EXPIRED aguardando confirmação ou reconciliação")
+                .description("Count of PENDING and EXPIRED orders awaiting confirmation or reconciliation")
                 .register(meterRegistry);
         Gauge.builder("orders.reconciliation.oldest.age.seconds", orderRepository,
                         repo -> repo.findOldestExpiredOrderDueForReconciliation()
                                 .map(time -> (double) Math.max(0, Duration.between(time, LocalDateTime.now()).toSeconds()))
                                 .orElse(0.0))
-                .description("Idade em segundos do pedido EXPIRED mais antigo elegível para reconciliação")
+                .description("Age in seconds of the oldest EXPIRED order eligible for reconciliation")
                 .register(meterRegistry);
     }
 
@@ -125,15 +125,15 @@ public class OrderReconciler {
             });
             if (order.getStatus() == OrderStatus.RECONCILIATION_FAILED) {
                 meterRegistry.counter("orders.reconciled", "outcome", "failed").increment();
-                log.error("Reconciliação encerrada após {} tentativas: orderId={}",
+                log.error("Reconciliation stopped after {} attempts: orderId={}",
                         order.getReconciliationAttempts(), order.getId(), failure);
             } else {
                 meterRegistry.counter("orders.reconciled", "outcome", "retry").increment();
-                log.warn("Falha ao liberar reserva, tentativa {}/{}, próxima em {}: orderId={}",
+                log.warn("Failed to release reservation, attempt {}/{}, next attempt at {}: orderId={}",
                         order.getReconciliationAttempts(), maxAttempts, order.getNextReconciliationAt(), order.getId(), failure);
             }
         } catch (OptimisticLockingFailureException ex) {
-            log.debug("Pedido já alterado durante reconciliação: orderId={}", order.getId(), ex);
+            log.debug("Order already modified during reconciliation: orderId={}", order.getId(), ex);
         }
     }
 
@@ -147,13 +147,13 @@ public class OrderReconciler {
 
         try {
             transactionTemplate.executeWithoutResult(status -> {
-                expiredOrder.cancel("reconciler", "Reserva expirada por timeout na confirmação", LocalDateTime.now());
+                expiredOrder.cancel("reconciler", "Reservation expired due to confirmation timeout", LocalDateTime.now());
                 orderRepository.saveAndFlush(expiredOrder);
             });
             meterRegistry.counter("orders.reconciled", "outcome", "cancelled").increment();
-            log.info("Pedido expirado reconciliado e cancelado: orderId={}", expiredOrder.getId());
+            log.info("Expired order reconciled and cancelled: orderId={}", expiredOrder.getId());
         } catch (OptimisticLockingFailureException ex) {
-            log.debug("Pedido já cancelado por outra instância do reconciliador: orderId={}", expiredOrder.getId(), ex);
+            log.debug("Order already cancelled by another reconciler instance: orderId={}", expiredOrder.getId(), ex);
         }
     }
 }

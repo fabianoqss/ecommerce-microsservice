@@ -173,7 +173,7 @@ class RabbitMQConsumerPermissionsIntegrationTest {
     @Test
     void consumesCreatedAndCancelledEventsAndDeadLettersOnFailureWithMinimalPermissions() {
         var failingEvent = event(UUID.randomUUID(), "CONFIRMED");
-        doThrow(new IllegalStateException("Falha simulada no envio"))
+        doThrow(new IllegalStateException("Simulated send failure"))
                 .when(notificationSender).send(eq(failingEvent), anyString());
 
         producerTemplate.convertAndSend(EXCHANGE, CREATED_ROUTING_KEY, failingEvent);

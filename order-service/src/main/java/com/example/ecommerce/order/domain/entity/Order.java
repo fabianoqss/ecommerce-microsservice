@@ -88,7 +88,7 @@ public class Order {
     private String cancellationReason;
 
     public void confirm(Instant now) {
-        Objects.requireNonNull(now, "confirmedAt não pode ser nulo");
+        Objects.requireNonNull(now, "confirmedAt must not be null");
         if (status != OrderStatus.PENDING) {
             throw new InvalidOrderStatusTransitionException(id, status, OrderStatus.CONFIRMED);
         }
@@ -116,7 +116,7 @@ public class Order {
             status = OrderStatus.RECONCILIATION_FAILED;
             nextReconciliationAt = null;
         } else {
-            nextReconciliationAt = Objects.requireNonNull(nextAttemptAt, "Próxima reconciliação não pode ser nula");
+            nextReconciliationAt = Objects.requireNonNull(nextAttemptAt, "Next reconciliation time must not be null");
         }
     }
 

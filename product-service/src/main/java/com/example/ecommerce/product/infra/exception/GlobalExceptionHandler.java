@@ -36,7 +36,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ProblemDetail handleVersionConflict(RuntimeException ex, HttpServletRequest request) {
         String detail = ex instanceof ProductVersionConflictException
                 ? ex.getMessage()
-                : "O produto foi alterado por outra requisição; recarregue e tente novamente";
+                : "The product was modified by another request; reload and try again";
         return problem(HttpStatus.PRECONDITION_FAILED, "Precondition Failed", detail, request);
     }
 
@@ -65,7 +65,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST, "Erro de validação nos campos informados");
+                HttpStatus.BAD_REQUEST, "Validation error in the provided fields");
         problem.setType(DEFAULT_TYPE);
         problem.setTitle("Validation Failed");
         problem.setProperty("fields", fields);

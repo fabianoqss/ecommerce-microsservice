@@ -46,7 +46,7 @@ class SessionChainTest extends GatewayTestSupport {
         return oidcLogin()
                 .clientRegistration(clientRegistrations.findByRegistrationId("keycloak"))
                 .idToken(t -> t.subject("user-sub")
-                        .claim("name", "Ana Cliente")
+                        .claim("name", "Anna Customer")
                         .claim("email", "ana@ecommerce.local")
                         .claim("realm_access", Map.of("roles", List.of("CUSTOMER"))));
     }
@@ -114,7 +114,7 @@ class SessionChainTest extends GatewayTestSupport {
         var result = mvc.perform(get("/bff/me").with(customer()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sub").value("user-sub"))
-                .andExpect(jsonPath("$.name").value("Ana Cliente"))
+                .andExpect(jsonPath("$.name").value("Anna Customer"))
                 .andExpect(jsonPath("$.email").value("ana@ecommerce.local"))
                 .andExpect(jsonPath("$.roles[0]").value("CUSTOMER"))
                 .andReturn();

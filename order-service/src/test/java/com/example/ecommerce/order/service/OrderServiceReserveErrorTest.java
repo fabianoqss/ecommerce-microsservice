@@ -94,7 +94,7 @@ class OrderServiceReserveErrorTest {
     @BeforeEach
     void setUp() {
         orderService.setReservationRetryDelay(Duration.ZERO);
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         when(orderRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
             if (order.getId() == null) {
@@ -115,7 +115,7 @@ class OrderServiceReserveErrorTest {
 
         verify(inventoryClient, times(1)).reserve(eq(ORDER_ID), any());
         assertThat(persistedOrder.getStatus()).isEqualTo(OrderStatus.CANCELLED);
-        assertThat(persistedOrder.getCancellationReason()).isEqualTo("Estoque insuficiente");
+        assertThat(persistedOrder.getCancellationReason()).isEqualTo("Insufficient stock");
         assertThat(persistedOrder.getConfirmedAt()).isNull();
         verifyNoInteractions(outboxEventRepository);
         assertThat(meterRegistry.counter("orders.created", "result", "insufficient_stock").count()).isEqualTo(1.0);

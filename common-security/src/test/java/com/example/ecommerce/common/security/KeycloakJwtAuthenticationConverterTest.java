@@ -21,7 +21,7 @@ class KeycloakJwtAuthenticationConverterTest {
     void mapsRealmRolesAndScopesAndUsesSubjectAsName() {
         Jwt jwt = jwt(Map.of(
                 "sub", "user-sub",
-                "preferred_username", "nome-mutavel",
+                "preferred_username", "mutable-name",
                 "scope", "openid inventory:reserve",
                 "realm_access", Map.of("roles", List.of("ADMIN", "CUSTOMER"))));
 

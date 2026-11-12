@@ -69,16 +69,16 @@ public class OutboxDispatcher {
                 CorrelationData.Confirm confirm = correlationData.getFuture()
                         .get(CONFIRM_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                 if (!confirm.ack()) {
-                    throw new IllegalStateException("RabbitMQ rejeitou o evento: " + confirm.reason());
+                    throw new IllegalStateException("RabbitMQ rejected the event: " + confirm.reason());
                 }
                 if (correlationData.getReturned() != null) {
-                    throw new IllegalStateException("Evento não roteado: " + correlationData.getReturned().getReplyText());
+                    throw new IllegalStateException("Unrouted event: " + correlationData.getReturned().getReplyText());
                 }
 
                 outbox.setStatus(OutboxStatus.SENT);
                 outbox.setSentAt(LocalDateTime.now());
                 outbox.setLastError(null);
-                log.info("Evento de pedido publicado: eventId={}, type={}, orderId={}",
+                log.info("Order event published: eventId={}, type={}, orderId={}",
                         outbox.getEventId(), outbox.getEventType(), outbox.getAggregateId());
             } catch (Exception ex) {
                 traceScope.error(ex);
@@ -88,13 +88,13 @@ public class OutboxDispatcher {
                 if (attempts >= maxAttempts) {
                     outbox.setStatus(OutboxStatus.FAILED);
                     meterRegistry.counter("outbox.failed", "type", outbox.getEventType()).increment();
-                    log.error("Evento movido para FAILED após {} tentativas: eventId={}, orderId={}",
+                    log.error("Event moved to FAILED after {} attempts: eventId={}, orderId={}",
                             attempts, outbox.getEventId(), outbox.getAggregateId(), ex);
                 } else {
                     Duration backoff = computeBackoff(attempts);
                     Instant nextAttempt = Instant.now().plus(backoff);
                     outbox.setNextAttemptAt(nextAttempt);
-                    log.warn("Falha ao publicar evento (tentativa {}/{}), próxima em {}: eventId={}, orderId={}",
+                    log.warn("Failed to publish event (attempt {}/{}), next attempt at {}: eventId={}, orderId={}",
                             attempts, maxAttempts, nextAttempt, outbox.getEventId(), outbox.getAggregateId(), ex);
                 }
             }
@@ -116,7 +116,7 @@ public class OutboxDispatcher {
 
     private String limit(String message) {
         if (message == null) {
-            return "Erro sem mensagem";
+            return "Error without a message";
         }
         return message.length() <= 1000 ? message : message.substring(0, 1000);
     }

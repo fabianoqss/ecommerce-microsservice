@@ -26,7 +26,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 class SmtpNotificationSenderTest {
 
-    private static final String FROM = "noreply@loja.example.com";
+    private static final String FROM = "noreply@store.example.com";
     private static final String CUSTOMER_EMAIL = "customer@example.com";
     private static final String ORDER_ID = "019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b";
 
@@ -43,27 +43,44 @@ class SmtpNotificationSenderTest {
 
     @Test
     void sendsConfirmationEmailToCustomerFromApprovedSender() {
-        sender.send(event(CUSTOMER_EMAIL, "CONFIRMED"), "Notificação de pedido criada");
+        sender.send(event(CUSTOMER_EMAIL, "CONFIRMED"), "Order creation notification");
 
         SimpleMailMessage message = sentMessage();
         assertThat(message.getFrom()).isEqualTo(FROM);
         assertThat(message.getTo()).containsExactly(CUSTOMER_EMAIL);
-        assertThat(message.getSubject()).isEqualTo("Recebemos o seu pedido");
+        assertThat(message.getSubject()).isEqualTo("We received your order");
         assertThat(message.getText())
-                .contains(ORDER_ID)
-                .contains("R$")
-                .contains("250,90")
-                .contains("12/11/2026 10:30");
+                .isEqualTo("""
+                        Hello!
+
+                        Thank you for shopping with us! Your order has been confirmed.
+
+                        Order: %s
+                        Total: R$250.90
+                        Date: Nov 12, 2026, 10:30 AM
+
+                        The DS Catalog team
+                        """.formatted(ORDER_ID));
         assertThat(count("sent", "created")).isEqualTo(1.0);
     }
 
     @Test
     void sendsCancellationEmailWhenOrderIsCancelled() {
-        sender.send(event(CUSTOMER_EMAIL, "CANCELLED"), "Notificação de pedido cancelado");
+        sender.send(event(CUSTOMER_EMAIL, "CANCELLED"), "Order cancellation notification");
 
         SimpleMailMessage message = sentMessage();
-        assertThat(message.getSubject()).isEqualTo("Seu pedido foi cancelado");
-        assertThat(message.getText()).contains("cancelado");
+        assertThat(message.getSubject()).isEqualTo("Your order has been cancelled");
+        assertThat(message.getText()).isEqualTo("""
+                Hello!
+
+                Your order has been cancelled. If you have already paid, your payment will be refunded.
+
+                Order: %s
+                Total: R$250.90
+                Date: Nov 12, 2026, 10:30 AM
+
+                The DS Catalog team
+                """.formatted(ORDER_ID));
         assertThat(count("sent", "cancelled")).isEqualTo(1.0);
     }
 
@@ -71,7 +88,7 @@ class SmtpNotificationSenderTest {
     @NullAndEmptySource
     @ValueSource(strings = "   ")
     void skipsSendingWhenCustomerEmailIsMissing(String customerEmail) {
-        sender.send(event(customerEmail, "CONFIRMED"), "Notificação de pedido criada");
+        sender.send(event(customerEmail, "CONFIRMED"), "Order creation notification");
 
         verifyNoInteractions(javaMailSender);
         assertThat(count("skipped", "created")).isEqualTo(1.0);
@@ -82,7 +99,7 @@ class SmtpNotificationSenderTest {
         MailSendException failure = new MailSendException("SMTP unavailable");
         doThrow(failure).when(javaMailSender).send(any(SimpleMailMessage.class));
 
-        assertThatThrownBy(() -> sender.send(event(CUSTOMER_EMAIL, "CONFIRMED"), "Notificação de pedido criada"))
+        assertThatThrownBy(() -> sender.send(event(CUSTOMER_EMAIL, "CONFIRMED"), "Order creation notification"))
                 .isSameAs(failure);
         assertThat(count("failed", "created")).isEqualTo(1.0);
         assertThat(meterRegistry.find("ecommerce.notification.emails").tag("result", "sent").counter()).isNull();

@@ -5,7 +5,7 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-@Schema(name = "PageResponseDTO", description = "Página de resultados")
+@Schema(name = "PageResponseDTO", description = "Page of results")
 public record PageResponseDTO<T>(
         List<T> content,
         int page,

@@ -8,18 +8,18 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
-@Schema(name = "InventoryItemDTO", description = "Item de estoque a reservar/liberar")
+@Schema(name = "InventoryItemDTO", description = "Inventory item to reserve or release")
 public record InventoryItemDTO(
 
         @Schema(description = SkuCodeRules.DESCRIPTION, example = SkuCodeRules.EXAMPLE)
-        @NotBlank(message = "skuCode é obrigatório")
+        @NotBlank(message = "skuCode is required")
         @Pattern(regexp = SkuCodeRules.PATTERN, message = SkuCodeRules.MESSAGE)
         String skuCode,
 
-        @Schema(description = "Quantidade (entre 1 e 10000)", example = "2")
-        @NotNull(message = "quantity é obrigatório")
-        @Min(value = 1, message = "quantity deve ser maior ou igual a 1")
-        @Max(value = 10000, message = "quantity deve ser menor ou igual a 10000")
+        @Schema(description = "Quantity (between 1 and 10000)", example = "2")
+        @NotNull(message = "quantity is required")
+        @Min(value = 1, message = "quantity must be greater than or equal to 1")
+        @Max(value = 10000, message = "quantity must be less than or equal to 10000")
         Integer quantity
 ) {
 }

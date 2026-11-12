@@ -39,7 +39,7 @@ class OrderIdUuidMigrationTest {
             sql.execute("INSERT INTO tb_orders (id, order_time, status, userid, total_value) "
                     + "VALUES (7, '" + orderTime + "', 'CONFIRMED', 'owner-sub', 20.00)");
             sql.execute("INSERT INTO tb_order_items (product_id, product_name, quantity, price, order_id) "
-                    + "VALUES ('p1', 'Produto', 2, 10.00, 7)");
+                    + "VALUES ('p1', 'Product', 2, 10.00, 7)");
             sql.execute("INSERT INTO tb_outbox_event (event_id, aggregate_id, event_type, payload, status, attempts, created_at) "
                     + "VALUES ('" + UUID.randomUUID() + "', 7, 'ORDER_CREATED', '{}', 'SENT', 1, now())");
         }

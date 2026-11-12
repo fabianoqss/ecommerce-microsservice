@@ -276,7 +276,7 @@ class StockReservationIntegrationTest {
                                 {
                                   "items": [
                                     {"skuCode": "SKU-A", "quantity": 5},
-                                    {"skuCode": "SKU-NAO-EXISTE", "quantity": 1}
+                                    {"skuCode": "SKU-NONEXISTENT", "quantity": 1}
                                   ]
                                 }
                                 """))
@@ -431,13 +431,13 @@ class StockReservationIntegrationTest {
 
                 var reservation = reservationRepository.findById(reservationId).orElseThrow();
                 assertThat(reservation.getStatus())
-                        .as("Rodada %d: reserva deve terminar RELEASED", round)
+                        .as("Round %d: reservation must end as RELEASED", round)
                         .isEqualTo(ReservationStatus.RELEASED);
                 assertThat(quantityOf("SKU-A"))
-                        .as("Rodada %d: saldo de SKU-A inconsistente", round)
+                        .as("Round %d: inconsistent SKU-A balance", round)
                         .isEqualTo(100);
                 assertThat(quantityOf("SKU-B"))
-                        .as("Rodada %d: saldo de SKU-B inconsistente", round)
+                        .as("Round %d: inconsistent SKU-B balance", round)
                         .isEqualTo(100);
             }
         }

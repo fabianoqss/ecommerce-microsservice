@@ -120,7 +120,7 @@ class OrderCreateCompensationIntegrationTest {
                 {"access_token":"svc-token","token_type":"Bearer","expires_in":300}
                 """)));
         WIREMOCK.stubFor(WireMock.get("/api/product/p1").willReturn(okJson("""
-                {"id":"p1","name":"Teclado","price":10.00}
+                {"id":"p1","name":"Keyboard","price":10.00}
                 """)));
     }
 
@@ -160,7 +160,7 @@ class OrderCreateCompensationIntegrationTest {
                 .willReturn(aResponse()
                         .withStatus(409)
                         .withHeader("Content-Type", "application/problem+json")
-                        .withBody("{\"status\":409,\"detail\":\"Sem estoque\"}")));
+                        .withBody("{\"status\":409,\"detail\":\"Out of stock\"}")));
 
         mvc.perform(post("/api/order")
                         .header("Idempotency-Key", UUID.randomUUID().toString())
@@ -176,7 +176,7 @@ class OrderCreateCompensationIntegrationTest {
         assertThat(orders).singleElement().satisfies(order -> {
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
             assertThat(order.getConfirmedAt()).isNull();
-            assertThat(order.getCancellationReason()).isEqualTo("Estoque insuficiente");
+            assertThat(order.getCancellationReason()).isEqualTo("Insufficient stock");
         });
         UUID orderId = orders.getFirst().getId();
 

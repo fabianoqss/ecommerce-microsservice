@@ -89,8 +89,8 @@ class OrderErrorResponseTest {
                 .andExpect(jsonPath("$.type").doesNotExist())
                 .andExpect(jsonPath("$.title").value("Bad Request"))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Payload inválido"))
-                .andExpect(jsonPath("$.errors").value(contains("items[0].quantity: quantity deve ser maior que zero")))
+                .andExpect(jsonPath("$.detail").value("Invalid payload"))
+                .andExpect(jsonPath("$.errors").value(contains("items[0].quantity: quantity must be greater than zero")))
                 .andExpect(jsonPath("$.instance").value("/api/order"));
     }
 
@@ -102,7 +102,7 @@ class OrderErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.type").doesNotExist())
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Parâmetros inválidos"))
+                .andExpect(jsonPath("$.detail").value("Invalid parameters"))
                 .andExpect(jsonPath("$.errors").value(hasSize(1)))
                 .andExpect(jsonPath("$.errors[0]").value(startsWith("size: ")));
     }
@@ -115,7 +115,7 @@ class OrderErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.type").doesNotExist())
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Parâmetro inválido: id"));
+                .andExpect(jsonPath("$.detail").value("Invalid parameter: id"));
     }
 
     @Test
@@ -129,7 +129,7 @@ class OrderErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.type").doesNotExist())
                 .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.detail").value("Erro interno inesperado"));
+                .andExpect(jsonPath("$.detail").value("Unexpected internal error"));
     }
 
     @Test

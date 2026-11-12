@@ -146,7 +146,7 @@ public class OrderService {
         for (InventoryItemDTO item : reserveItems) {
             if (item.quantity() > checkoutProperties.maxQuantityPerProduct()) {
                 meterRegistry.counter("orders.created", "result", "quantity_limit_exceeded").increment();
-                log.info("Pedido recusado por exceder a quantidade máxima por produto: productId={}, quantidade={}, limite={}",
+                log.info("Order rejected for exceeding the maximum quantity per product: productId={}, quantidade={}, limite={}",
                         item.skuCode(), item.quantity(), checkoutProperties.maxQuantityPerProduct());
                 throw new OrderQuantityLimitExceededException(item.skuCode(), checkoutProperties.maxQuantityPerProduct());
             }
@@ -176,7 +176,7 @@ public class OrderService {
 
         if (totalValue.compareTo(maxTotalValue) > 0) {
             meterRegistry.counter("orders.created", "result", "total_limit_exceeded").increment();
-            log.info("Pedido recusado por exceder o valor máximo: total={}, limite={}", totalValue, maxTotalValue);
+            log.info("Order rejected for exceeding the maximum total: total={}, limite={}", totalValue, maxTotalValue);
             throw new OrderTotalLimitExceededException(maxTotalValue);
         }
 
@@ -195,7 +195,7 @@ public class OrderService {
         try {
             pendingOrder = Objects.requireNonNull(
                     transactionTemplate.execute(status -> orderRepository.saveAndFlush(order)),
-                    "Falha ao persistir o pedido pendente");
+                    "Failed to persist the pending order");
         } catch (DataIntegrityViolationException e) {
             meterRegistry.counter("orders.idempotency", "result", "race").increment();
             return findReplay(userId, idempotencyKey, requestHash).orElseThrow(() -> e);
@@ -207,17 +207,17 @@ public class OrderService {
         } catch (FeignException.Conflict e) {
             cancelOrderWithoutStock(pendingOrder);
             meterRegistry.counter("orders.created", "result", "insufficient_stock").increment();
-            log.info("Pedido cancelado por falta de estoque: orderId={}", orderId);
-            throw new InsufficientStockException("Estoque insuficiente para um ou mais itens do pedido");
+            log.info("Order cancelled due to insufficient stock: orderId={}", orderId);
+            throw new InsufficientStockException("Insufficient stock for one or more order items");
         } catch (OAuth2AuthorizationException e) {
             meterRegistry.counter("orders.created", "result", "pending").increment();
-            log.warn("Pedido mantido PENDING por indisponibilidade do token de serviço: orderId={}", orderId);
+            log.warn("Order kept PENDING because the service token is unavailable: orderId={}", orderId);
             throw e;
         } catch (RuntimeException e) {
             meterRegistry.counter("orders.created", "result", "pending").increment();
-            log.warn("Falha ao reservar estoque; pedido permanecerá PENDING para reconciliação: orderId={}", orderId, e);
+            log.warn("Failed to reserve stock; order will remain PENDING for reconciliation: orderId={}", orderId, e);
             throw new OrderReservationException(
-                    "Não foi possível confirmar a reserva de estoque do pedido " + orderId + "; consulte o status do pedido", e);
+                    "Could not confirm the stock reservation for order " + orderId + "; check the order status", e);
         }
 
         try {
@@ -228,13 +228,13 @@ public class OrderService {
                 return toResponseDTO(confirmedOrder);
             });
             meterRegistry.counter("orders.created", "result", "confirmed").increment();
-            log.info("Pedido confirmado com sucesso: orderId={}", orderId);
+            log.info("Order confirmed successfully: orderId={}", orderId);
             return new CreateOrderResult(response, false);
         } catch (OptimisticLockingFailureException | InvalidOrderStatusTransitionException ex) {
             meterRegistry.counter("orders.created", "result", "pending").increment();
-            log.warn("Confirmação rejeitada porque o reconciliador já expirou o pedido: orderId={}", orderId, ex);
+            log.warn("Confirmation rejected because the reconciler has already expired the order: orderId={}", orderId, ex);
             throw new OrderReservationException(
-                    "O tempo limite de confirmação do pedido " + orderId + " expirou", ex);
+                    "The confirmation timeout for order " + orderId + " has expired", ex);
         }
     }
 
@@ -248,7 +248,7 @@ public class OrderService {
                 if (attempt >= maxAttempts || !isRetryableReserveFailure(ex)) {
                     throw ex;
                 }
-                log.warn("Falha transitória ao reservar estoque (tentativa {}/{}): orderId={}",
+                log.warn("Transient failure while reserving stock (attempt {}/{}): orderId={}",
                         attempt, maxAttempts, orderId, ex);
                 sleepBeforeRetry();
             }
@@ -280,11 +280,11 @@ public class OrderService {
     private void cancelOrderWithoutStock(Order pendingOrder) {
         try {
             transactionTemplate.executeWithoutResult(status -> {
-                pendingOrder.cancel("system", "Estoque insuficiente", LocalDateTime.now());
+                pendingOrder.cancel("system", "Insufficient stock", LocalDateTime.now());
                 orderRepository.saveAndFlush(pendingOrder);
             });
         } catch (OptimisticLockingFailureException ex) {
-            log.debug("Pedido já alterado concorrentemente pelo reconciliador ao cancelar por falta de estoque: orderId={}",
+            log.debug("Order already modified concurrently by the reconciler while cancelling for insufficient stock: orderId={}",
                     pendingOrder.getId(), ex);
         }
     }
@@ -305,7 +305,7 @@ public class OrderService {
 
         String actor = Objects.equals(order.getUserID(), authentication.getName()) ? "owner" : "admin";
         afterCommit(() -> meterRegistry.counter("orders.cancelled", "actor", actor).increment());
-        log.info("Pedido cancelado: orderId={}, actor={}, cancelledBy={}", order.getId(), actor, order.getCancelledBy());
+        log.info("Order cancelled: orderId={}, actor={}, cancelledBy={}", order.getId(), actor, order.getCancelledBy());
 
         return toResponseDTO(order);
     }
@@ -345,14 +345,14 @@ public class OrderService {
     private CreateOrderResult toReplay(Order existing, String requestHash) {
         if (!existing.getRequestHash().equals(requestHash)) {
             meterRegistry.counter("orders.idempotency", "result", "payload_mismatch").increment();
-            throw new IdempotencyKeyReuseException("A chave de idempotência já foi usada com outro conteúdo de pedido");
+            throw new IdempotencyKeyReuseException("The idempotency key has already been used with different order contents");
         }
         if (existing.getStatus() == OrderStatus.PENDING) {
             meterRegistry.counter("orders.idempotency", "result", "in_progress").increment();
             throw new OrderInProgressException(existing.getId());
         }
         meterRegistry.counter("orders.idempotency", "result", "replayed").increment();
-        log.info("Requisição repetida devolvida pela chave de idempotência: orderId={}", existing.getId());
+        log.info("Repeated request returned using the idempotency key: orderId={}", existing.getId());
         return new CreateOrderResult(toResponseDTO(existing), true);
     }
 
@@ -364,7 +364,7 @@ public class OrderService {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 indisponível na JVM", e);
+            throw new IllegalStateException("SHA-256 unavailable in the JVM", e);
         }
     }
 
@@ -393,7 +393,7 @@ public class OrderService {
         try {
             return objectMapper.writeValueAsString(event);
         } catch (JacksonException ex) {
-            throw new IllegalStateException("Não foi possível serializar o evento do pedido", ex);
+            throw new IllegalStateException("Could not serialize the order event", ex);
         }
     }
 

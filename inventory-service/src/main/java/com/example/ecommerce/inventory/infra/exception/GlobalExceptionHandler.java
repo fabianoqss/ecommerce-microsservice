@@ -65,7 +65,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             TypeMismatchException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         if (ex instanceof MethodArgumentTypeMismatchException) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                    HttpStatus.BAD_REQUEST, "Payload ou parâmetro inválido");
+                    HttpStatus.BAD_REQUEST, "Invalid payload or parameter");
             problemDetail.setType(DEFAULT_TYPE);
             return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
         }
@@ -76,7 +76,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHandlerMethodValidationException(
             HandlerMethodValidationException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST, "Payload ou parâmetro inválido");
+                HttpStatus.BAD_REQUEST, "Invalid payload or parameter");
         problemDetail.setType(DEFAULT_TYPE);
         return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
     }
@@ -85,7 +85,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
             HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST, "Payload ou parâmetro inválido");
+                HttpStatus.BAD_REQUEST, "Invalid payload or parameter");
         problemDetail.setType(DEFAULT_TYPE);
         return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
     }
@@ -96,7 +96,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<String> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .toList();
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Payload inválido");
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid payload");
         problemDetail.setType(DEFAULT_TYPE);
         problemDetail.setProperty("errors", errors);
         return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
@@ -109,8 +109,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
-        log.error("Erro interno inesperado", ex);
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno inesperado");
+        log.error("Unexpected internal error", ex);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected internal error");
     }
 
     @Override

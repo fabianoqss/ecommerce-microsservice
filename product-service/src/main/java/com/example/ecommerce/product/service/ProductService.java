@@ -85,7 +85,7 @@ public class ProductService {
 
     private void ensureVersionMatches(Product product, long expectedVersion, String operation) {
         if (!Objects.equals(product.getVersion(), expectedVersion)) {
-            log.debug("Conflito de versão no {} do produto {}: esperada {}, atual {}",
+            log.debug("Version conflict during {} for product {}: expected {}, current {}",
                     operation, product.getId(), expectedVersion, product.getVersion());
             throw conflict(product.getId(), operation);
         }
@@ -98,7 +98,7 @@ public class ProductService {
 
     private Product findOrThrow(String id) {
         return repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado através do id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
     }
 
     private void copyDtoToEntity(ProductRequestDTO dto, Product entity){

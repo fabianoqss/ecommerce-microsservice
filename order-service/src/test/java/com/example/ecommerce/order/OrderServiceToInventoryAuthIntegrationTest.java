@@ -86,7 +86,7 @@ class OrderServiceToInventoryAuthIntegrationTest {
     void stubs() {
         WIREMOCK.resetAll();
         WIREMOCK.stubFor(WireMock.get("/api/product/p1").willReturn(okJson("""
-                {"id":"p1","name":"Teclado","price":10.00}
+                {"id":"p1","name":"Keyboard","price":10.00}
                 """)));
         WIREMOCK.stubFor(WireMock.put(urlPathMatching(RESERVATION_URL_PATTERN)).willReturn(aResponse().withStatus(201)));
     }

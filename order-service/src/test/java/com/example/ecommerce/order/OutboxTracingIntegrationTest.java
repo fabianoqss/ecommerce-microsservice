@@ -125,7 +125,7 @@ class OutboxTracingIntegrationTest {
                 {"access_token":"svc-token","token_type":"Bearer","expires_in":300}
                 """)));
         BACKEND.stubFor(get("/api/product/p1").willReturn(okJson("""
-                {"id":"p1","name":"Teclado","price":10.00}
+                {"id":"p1","name":"Keyboard","price":10.00}
                 """)));
         BACKEND.stubFor(put(urlPathMatching("/api/inventory/reservations/.*"))
                 .willReturn(aResponse().withStatus(201)));

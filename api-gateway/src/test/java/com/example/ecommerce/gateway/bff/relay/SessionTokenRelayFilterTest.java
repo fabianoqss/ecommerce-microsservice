@@ -175,7 +175,7 @@ class SessionTokenRelayFilterTest {
         assertThat(problem.get("title").asText()).isEqualTo("Service Unavailable");
         assertThat(problem.get("status").asInt()).isEqualTo(503);
         assertThat(problem.get("detail").asText())
-                .isEqualTo("Serviço de identidade temporariamente indisponível; tente novamente em instantes");
+                .isEqualTo("Identity service temporarily unavailable; please try again shortly");
         assertThat(session.isInvalid()).isFalse();
         assertThat(session.getAttribute(SPRING_SECURITY_CONTEXT_KEY)).isSameAs(context);
         assertThat(context.getAuthentication()).isSameAs(authentication);

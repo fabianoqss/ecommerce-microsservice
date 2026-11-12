@@ -79,7 +79,7 @@ class OrderControllerIdempotencyTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Parâmetro inválido: Idempotency-Key"))
+                .andExpect(jsonPath("$.detail").value("Invalid parameter: Idempotency-Key"))
                 .andExpect(jsonPath("$.instance").value("/api/order"));
 
         verifyNoInteractions(orderService);
@@ -90,7 +90,7 @@ class OrderControllerIdempotencyTest {
     void createdResponseIncludesIdempotentReplayedHeaderAndOrderBody(boolean replayed) throws Exception {
         var response = new OrderResponseDTO(ORDER_ID, "CONFIRMED", BigDecimal.TEN,
                 LocalDateTime.of(2026, 10, 27, 10, 0),
-                List.of(new OrderItemResponseDTO("p1", "Teclado", 1, BigDecimal.TEN)));
+                List.of(new OrderItemResponseDTO("p1", "Keyboard", 1, BigDecimal.TEN)));
         when(orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .thenReturn(new CreateOrderResult(response, replayed));
 

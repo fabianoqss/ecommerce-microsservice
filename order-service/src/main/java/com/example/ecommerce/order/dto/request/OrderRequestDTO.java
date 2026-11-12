@@ -8,12 +8,12 @@ import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
-@Schema(name = "OrderRequestDTO", description = "Dados para criação de um pedido")
+@Schema(name = "OrderRequestDTO", description = "Data to create an order")
 public record OrderRequestDTO(
-        @Schema(description = "Lista de itens do pedido")
-        @NotEmpty(message = "A lista de itens não pode ser vazia")
-        @Size(max = 50, message = "O pedido deve ter no máximo 50 itens")
+        @Schema(description = "Order item list")
+        @NotEmpty(message = "Item list must not be empty")
+        @Size(max = 50, message = "Order must contain at most 50 items")
         @Valid
-        List<@NotNull(message = "O item não pode ser nulo") OrderItemRequestDTO> items
+        List<@NotNull(message = "Item must not be null") OrderItemRequestDTO> items
 ) {
 }

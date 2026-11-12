@@ -163,7 +163,7 @@ class InventoryErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Payload ou parâmetro inválido"));
+                .andExpect(jsonPath("$.detail").value("Invalid payload or parameter"));
     }
 
     @Test
@@ -175,7 +175,7 @@ class InventoryErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Payload ou parâmetro inválido"));
+                .andExpect(jsonPath("$.detail").value("Invalid payload or parameter"));
     }
 
     @Test
@@ -191,7 +191,7 @@ class InventoryErrorResponseTest {
                 .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.title").value("Not Found"))
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.detail").value("Item de estoque não encontrado com skuCode: SKU-99"))
+                .andExpect(jsonPath("$.detail").value("Inventory item not found with skuCode: SKU-99"))
                 .andExpect(jsonPath("$.instance").value("/api/inventory/SKU-99"));
     }
 
@@ -205,7 +205,7 @@ class InventoryErrorResponseTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.detail").value("Reserva de estoque não encontrada: " + RESERVATION_ID));
+                .andExpect(jsonPath("$.detail").value("Stock reservation not found: " + RESERVATION_ID));
     }
 
     @Test
@@ -220,7 +220,7 @@ class InventoryErrorResponseTest {
                 .andExpect(status().isConflict())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.detail").value("Estoque insuficiente ou SKU inexistente: SKU-1"));
+                .andExpect(jsonPath("$.detail").value("Insufficient stock or nonexistent SKU: SKU-1"));
     }
 
     @Test
@@ -235,7 +235,7 @@ class InventoryErrorResponseTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(422))
-                .andExpect(jsonPath("$.detail").value("Reserva já existe com itens divergentes: " + RESERVATION_ID));
+                .andExpect(jsonPath("$.detail").value("Reservation already exists with different items: " + RESERVATION_ID));
     }
 
     @Test
@@ -250,7 +250,7 @@ class InventoryErrorResponseTest {
                 .andExpect(status().isGone())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(410))
-                .andExpect(jsonPath("$.detail").value("Reserva já foi liberada ou cancelada: " + RESERVATION_ID));
+                .andExpect(jsonPath("$.detail").value("Reservation has already been released or cancelled: " + RESERVATION_ID));
     }
 
     @Test
@@ -295,8 +295,8 @@ class InventoryErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Payload inválido"))
-                .andExpect(jsonPath("$.errors").value(contains("quantity: Quantidade não pode ser negativa")));
+                .andExpect(jsonPath("$.detail").value("Invalid payload"))
+                .andExpect(jsonPath("$.errors").value(contains("quantity: Quantity must not be negative")));
     }
 
     @Test
@@ -309,6 +309,6 @@ class InventoryErrorResponseTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.detail").value("Erro interno inesperado"));
+                .andExpect(jsonPath("$.detail").value("Unexpected internal error"));
     }
 }

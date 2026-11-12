@@ -10,31 +10,31 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
-@Schema(name = "ProductRequestDTO", description = "Dados para criar ou atualizar um produto")
+@Schema(name = "ProductRequestDTO", description = "Data to create or update a product")
 public record ProductRequestDTO(
-        @Schema(description = "Nome do produto (máximo 255 caracteres)", example = "Teclado Mecânico")
-        @NotBlank(message = "O Nome do Produto não pode ser nulo ou vazio")
-        @Size(max = 255, message = "O nome do produto deve ter no máximo 255 caracteres")
+        @Schema(description = "Product name (maximum 255 characters)", example = "Mechanical Keyboard")
+        @NotBlank(message = "Product name must not be null or blank")
+        @Size(max = 255, message = "Product name must be at most 255 characters long")
         String name,
 
-        @Schema(description = "Descrição do produto (entre 10 e 2000 caracteres)", example = "Teclado mecânico com switches blue e RGB")
-        @NotBlank(message = "O Produto Precisa ter uma descrição")
-        @Size(min = 10, max = 2000, message = "A descrição deve ter entre 10 e 2000 caracteres")
+        @Schema(description = "Product description (between 10 and 2000 characters)", example = "Mechanical keyboard with blue switches and RGB")
+        @NotBlank(message = "Product description is required")
+        @Size(min = 10, max = 2000, message = "Description must be between 10 and 2000 characters long")
         String description,
 
-        @Schema(description = "Preço do produto (deve ser positivo)", example = "349.90")
-        @NotNull(message = "O preço do produto não pode ser nulo")
-        @Digits(integer = 17, fraction = 2, message = "O preço do produto deve ter no máximo 17 dígitos inteiros e 2 casas decimais")
-        @Positive(message = "O preço do produto deve ser positivo")
+        @Schema(description = "Product price (must be positive)", example = "349.90")
+        @NotNull(message = "Product price must not be null")
+        @Digits(integer = 17, fraction = 2, message = "Product price must have at most 17 integer digits and 2 decimal places")
+        @Positive(message = "Product price must be positive")
         BigDecimal price,
 
-        @Schema(description = "Categoria do produto (máximo 100 caracteres)", example = "Periféricos")
-        @NotBlank(message = "O nome da Categoria não pode ser nulo ou vazio")
-        @Size(max = 100, message = "A categoria do produto deve ter no máximo 100 caracteres")
+        @Schema(description = "Product category (maximum 100 characters)", example = "Peripherals")
+        @NotBlank(message = "Category name must not be null or blank")
+        @Size(max = 100, message = "Product category must be at most 100 characters long")
         String category,
 
-        @Schema(description = "URL https absoluta da imagem do produto (opcional, máximo 2048 caracteres)", example = "https://example.com/imagens/teclado.jpg")
-        @Size(max = 2048, message = "A URL da imagem deve ter no máximo 2048 caracteres")
+        @Schema(description = "Absolute HTTPS URL of the product image (optional, maximum 2048 characters)", example = "https://example.com/images/keyboard.jpg")
+        @Size(max = 2048, message = "Image URL must be at most 2048 characters long")
         @HttpsUrl
         String imageUrl
 ) {

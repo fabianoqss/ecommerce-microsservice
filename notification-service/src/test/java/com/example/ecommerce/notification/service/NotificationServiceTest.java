@@ -94,7 +94,7 @@ class NotificationServiceTest {
     @Test
     void notificationFailureReleasesForRetry() {
         var event = event(UUID.randomUUID());
-        var failure = new IllegalStateException("Falha ao notificar");
+        var failure = new IllegalStateException("Failed to notify");
         doThrow(failure).when(sender).send(eq(event), anyString());
 
         assertThatThrownBy(() -> service.handleOrderCreated(event)).isSameAs(failure);
@@ -120,7 +120,7 @@ class NotificationServiceTest {
     @Test
     void completionFailurePropagatesForRetry() {
         var event = event(UUID.randomUUID());
-        var failure = new RedisConnectionFailureException("Redis indisponível");
+        var failure = new RedisConnectionFailureException("Redis unavailable");
         when(store.markProcessed(event.eventId(), ownerToken)).thenThrow(failure);
 
         assertThatThrownBy(() -> service.handleOrderCreated(event)).isSameAs(failure);
@@ -132,8 +132,8 @@ class NotificationServiceTest {
     @Test
     void releaseFailurePreservesOriginalFailure() {
         var event = event(UUID.randomUUID());
-        var failure = new IllegalStateException("Falha ao notificar");
-        var releaseFailure = new RedisConnectionFailureException("Redis indisponível");
+        var failure = new IllegalStateException("Failed to notify");
+        var releaseFailure = new RedisConnectionFailureException("Redis unavailable");
         doThrow(failure).when(sender).send(eq(event), anyString());
         doThrow(releaseFailure).when(store).release(event.eventId(), ownerToken);
 
@@ -143,7 +143,7 @@ class NotificationServiceTest {
 
     @Test
     void unavailableStoreDoesNotSendNotification() {
-        var failure = new RedisConnectionFailureException("Redis indisponível");
+        var failure = new RedisConnectionFailureException("Redis unavailable");
         when(store.tryAcquire(any())).thenThrow(failure);
 
         assertThatThrownBy(() -> service.handleOrderCreated(event(UUID.randomUUID()))).isSameAs(failure);

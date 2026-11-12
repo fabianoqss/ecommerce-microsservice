@@ -78,7 +78,7 @@ class OrderServiceCancelTest {
         Order order = confirmedOrder("owner-sub");
         when(orderRepository.findByIdAndUserID(ORDER_ID, "owner-sub")).thenReturn(Optional.of(order));
 
-        var response = orderService.cancel(ORDER_ID, "Comprei errado", token("owner-sub", "ROLE_CUSTOMER"));
+        var response = orderService.cancel(ORDER_ID, "Ordered by mistake", token("owner-sub", "ROLE_CUSTOMER"));
 
         assertThat(response.status()).isEqualTo("CANCELLED");
         assertThat(order.getCancelledBy()).isEqualTo("owner-sub");
@@ -175,7 +175,7 @@ class OrderServiceCancelTest {
     private static Order confirmedOrder(String ownerSub) {
         OrderItem item = new OrderItem();
         item.setProductId("p1");
-        item.setProductName("Teclado");
+        item.setProductName("Keyboard");
         item.setQuantity(2);
         item.setPrice(new BigDecimal("10.00"));
 

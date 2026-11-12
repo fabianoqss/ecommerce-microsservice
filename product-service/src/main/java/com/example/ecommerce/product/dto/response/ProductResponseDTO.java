@@ -5,27 +5,27 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 
-@Schema(name = "ProductResponseDTO", description = "Dados de um produto")
+@Schema(name = "ProductResponseDTO", description = "Product data")
 public record ProductResponseDTO(
-        @Schema(description = "ID gerado pelo MongoDB", example = "664f1b2e3a4b5c6d7e8f9a0b")
+        @Schema(description = "MongoDB-generated ID", example = "664f1b2e3a4b5c6d7e8f9a0b")
         String id,
 
-        @Schema(description = "Nome do produto", example = "Teclado Mecânico")
+        @Schema(description = "Product name", example = "Mechanical Keyboard")
         String name,
 
-        @Schema(description = "Descrição do produto", example = "Teclado mecânico com switches blue e RGB")
+        @Schema(description = "Product description", example = "Mechanical keyboard with blue switches and RGB")
         String description,
 
-        @Schema(description = "Preço do produto", example = "349.90")
+        @Schema(description = "Product price", example = "349.90")
         BigDecimal price,
 
-        @Schema(description = "Categoria do produto", example = "Periféricos")
+        @Schema(description = "Product category", example = "Peripherals")
         String category,
 
-        @Schema(description = "URL da imagem do produto", example = "https://example.com/imagens/teclado.jpg")
+        @Schema(description = "Product image URL", example = "https://example.com/images/keyboard.jpg")
         String imageUrl,
 
-        @Schema(description = "Versão do produto; o mesmo valor vai no ETag e deve voltar no If-Match do PUT/DELETE", example = "3")
+        @Schema(description = "Product version; the same value is returned in the ETag and must be sent in If-Match for PUT/DELETE", example = "3")
         Long version
 ) {
 

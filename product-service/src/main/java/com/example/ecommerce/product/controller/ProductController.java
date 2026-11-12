@@ -40,7 +40,7 @@ import java.util.List;
 @Tag(name = "Products", description = "Controller for Product")
 public class ProductController {
 
-    private static final String IF_MATCH_DESCRIPTION = "ETag do produto obtido no GET /api/product/{id}";
+    private static final String IF_MATCH_DESCRIPTION = "Product ETag obtained from GET /api/product/{id}";
 
     private final ProductService productService;
 
@@ -73,9 +73,9 @@ public class ProductController {
     )
     @GetMapping
     public ResponseEntity<PageResponseDTO<ProductResponseDTO>> findAll(
-            @Parameter(description = "Parte do nome do produto, sem diferenciar maiúsculas", example = "teclado")
+            @Parameter(description = "Case-insensitive partial product name", example = "keyboard")
             @RequestParam(required = false) @Size(max = 100) String name,
-            @Parameter(description = "Categoria exata", example = "Periféricos")
+            @Parameter(description = "Exact category", example = "Peripherals")
             @RequestParam(required = false) @Size(max = 100) String category,
             @RequestParam(defaultValue = "0") @PositiveOrZero int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
@@ -128,9 +128,9 @@ public class ProductController {
                     @ApiResponse(description = "Bad Request", responseCode = "400"),
                     @ApiResponse(description = "Unauthorized", responseCode = "401"),
                     @ApiResponse(description = "Forbidden", responseCode = "403"),
-                    @ApiResponse(description = "Precondition Failed: o produto mudou desde o GET", responseCode = "412"),
+                    @ApiResponse(description = "Precondition Failed: the product has changed since the GET request", responseCode = "412"),
                     @ApiResponse(description = "Unprocessable Entity", responseCode = "422"),
-                    @ApiResponse(description = "Precondition Required: If-Match ausente", responseCode = "428")
+                    @ApiResponse(description = "Precondition Required: missing If-Match", responseCode = "428")
             }
     )
     @SecurityRequirement(name = "bearerAuth")
@@ -156,8 +156,8 @@ public class ProductController {
                     @ApiResponse(description = "Not Found", responseCode = "404"),
                     @ApiResponse(description = "Unauthorized", responseCode = "401"),
                     @ApiResponse(description = "Forbidden", responseCode = "403"),
-                    @ApiResponse(description = "Precondition Failed: o produto mudou desde o GET", responseCode = "412"),
-                    @ApiResponse(description = "Precondition Required: If-Match ausente", responseCode = "428")
+                    @ApiResponse(description = "Precondition Failed: the product has changed since the GET request", responseCode = "412"),
+                    @ApiResponse(description = "Precondition Required: missing If-Match", responseCode = "428")
             }
     )
     @SecurityRequirement(name = "bearerAuth")
