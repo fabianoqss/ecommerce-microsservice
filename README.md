@@ -4,6 +4,24 @@ E-commerce with an Angular frontend, Spring Boot backend, Spring Cloud, OIDC ide
 
 The main flow includes atomic inventory operations, order cancellation, Outbox, DLQ, and order owner authorization. The gateway provides browser login as a BFF and API access with Bearer tokens.
 
+Live demo: https://loja.fabianoquirinos.com.br
+
+![Purchase flow: catalog, product, cart, checkout and order confirmation](.github/assets/purchase-flow.gif)
+
+## Screenshots
+
+| Catalog | Product detail |
+|---|---|
+| ![Product catalog with name and category filters](.github/assets/screenshots/catalog.png) | ![Product detail page with price and add to cart button](.github/assets/screenshots/product-detail.png) |
+| **Cart** | **Checkout** |
+| ![Cart with two products and the order summary](.github/assets/screenshots/cart.png) | ![Order review before placing the order](.github/assets/screenshots/checkout.png) |
+| **Order confirmation** | **Login (custom Keycloak theme)** |
+| ![Order confirmation with order number, date and status](.github/assets/screenshots/order-confirmation.png) | ![Keycloak login page with the DS Catalog theme](.github/assets/screenshots/login.png) |
+| **Admin: products** | **Admin: product form with stock** |
+| ![Admin product list with stock per product](.github/assets/screenshots/admin-products.png) | ![Admin product form with name, category, price, image and stock](.github/assets/screenshots/admin-product-form.png) |
+
+<p align="center"><img src=".github/assets/screenshots/mobile.png" alt="Home and product detail on a mobile screen" width="480"></p>
+
 ## Current architecture
 
 | Component | Container port | Persistence | Responsibility |
@@ -13,7 +31,7 @@ The main flow includes atomic inventory operations, order cancellation, Outbox, 
 | Product Service | 8082 | MongoDB | Product catalog and CRUD |
 | Inventory Service | 8083 | PostgreSQL | Inventory queries, maintenance, and atomic reservations |
 | Order Service | 8081 | PostgreSQL | Orders, cancellation, compensation, and Outbox |
-| Notification Service | 8084 | Redis | Idempotent event consumption, retry, and DLQ; notifications in logs |
+| Notification Service | 8084 | Redis | Idempotent event consumption, retry, and DLQ; order emails over SMTP |
 | Keycloak | 8080; management 9000 | PostgreSQL | Identity, registration, login, password recovery, and token issuance |
 
 The frontend is the sixth deployed app. The five Java applications are Gateway, Product, Inventory, Order, and Notification; the sixth module is the `common-security` library. Business services validate token signatures, issuer, and audience locally. Orders use the Keycloak `sub` as the owner identity, and user roles are `CUSTOMER` and `ADMIN`.
