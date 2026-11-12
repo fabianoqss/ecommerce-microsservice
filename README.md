@@ -19,6 +19,8 @@ Live demo: https://loja.fabianoquirinos.com.br
 | ![Order confirmation with order number, date and status](.github/assets/screenshots/order-confirmation.png) | ![Keycloak login page with the DS Catalog theme](.github/assets/screenshots/login.png) |
 | **Admin: products** | **Admin: product form with stock** |
 | ![Admin product list with stock per product](.github/assets/screenshots/admin-products.png) | ![Admin product form with name, category, price, image and stock](.github/assets/screenshots/admin-product-form.png) |
+| **Order confirmation email (SMTP via OCI Email Delivery)** | **Dark mode** |
+| ![Order confirmation email with order number, total and date](.github/assets/screenshots/order-email.png) | ![Home page in dark mode](.github/assets/screenshots/home-dark.png) |
 
 <p align="center"><img src=".github/assets/screenshots/mobile.png" alt="Home and product detail on a mobile screen" width="480"></p>
 
