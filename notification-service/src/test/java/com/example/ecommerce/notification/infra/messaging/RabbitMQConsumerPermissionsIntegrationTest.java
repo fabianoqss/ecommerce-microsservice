@@ -255,6 +255,7 @@ class RabbitMQConsumerPermissionsIntegrationTest {
                 2,
                 UUID.randomUUID().toString(),
                 "user-123",
+                "customer@example.com",
                 status,
                 new BigDecimal("49.90"),
                 LocalDateTime.of(2026, 10, 20, 12, 0)

@@ -22,6 +22,22 @@ spring:
           multiplier: 2.0
           max-interval: 10000ms
         default-requeue-rejected: false
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${SPRING_MAIL_STARTTLS:false}
+            required: ${SPRING_MAIL_STARTTLS:false}
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -30,6 +46,9 @@ spring:
 
 ecommerce:
   notification:
+    channel: ${NOTIFICATION_CHANNEL:log}
+    mail:
+      from: ${NOTIFICATION_MAIL_FROM:noreply@localhost}
     idempotency:
       processing-ttl: ${NOTIFICATION_IDEMPOTENCY_PROCESSING_TTL:30s}
       processed-ttl: ${NOTIFICATION_IDEMPOTENCY_PROCESSED_TTL:7d}

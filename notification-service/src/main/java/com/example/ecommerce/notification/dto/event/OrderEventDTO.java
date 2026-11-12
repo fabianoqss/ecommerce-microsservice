@@ -12,6 +12,7 @@ public record OrderEventDTO(
         Integer version,
         String orderId,
         String userId,
+        String customerEmail,
         String status,
         BigDecimal totalValue,
         LocalDateTime orderTime
