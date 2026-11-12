@@ -38,7 +38,7 @@ class OrderEventListenerTest {
     }
 
     private OrderEventDTO event(String status) {
-        return new OrderEventDTO(UUID.randomUUID(), 2, "order-1", "user-1", status,
+        return new OrderEventDTO(UUID.randomUUID(), 2, "order-1", "user-1", "customer@example.com", status,
                 BigDecimal.TEN, LocalDateTime.of(2026, 10, 27, 10, 0));
     }
 }

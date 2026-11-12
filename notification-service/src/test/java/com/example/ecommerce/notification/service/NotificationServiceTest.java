@@ -178,7 +178,7 @@ class NotificationServiceTest {
     }
 
     private OrderEventDTO event(UUID eventId) {
-        return new OrderEventDTO(eventId, 2, "order-123", "user-123", "CREATED",
+        return new OrderEventDTO(eventId, 2, "order-123", "user-123", "customer@example.com", "CREATED",
                 new BigDecimal("19.90"), LocalDateTime.of(2026, 10, 20, 10, 0));
     }
 }
