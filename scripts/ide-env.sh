@@ -2,18 +2,18 @@
 set -euo pipefail
 
 env_file="${1:-$(dirname "$0")/../.env}"
-[[ -f "$env_file" ]] || { echo "Arquivo não encontrado: $env_file" >&2; exit 1; }
+[[ -f "$env_file" ]] || { echo "File not found: $env_file" >&2; exit 1; }
 
 get() {
   local value
   value=$(awk -v key="$1" 'index($0, key "=") == 1 { value = substr($0, length(key) + 2); found = 1 } END { if (!found) exit 1; print value }' "$env_file") \
-    || { echo "Variável ausente no $env_file: $1" >&2; exit 1; }
+    || { echo "Variable missing in $env_file: $1" >&2; exit 1; }
   value="${value%$'\r'}"
   if [[ "$value" == \"*\" || "$value" == \'*\' ]]; then
     value="${value:1:${#value}-2}"
   fi
   [[ -n "$value" && "$value" != *';'* && "$value" != *$'\n'* ]] \
-    || { echo "Valor vazio ou incompatível com o IntelliJ: $1" >&2; exit 1; }
+    || { echo "Value empty or incompatible with IntelliJ: $1" >&2; exit 1; }
   printf '%s' "$value"
 }
 

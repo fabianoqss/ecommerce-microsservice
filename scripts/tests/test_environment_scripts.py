@@ -1,4 +1,4 @@
-"""Contratos dos scripts de ambiente, sem executar arquivos .env como código."""
+"""Environment script contracts, without executing .env files as code."""
 import json
 import os
 from pathlib import Path
@@ -39,7 +39,7 @@ class GenerateEnvTest(unittest.TestCase):
         if output:
             self.assertNotIn(value, output)
 
-    def test_substitui_todos_os_segredos_preserva_configuracao_e_protege_arquivo(self):
+    def test_replaces_all_secrets_preserves_configuration_and_protects_file(self):
         result = self.run_script()
         self.assertEqual(0, result.returncode, result.stderr)
         values = dict(line.split('=', 1) for line in (self.root / '.env').read_text().splitlines() if '=' in line)
@@ -53,7 +53,7 @@ class GenerateEnvTest(unittest.TestCase):
         self.assertEqual('${A}', values['REF'])
         self.assertEqual(0o600, stat.S_IMODE((self.root / '.env').stat().st_mode))
 
-    def test_env_example_gera_senha_de_usuario_com_politica_e_demais_segredos_em_hex(self):
+    def test_env_example_generates_policy_compliant_user_password_and_other_secrets_in_hex(self):
         shutil.copy(ROOT / '.env.example', self.root / '.env.example')
         first_run = self.run_script()
         self.assertEqual(0, first_run.returncode, first_run.stderr)
@@ -83,7 +83,7 @@ class GenerateEnvTest(unittest.TestCase):
             self.assertNotIn(first_values[key], combined_output)
             self.assertNotIn(second_values[key], combined_output)
 
-    def test_caracteres_garantidos_da_politica_nao_ficam_em_posicao_fixa(self):
+    def test_required_policy_characters_do_not_have_fixed_positions(self):
         (self.root / '.env.example').write_text(
             ''.join(f'U{i}=troque-politica-{i}\n' for i in range(12))
         )
@@ -102,7 +102,7 @@ class GenerateEnvTest(unittest.TestCase):
         }
         self.assertGreater(len(special_positions), 1)
 
-    def test_recusa_sobrescrita_e_force_preserva_backup_privado(self):
+    def test_refuses_overwrite_and_force_preserves_private_backup(self):
         original = self.root / '.env'
         original.write_text('ANTIGO=valor-local\n')
         result = self.run_script()
@@ -117,7 +117,7 @@ class GenerateEnvTest(unittest.TestCase):
         self.assertEqual(0o600, stat.S_IMODE(backups[0].stat().st_mode))
         self.assertNotIn('ANTIGO=', original.read_text())
 
-    def test_recusa_link_simbolico_mesmo_com_force(self):
+    def test_refuses_symbolic_link_even_with_force(self):
         target = self.root / 'outro-arquivo'
         target.write_text('preservado')
         (self.root / '.env').symlink_to(target)
@@ -126,7 +126,7 @@ class GenerateEnvTest(unittest.TestCase):
         self.assertEqual('preservado', target.read_text())
         self.assertTrue((self.root / '.env').is_symlink())
 
-    def test_falha_do_openssl_nao_cria_env_parcial(self):
+    def test_openssl_failure_does_not_create_partial_env(self):
         bin_dir = self.root / 'bin'
         bin_dir.mkdir()
         openssl = bin_dir / 'openssl'
@@ -141,7 +141,7 @@ class GenerateEnvTest(unittest.TestCase):
 
 
 class IdeEnvTest(unittest.TestCase):
-    def test_emite_credenciais_por_servico_e_enderecos_locais_sem_executar_env(self):
+    def test_emits_credentials_per_service_and_local_addresses_without_executing_env(self):
         with tempfile.TemporaryDirectory() as tmp:
             env_file = Path(tmp) / '.env'
             values = {
@@ -188,7 +188,7 @@ if os.environ['TEST_FAIL'] == 'yes':
 """)
         curl.chmod(0o700)
         secrets = {'RABBITMQ_ADMIN_USERNAME': 'console-admin', 'RABBITMQ_ADMIN_PASSWORD': 'admin-local',
-                   'RABBITMQ_ORDER_PASSWORD': 'order-"\\\n\tç',
+                   'RABBITMQ_ORDER_PASSWORD': 'order-"\\\n\t\u00e7',
                    'RABBITMQ_NOTIFICATION_PASSWORD': 'notification-local',
                    'RABBITMQ_INVENTORY_PASSWORD': 'inventory-local'}
         if missing:
@@ -199,7 +199,7 @@ if os.environ['TEST_FAIL'] == 'yes':
         calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
         return result, calls, secrets
 
-    def test_cria_vhost_usuarios_sem_tags_e_permissoes_restritas_sem_expor_segredos(self):
+    def test_creates_vhost_users_without_tags_and_restricted_permissions_without_exposing_secrets(self):
         result, calls, secrets = self.run_init()
         self.assertEqual(0, result.returncode, result.stderr)
         payloads = dict(calls)
@@ -222,12 +222,12 @@ if os.environ['TEST_FAIL'] == 'yes':
         self.assertNotIn(secrets['RABBITMQ_ADMIN_PASSWORD'], result.stdout + result.stderr)
         self.assertIn({'configure': '(?!)', 'write': '(?!)', 'read': '(?!)'}, payloads.values())
 
-    def test_falha_do_transporte_interrompe_provisionamento(self):
+    def test_transport_failure_stops_provisioning(self):
         result, calls, _ = self.run_init(fail=True)
         self.assertNotEqual(0, result.returncode)
         self.assertEqual(1, len(calls))
 
-    def test_senha_ausente_falha_antes_de_chamar_api(self):
+    def test_missing_password_fails_before_calling_api(self):
         result, calls, _ = self.run_init(missing=True)
         self.assertNotEqual(0, result.returncode)
         self.assertEqual([], calls)
@@ -278,7 +278,7 @@ elif args[:1] == ['get-roles']:
         calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
         return result, calls, env_vars
 
-    def test_cria_usuario_define_senha_e_atribui_role_admin_sem_expor_segredos(self):
+    def test_creates_user_sets_password_and_assigns_admin_role_without_exposing_secrets(self):
         result, calls, env_vars = self.run_seed()
         self.assertEqual(0, result.returncode, result.stderr)
         commands = [call[0] if call[0] != 'config' else ' '.join(call[:2]) for call in calls]
@@ -306,7 +306,7 @@ elif args[:1] == ['get-roles']:
         self.assertNotIn(env_vars['KEYCLOAK_ADMIN_PASSWORD'], output)
         self.assertNotIn(env_vars['KC_ADMIN_USER_PASSWORD'], output)
 
-    def test_reexecucao_e_idempotente_e_rotaciona_senha_sem_recriar_usuario_ou_role(self):
+    def test_rerun_is_idempotent_and_rotates_password_without_recreating_user_or_role(self):
         result, calls, env_vars = self.run_seed(existing_user=True, has_admin_role=True)
         self.assertEqual(0, result.returncode, result.stderr)
         commands = [call[0] if call[0] != 'config' else ' '.join(call[:2]) for call in calls]
@@ -319,7 +319,7 @@ elif args[:1] == ['get-roles']:
         self.assertNotIn(env_vars['KEYCLOAK_ADMIN_PASSWORD'], output)
         self.assertNotIn(env_vars['KC_ADMIN_USER_PASSWORD'], output)
 
-    def test_variavel_obrigatoria_ausente_falha_antes_de_chamar_kcadm(self):
+    def test_missing_required_variable_fails_before_calling_kcadm(self):
         for var in ('KEYCLOAK_ADMIN_PASSWORD', 'KC_ADMIN_USER_EMAIL', 'KC_ADMIN_USER_PASSWORD'):
             with self.subTest(var=var):
                 result, calls, _ = self.run_seed(missing=var)

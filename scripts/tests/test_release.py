@@ -18,16 +18,16 @@ class ReleaseFixture(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name)
-        self.root = self.base / 'clone com espaços'
+        self.root = self.base / 'clone com espa\u00e7os'
         self.prod = self.root / 'scripts/prod'
         self.prod.mkdir(parents=True)
         self.script = self.prod / 'release.sh'
         origem = ROOT / 'scripts/prod/release.sh'
-        self.assertTrue(origem.is_file(), 'release.sh ainda não existe')
+        self.assertTrue(origem.is_file(), 'release.sh does not exist yet')
         shutil.copy(origem, self.script)
         self.log_git = self.base / 'git.jsonl'
         self.log_deploy = self.base / 'deploy.json'
-        self.git_bin = self.base / 'git com espaços'
+        self.git_bin = self.base / 'git com espa\u00e7os'
         self.git_bin.write_text(f'#!{sys.executable}\n' + f'''
 import json
 import os
@@ -39,7 +39,7 @@ with Path({str(self.log_git)!r}).open('a') as log:
 os.execv({shutil.which('git')!r}, ['git', *sys.argv[1:]])
 ''')
         self.git_bin.chmod(0o700)
-        self.deploy = self.base / 'deploy com espaços; literal'
+        self.deploy = self.base / 'deploy com espa\u00e7os; literal'
         self.deploy.write_text(f'#!{sys.executable}\n' + '''
 import json
 import os
@@ -72,44 +72,44 @@ sys.exit(int(os.environ.get('TEST_DEPLOY_STATUS', '0')))
         return [json.loads(linha) for linha in self.log_git.read_text().splitlines()]
 
 
-class ReleaseArgumentosTest(ReleaseFixture):
-    def test_sha_invalido_e_recusado_antes_de_chamar_git(self):
+class ReleaseArgumentsTest(ReleaseFixture):
+    def test_invalid_sha_is_refused_before_calling_git(self):
         for sha in (SHA.upper(), SHA[:-1], SHA + '0', 'g' * 40,
                     SHA + '\n', '\n' + SHA, SHA + '\r', '', '--help',
                     ' ' + SHA, SHA + '; touch marcador'):
             with self.subTest(sha=repr(sha)):
                 resultado = self.executar(sha)
                 self.assertNotEqual(0, resultado.returncode)
-                self.assertIn('==> SHA inválido', resultado.stderr)
+                self.assertIn('==> Invalid SHA', resultado.stderr)
                 self.assertEqual('', resultado.stdout)
                 self.assertEqual([], self.chamadas_git())
                 self.assertFalse(self.log_deploy.exists())
 
-    def test_exige_exatamente_um_argumento_sem_chamar_git(self):
+    def test_requires_exactly_one_argument_without_calling_git(self):
         for args in ((), (SHA, SHA)):
             with self.subTest(args=args):
                 resultado = self.executar(*args)
                 self.assertNotEqual(0, resultado.returncode)
-                self.assertIn('==> Uso:', resultado.stderr)
+                self.assertIn('==> Usage:', resultado.stderr)
                 self.assertEqual([], self.chamadas_git())
                 self.assertFalse(self.log_deploy.exists())
 
-    def test_script_e_executavel(self):
+    def test_script_is_executable(self):
         self.assertTrue(stat.S_IMODE(self.script.stat().st_mode) & stat.S_IXUSR)
 
 
-@unittest.skipIf(os.geteuid() == 0, 'Verifica a recusa somente quando executado sem root.')
-class ReleaseSemRootTest(ReleaseFixture):
-    def test_exige_root_sem_chamar_git_ou_deploy(self):
+@unittest.skipIf(os.geteuid() == 0, 'Checks refusal only when run without root.')
+class ReleaseNonRootTest(ReleaseFixture):
+    def test_requires_root_without_calling_git_or_deploy(self):
         resultado = self.executar(SHA)
         self.assertNotEqual(0, resultado.returncode)
-        self.assertIn('==> Execute com sudo.', resultado.stderr)
+        self.assertIn('==> Run with sudo.', resultado.stderr)
         self.assertEqual([], self.chamadas_git())
         self.assertFalse(self.log_deploy.exists())
 
 
-@unittest.skipUnless(os.geteuid() == 0, 'O release de produção exige root, sem bypass de EUID.')
-class ReleaseIntegracaoTest(ReleaseFixture):
+@unittest.skipUnless(os.geteuid() == 0, 'Production release requires root, without an EUID bypass.')
+class ReleaseIntegrationTest(ReleaseFixture):
     def setUp(self):
         super().setUp()
         self.remoto = self.base / 'remoto.git'
@@ -167,21 +167,21 @@ class ReleaseIntegracaoTest(ReleaseFixture):
 
     def assert_deploy(self, resultado, sha, conteudo, status=0):
         self.assertEqual(status, resultado.returncode, resultado.stderr)
-        self.assertEqual(f'==> Repositório em {sha}\n', resultado.stdout)
+        self.assertEqual(f'==> Repository at {sha}\n', resultado.stdout)
         self.assert_repositorio(sha, conteudo)
         registro = json.loads(self.log_deploy.read_text())
         self.assertEqual([sha], registro['args'])
         self.assertEqual(0o077, registro['umask'])
         self.assertEqual('C', registro['locale'])
 
-    def test_commit_no_topo_da_main_chama_deploy(self):
+    def test_commit_at_main_tip_calls_deploy(self):
         self.assert_deploy(self.executar(self.topo), self.topo, 'topo\n')
 
-    def test_commit_anterior_permite_rollback_e_retorno_ao_topo(self):
+    def test_previous_commit_allows_rollback_and_return_to_tip(self):
         self.assert_deploy(self.executar(self.anterior), self.anterior, 'anterior\n')
         self.assert_deploy(self.executar(self.topo), self.topo, 'topo\n')
 
-    def test_fetch_atualiza_origin_main_em_clone_single_branch(self):
+    def test_fetch_updates_origin_main_in_single_branch_clone(self):
         self.git(self.origem, 'checkout', 'main')
         (self.origem / 'versionado').write_text('novo topo\n')
         self.git(self.origem, 'commit', '-am', 'Novo topo remoto')
@@ -190,38 +190,38 @@ class ReleaseIntegracaoTest(ReleaseFixture):
         self.assert_deploy(self.executar(novo), novo, 'novo topo\n')
         self.assertEqual(novo, self.git(self.root, 'rev-parse', 'origin/main'))
 
-    def test_commit_de_outra_branch_e_recusado_sem_checkout_ou_deploy(self):
+    def test_commit_from_another_branch_is_refused_without_checkout_or_deploy(self):
         self.git(self.root, 'cat-file', '-e', self.outra + '^{commit}')
-        self.assert_recusado(self.executar(self.outra), 'commit fora da main')
+        self.assert_recusado(self.executar(self.outra), 'commit is not on main')
 
-    def test_sha_inexistente_e_recusado(self):
-        self.assert_recusado(self.executar('0' * 40), 'Commit inexistente')
+    def test_nonexistent_sha_is_refused(self):
+        self.assert_recusado(self.executar('0' * 40), 'Commit does not exist')
 
-    def test_objeto_que_nao_e_commit_e_recusado(self):
+    def test_non_commit_object_is_refused(self):
         blob = self.git(self.root, 'rev-parse', 'HEAD:versionado')
-        self.assert_recusado(self.executar(blob), 'Commit inexistente')
+        self.assert_recusado(self.executar(blob), 'Commit does not exist')
 
-    def test_sha_de_tag_anotada_e_recusado_mesmo_apontando_para_main(self):
+    def test_annotated_tag_sha_is_refused_even_when_pointing_to_main(self):
         self.git(self.origem, 'tag', '-a', 'anotada', '-m', 'Tag anotada', self.anterior)
         self.git(self.origem, 'push', 'origin', 'refs/tags/anotada')
         self.git(self.root, 'fetch', 'origin', 'refs/tags/anotada:refs/tags/anotada')
         tag = self.git(self.root, 'rev-parse', 'refs/tags/anotada')
-        self.assert_recusado(self.executar(tag), 'SHA não corresponde a um commit')
+        self.assert_recusado(self.executar(tag), 'SHA does not identify a commit')
 
-    def test_alteracao_local_versionada_e_preservada(self):
-        (self.root / 'versionado').write_text('alteração local\n')
-        self.assert_recusado(self.executar(self.anterior), 'Alterações locais',
-                             conteudo='alteração local\n')
+    def test_local_tracked_change_is_preserved(self):
+        (self.root / 'versionado').write_text('altera\u00e7\u00e3o local\n')
+        self.assert_recusado(self.executar(self.anterior), 'Local changes',
+                             conteudo='altera\u00e7\u00e3o local\n')
 
-    def test_alteracao_no_index_e_preservada(self):
-        (self.root / 'versionado').write_text('alteração staged\n')
+    def test_staged_change_is_preserved(self):
+        (self.root / 'versionado').write_text('altera\u00e7\u00e3o staged\n')
         self.git(self.root, 'add', 'versionado')
-        self.assert_recusado(self.executar(self.anterior), 'Alterações locais',
-                             conteudo='alteração staged\n')
+        self.assert_recusado(self.executar(self.anterior), 'Local changes',
+                             conteudo='altera\u00e7\u00e3o staged\n')
         self.assertEqual('M  versionado', self.git(self.root, 'status', '--porcelain',
                                                  '--untracked-files=no'))
 
-    def test_env_untracked_e_arquivo_ignorado_nao_bloqueiam(self):
+    def test_untracked_env_and_ignored_file_do_not_block_release(self):
         original = 'SEGREDO=valor-privado\n'
         (self.root / '.env').write_text(original)
         (self.root / 'ignorado').write_text('preservar\n')
@@ -231,16 +231,16 @@ class ReleaseIntegracaoTest(ReleaseFixture):
         self.assertEqual('preservar\n', (self.root / 'ignorado').read_text())
         self.assertNotIn('valor-privado', resultado.stdout + resultado.stderr)
 
-    def test_codigo_de_saida_do_deploy_e_propagado(self):
+    def test_deploy_exit_code_is_propagated(self):
         resultado = self.executar(self.anterior, ambiente={'TEST_DEPLOY_STATUS': '37'})
         self.assert_deploy(resultado, self.anterior, 'anterior\n', status=37)
 
-    def test_fetch_falho_preserva_repositorio(self):
+    def test_failed_fetch_preserves_repository(self):
         self.git(self.root, 'remote', 'set-url', 'origin', str(self.base / 'ausente.git'))
-        self.assert_recusado(self.executar(self.anterior), 'Falha ao buscar')
+        self.assert_recusado(self.executar(self.anterior), 'Failed to fetch')
         self.assertEqual(self.topo, self.git(self.root, 'rev-parse', 'origin/main'))
 
-    def test_hooks_locais_e_configuracao_global_nao_sao_executados(self):
+    def test_local_hooks_and_global_configuration_are_not_executed(self):
         hooks = self.base / 'hooks'
         hooks.mkdir()
         marcador = self.base / 'hook-executado'
@@ -253,7 +253,7 @@ class ReleaseIntegracaoTest(ReleaseFixture):
         self.assert_deploy(resultado, self.anterior, 'anterior\n')
         self.assertFalse(marcador.exists())
 
-    def test_git_nao_herda_redirecionamento_de_repo_ou_configuracao(self):
+    def test_git_does_not_inherit_repository_or_configuration_redirection(self):
         ambiente = {'GIT_DIR': str(self.origem / '.git'), 'GIT_WORK_TREE': str(self.origem),
                     'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'core.bare',
                     'GIT_CONFIG_VALUE_0': 'true', 'GIT_TERMINAL_PROMPT': '1'}
@@ -271,13 +271,13 @@ class ReleaseIntegracaoTest(ReleaseFixture):
                 self.assertNotIn('GIT_WORK_TREE', env)
                 self.assertNotIn('GIT_CONFIG_COUNT', env)
 
-    def test_deploy_padrao_e_derivado_do_caminho_do_script(self):
+    def test_default_deploy_is_derived_from_script_path(self):
         padrao = self.prod / 'deploy.sh'
         shutil.copy(self.deploy, padrao)
         self.ambiente.pop('DEPLOY_SCRIPT')
         self.assert_deploy(self.executar(self.anterior), self.anterior, 'anterior\n')
 
-    def test_git_padrao_funciona_sem_injecao(self):
+    def test_default_git_works_without_injection(self):
         self.ambiente.pop('GIT_BIN')
         self.assert_deploy(self.executar(self.anterior), self.anterior, 'anterior\n')
 

@@ -2,10 +2,10 @@
 set -euo pipefail
 umask 077
 
-[[ $# -ge 3 && $# -le 4 ]] || { echo "Uso: $0 <nome> <vault-ocid> <key-ocid> [tamanho]" >&2; exit 1; }
+[[ $# -ge 3 && $# -le 4 ]] || { echo "Usage: $0 <name> <vault-ocid> <key-ocid> [length]" >&2; exit 1; }
 secret_name=$1 vault_id=$2 key_id=$3 length=${4:-30}
 if [[ ! $length =~ ^[0-9]+$ ]] || (( length < 12 || length > 30 )); then
-  echo 'Tamanho deve ser 12-30.' >&2; exit 1
+  echo 'Length must be 12-30.' >&2; exit 1
 fi
 
 compartment_id=$(oci kms management vault get --vault-id "$vault_id" --query 'data."compartment-id"' --raw-output)
@@ -14,8 +14,8 @@ compartment_id=$(oci kms management vault get --vault-id "$vault_id" --query 'da
 existing=$(oci vault secret list -c "$compartment_id" --vault-id "$vault_id" --name "$secret_name" --all \
   --query 'length(data[?"lifecycle-state"!=`DELETED`])' --raw-output)
 existing=${existing:-0}
-[[ $existing =~ ^[0-9]+$ ]] || { echo "Resposta inesperada ao listar segredos: $existing" >&2; exit 1; }
-(( existing == 0 )) || { echo "Segredo já existe: $secret_name (nada a fazer)." >&2; exit 0; }
+[[ $existing =~ ^[0-9]+$ ]] || { echo "Unexpected response when listing secrets: $existing" >&2; exit 1; }
+(( existing == 0 )) || { echo "Secret already exists: $secret_name (nothing to do)." >&2; exit 0; }
 
 payload=$(mktemp)
 trap 'shred -u "$payload" 2>/dev/null || rm -f "$payload"' EXIT

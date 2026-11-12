@@ -3,11 +3,11 @@ set -euo pipefail
 umask 077
 
 usage() {
-  echo "Uso: sudo $0 <OCID-do-vault> (ou defina VAULT_ID)" >&2
+  echo "Usage: sudo $0 <vault-OCID> (or set VAULT_ID)" >&2
   exit 1
 }
 
-[[ $EUID -eq 0 ]] || { echo 'Execute com sudo.' >&2; exit 1; }
+[[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
 
 [[ $# -le 1 ]] || usage
 VAULT_ID="${1:-${VAULT_ID:-}}"
@@ -24,16 +24,16 @@ read_secret() {
     --secret-name "$secret_name" \
     --query 'data."secret-bundle-content".content' \
     --raw-output | base64 -d)
-  [[ -n "$secret_val" ]] || { echo "Segredo vazio ou não encontrado: $secret_name" >&2; exit 1; }
+  [[ -n "$secret_val" ]] || { echo "Secret empty or not found: $secret_name" >&2; exit 1; }
   printf '%s' "$secret_val"
 }
 
-echo '==> Lendo segredos do Autonomous no OCI Vault'
+echo '==> Reading Autonomous secrets from OCI Vault'
 ADB_ADMIN_PASSWORD=$(read_secret "prod-mongoDB-password")
 PRODUCT_MONGODB_PASSWORD=$(read_secret "PRODUCT_MONGODB_PASSWORD")
 export ADB_ADMIN_PASSWORD PRODUCT_MONGODB_PASSWORD
 
-echo "==> Conectando em $adb_host:27017 (TLS) e reconciliando o usuário PRODUCT_SERVICE"
+echo "==> Connecting to $adb_host:27017 (TLS) and reconciling the PRODUCT_SERVICE user"
 js_file=$(mktemp --suffix=.js)
 chmod 0644 "$js_file"
 trap 'rm -f "$js_file"' EXIT
@@ -45,7 +45,7 @@ cat > "$js_file" <<-'EOJS'
 	const password = process.env.PRODUCT_MONGODB_PASSWORD;
 	if (!/^[A-Za-z0-9]{12,30}$/.test(password) || !/[A-Z]/.test(password) || !/[a-z]/.test(password) ||
 	    !/[0-9]/.test(password) || password.toUpperCase().includes('PRODUCT_SERVICE')) {
-	  throw new Error('Segredo inválido: PRODUCT_MONGODB_PASSWORD');
+	  throw new Error('Invalid secret: PRODUCT_MONGODB_PASSWORD');
 	}
 
 	const admin = connect(uri('ADMIN', process.env.ADB_ADMIN_PASSWORD));
@@ -65,7 +65,7 @@ cat > "$js_file" <<-'EOJS'
 	      p_url_mapping_type => 'BASE_PATH', p_url_mapping_pattern => 'product_service', p_auto_rest_auth => TRUE);
 	  END;` }]).toArray();
 
-	print('==> Privilégios de PRODUCT_SERVICE');
+	print('==> PRODUCT_SERVICE privileges');
 	admin.aggregate([{ $sql: `
 	  SELECT privilege AS grant_name FROM dba_sys_privs WHERE grantee = 'PRODUCT_SERVICE'
 	  UNION ALL
@@ -75,9 +75,9 @@ cat > "$js_file" <<-'EOJS'
 	const app = connect(uri('PRODUCT_SERVICE', password));
 	const probe = app.getCollection('bootstrap_probe');
 	probe.insertOne({ ok: true });
-	if (probe.findOne({ ok: true }) === null) throw new Error('Teste de leitura falhou');
+	if (probe.findOne({ ok: true }) === null) throw new Error('Read test failed');
 	probe.drop();
-	print('==> PRODUCT_SERVICE autentica, escreve e lê pela API Mongo');
+	print('==> PRODUCT_SERVICE authenticates, writes and reads through the Mongo API');
 EOJS
 
 docker run --rm --network host \

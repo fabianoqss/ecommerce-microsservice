@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ $EUID -eq 0 ]] || { echo 'Execute com sudo.' >&2; exit 1; }
+[[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
 
 DOMAINS=(loja.fabianoquirinos.com.br auth.fabianoquirinos.com.br)
 CERT_NAME=${DOMAINS[0]}
 WEBROOT=/var/www/certbot
 NGINX_SITE=/etc/nginx/conf.d/ecommerce.conf
 SITE_SOURCE="$(dirname "$(readlink -f "$0")")/nginx/ecommerce.conf"
-[[ -f $SITE_SOURCE ]] || { echo "Não encontrado: $SITE_SOURCE" >&2; exit 1; }
+[[ -f $SITE_SOURCE ]] || { echo "Not found: $SITE_SOURCE" >&2; exit 1; }
 
-echo '==> nginx (AppStream) e firewall: só HTTP e HTTPS'
+echo '==> nginx (AppStream) and firewall: HTTP and HTTPS only'
 dnf -y install nginx
 firewall-cmd --permanent --add-service=http --add-service=https
 firewall-cmd --reload
 
-echo '==> Webroot do desafio ACME (HTTP-01)'
+echo '==> ACME challenge webroot (HTTP-01)'
 install -d -o root -g root -m 0755 "$WEBROOT"
 restorecon -R "$WEBROOT"
 
-echo '==> nginx.conf: comenta o server padrão do pacote (página de boas-vindas e [::]:80)'
+echo '==> nginx.conf: commenting out the default server shipped with the package (welcome page and [::]:80)'
 if grep -qE '^    server \{' /etc/nginx/nginx.conf; then
   awk '!done && /^    server \{/ { inblock = 1 }
        inblock { print "#" $0; if (/^    \}/) { inblock = 0; done = 1 }; next }
@@ -28,11 +28,11 @@ if grep -qE '^    server \{' /etc/nginx/nginx.conf; then
   restorecon /etc/nginx/nginx.conf
 fi
 
-echo '==> SELinux: nginx pode conectar só em portas web (não em banco, Redis ou broker)'
+echo '==> SELinux: nginx can connect only to web ports (not to databases, Redis or the broker)'
 setsebool -P httpd_can_network_relay on
 semanage port -a -t http_port_t -p tcp 8180 2>/dev/null || semanage port -m -t http_port_t -p tcp 8180
 
-echo '==> Certbot via EPEL, restrito aos pacotes dele'
+echo '==> Certbot via EPEL, restricted to its packages'
 dnf -y install oracle-epel-release-el9 dnf-plugins-core
 dnf config-manager --save \
   --setopt=ol9_developer_EPEL.enabled=1 \
@@ -41,7 +41,7 @@ dnf -y install certbot
 systemctl enable --now certbot-renew.timer
 
 if [[ ! -f /etc/letsencrypt/live/$CERT_NAME/fullchain.pem ]]; then
-  echo '==> Certificado ausente: sobe só a porta 80 (ACME + 301) para emitir'
+  echo '==> Certificate missing: starting only port 80 (ACME + 301) for issuance'
   cat > "$NGINX_SITE" <<EOF
 server_tokens off;
 
@@ -71,13 +71,13 @@ EOF
     --agree-tos --register-unsafely-without-email --non-interactive
 fi
 
-echo '==> Configuração completa do nginx (loja, auth, TLS, default_server)'
+echo '==> Full nginx configuration (store, auth, TLS, default_server)'
 install -o root -g root -m 0644 "$SITE_SOURCE" "$NGINX_SITE"
 nginx -t
 systemctl enable nginx
 systemctl restart nginx
 
-echo '==> Resultado'
+echo '==> Result'
 certbot certificates --cert-name "$CERT_NAME" 2>/dev/null | grep -E 'Domains|Expiry'
 systemctl list-timers certbot-renew.timer --no-pager | sed -n 2p
 ss -ltn '( sport = :80 or sport = :443 )'

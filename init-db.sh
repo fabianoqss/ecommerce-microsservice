@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-: "${KEYCLOAK_DB_PASSWORD:?defina KEYCLOAK_DB_PASSWORD}"
+: "${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD}"
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
      -v kc_password="$KEYCLOAK_DB_PASSWORD" <<-'EOSQL'

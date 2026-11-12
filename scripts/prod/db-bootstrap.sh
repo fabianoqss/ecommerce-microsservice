@@ -3,11 +3,11 @@ set -euo pipefail
 umask 077
 
 usage() {
-  echo "Uso: sudo $0 <OCID-do-vault> (ou defina VAULT_ID)" >&2
+  echo "Usage: sudo $0 <vault-OCID> (or set VAULT_ID)" >&2
   exit 1
 }
 
-[[ $EUID -eq 0 ]] || { echo 'Execute com sudo.' >&2; exit 1; }
+[[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
 
 [[ $# -le 1 ]] || usage
 VAULT_ID="${1:-${VAULT_ID:-}}"
@@ -26,7 +26,7 @@ ssl_mode="${DB_BOOTSTRAP_SSLMODE:-${PGSSLMODE:-verify-full}}"
 
 docker_ssl_args=()
 if [[ "$ssl_mode" != "disable" ]]; then
-  [[ -f "$ca_cert" ]] || { echo "Certificado CA não encontrado: $ca_cert" >&2; exit 1; }
+  [[ -f "$ca_cert" ]] || { echo "CA certificate not found: $ca_cert" >&2; exit 1; }
   docker_ssl_args=(-v "$ca_cert:/certs/oci-postgresql-ca.pem:ro" -e PGSSLROOTCERT=/certs/oci-postgresql-ca.pem)
 fi
 
@@ -43,17 +43,17 @@ read_secret() {
       --query 'data."secret-bundle-content".content' \
       --raw-output | base64 -d)
   fi
-  [[ -n "$secret_val" ]] || { echo "Segredo vazio ou não encontrado: $secret_name" >&2; exit 1; }
+  [[ -n "$secret_val" ]] || { echo "Secret empty or not found: $secret_name" >&2; exit 1; }
   printf '%s' "$secret_val"
 }
 
-echo '==> Lendo segredos do banco no OCI Vault'
+echo '==> Reading database secrets from OCI Vault'
 admin_password=$(read_secret "prod-postgres-password")
 order_db_password=$(read_secret "ORDER_DB_PASSWORD")
 inventory_db_password=$(read_secret "INVENTORY_DB_PASSWORD")
 keycloak_db_password=$(read_secret "KEYCLOAK_DB_PASSWORD")
 
-echo "==> Conectando em $pg_host:$pg_port (sslmode=$ssl_mode) e reconciliando roles e bancos"
+echo "==> Connecting to $pg_host:$pg_port (sslmode=$ssl_mode) and reconciling roles and databases"
 PGPASSWORD="$admin_password" \
 ORDER_DB_PASSWORD="$order_db_password" \
 INVENTORY_DB_PASSWORD="$inventory_db_password" \
@@ -115,7 +115,7 @@ docker run --rm -i --network host \
 	GRANT CONNECT ON DATABASE keycloak TO keycloak;
 	RESET ROLE;
 
-	\echo '==> Resumo dos bancos provisionados (banco -> dono)'
+	\echo '==> Provisioned database summary (database -> owner)'
 	\pset tuples_only on
 	\pset format unaligned
 	SELECT datname || ' -> ' || pg_catalog.pg_get_userbyid(datdba)

@@ -1,235 +1,237 @@
-# E-commerce baseado em microsserviços
+# Microservices-based e-commerce
 
-E-commerce com frontend Angular, backend Spring Boot, Spring Cloud, identidade OIDC via Keycloak, comunicação síncrona e assíncrona e observabilidade.
+E-commerce with an Angular frontend, Spring Boot backend, Spring Cloud, OIDC identity through Keycloak, synchronous and asynchronous communication, and observability.
 
-O fluxo principal inclui estoque atômico, cancelamento de pedidos, Outbox, DLQ e autorização por dono do pedido. O gateway oferece login pelo navegador como BFF e acesso à API com Bearer token.
+The main flow includes atomic inventory operations, order cancellation, Outbox, DLQ, and order owner authorization. The gateway provides browser login as a BFF and API access with Bearer tokens.
 
-## Arquitetura atual
+## Current architecture
 
-| Componente | Porta no container | Persistência | Responsabilidade |
+| Component | Container port | Persistence | Responsibility |
 |---|---:|---|---|
-| Frontend Angular | 8080 (host `127.0.0.1:8008`) | — | SPA, catálogo, carrinho e pedidos; nginx sem privilégios |
-| API Gateway | 8080; gerenciamento 8090 | Redis | BFF OIDC, sessão, token relay e autorização de borda |
-| Product Service | 8082 | MongoDB | Catálogo e CRUD de produtos |
-| Inventory Service | 8083 | PostgreSQL | Consulta, manutenção e reserva atômica de estoque |
-| Order Service | 8081 | PostgreSQL | Pedidos, cancelamento, compensação e Outbox |
-| Notification Service | 8084 | Redis | Consumo idempotente de eventos, retry e DLQ; notificação no log |
-| Keycloak | 8080; gerenciamento 9000 | PostgreSQL | Identidade, cadastro, login, recuperação de senha e emissão de tokens |
+| Angular Frontend | 8080 (host `127.0.0.1:8008`) | — | SPA, catalog, cart, and orders; unprivileged nginx |
+| API Gateway | 8080; management 8090 | Redis | OIDC BFF, session, token relay, and edge authorization |
+| Product Service | 8082 | MongoDB | Product catalog and CRUD |
+| Inventory Service | 8083 | PostgreSQL | Inventory queries, maintenance, and atomic reservations |
+| Order Service | 8081 | PostgreSQL | Orders, cancellation, compensation, and Outbox |
+| Notification Service | 8084 | Redis | Idempotent event consumption, retry, and DLQ; notifications in logs |
+| Keycloak | 8080; management 9000 | PostgreSQL | Identity, registration, login, password recovery, and token issuance |
 
-O frontend é o sexto app implantado. As cinco aplicações Java são Gateway, Product, Inventory, Order e Notification; o sexto módulo é a biblioteca `common-security`. Os serviços de negócio validam assinatura, issuer e audience dos tokens localmente. A identidade do pedido é o `sub` do Keycloak, e as roles de usuário são `CUSTOMER` e `ADMIN`.
+The frontend is the sixth deployed app. The five Java applications are Gateway, Product, Inventory, Order, and Notification; the sixth module is the `common-security` library. Business services validate token signatures, issuer, and audience locally. Orders use the Keycloak `sub` as the owner identity, and user roles are `CUSTOMER` and `ADMIN`.
 
 ```text
-Navegador -> nginx da borda -> Frontend Angular
+Browser -> edge nginx -> Angular Frontend
                           `-> Gateway BFF <-> Keycloak -> PostgreSQL
-                                      `-> Redis (sessões)
-Cliente Bearer -> Gateway
+                                      `-> Redis (sessions)
+Bearer client -> Gateway
                     |-> Product -> MongoDB
                     |-> Inventory -> PostgreSQL
-                    `-> Order -> PostgreSQL (pedido + Outbox)
+                    `-> Order -> PostgreSQL (order + Outbox)
                           |-> Product/Inventory via OpenFeign
-                          `-> RabbitMQ -> Notification -> Redis (idempotência)
-                                       `-> Inventory -> PostgreSQL (liberação idempotente no cancelamento)
+                          `-> RabbitMQ -> Notification -> Redis (idempotency)
+                                       `-> Inventory -> PostgreSQL (idempotent release on cancellation)
 
-Rede do Compose: resolução dos serviços por DNS
-Prometheus/Grafana: métricas; Zipkin: traces
+Compose network: service resolution through DNS
+Prometheus/Grafana: metrics; Zipkin: traces
 ```
 
-## Tecnologias
+## Technologies
 
-- Java 21, Spring Boot 4.0.x e Spring Cloud 2025.1.x
-- Spring MVC, Data JPA, Data MongoDB e Flyway
-- Spring Cloud Gateway Server Web MVC e OpenFeign
-- Spring Security OAuth2/OIDC Resource Server e Client; Authorization Code com PKCE
-- PostgreSQL, MongoDB, RabbitMQ e Redis
-- Docker Compose, Actuator, Prometheus, Grafana, Zipkin e Springdoc OpenAPI
+- Java 21, Spring Boot 4.0.x, and Spring Cloud 2025.1.x
+- Spring MVC, Data JPA, Data MongoDB, and Flyway
+- Spring Cloud Gateway Server Web MVC and OpenFeign
+- Spring Security OAuth2/OIDC Resource Server and Client; Authorization Code with PKCE
+- PostgreSQL, MongoDB, RabbitMQ, and Redis
+- Docker Compose, Actuator, Prometheus, Grafana, Zipkin, and Springdoc OpenAPI
 
 ## Endpoints
 
-As chamadas externas à aplicação passam por `http://localhost:8080`. No Compose, as portas de Product, Inventory, Order, Notification e do Actuator do gateway não são publicadas no host.
+External application requests go through `http://localhost:8080`. In Compose, the ports for Product, Inventory, Order, Notification, and the gateway Actuator are not published on the host.
 
-### Login pelo navegador
+### Browser login
 
-| Método | Rota no gateway | Descrição |
+| Method | Gateway route | Description |
 |---|---|---|
-| GET | `/oauth2/authorization/keycloak` | Inicia Authorization Code com PKCE no Keycloak |
-| GET | `/login/oauth2/code/keycloak` | Callback OIDC do gateway |
-| GET | `/bff/me` | Dados do usuário autenticado por sessão |
-| POST | `/logout` | Encerra a sessão e inicia logout OIDC |
+| GET | `/oauth2/authorization/keycloak` | Starts Authorization Code with PKCE in Keycloak |
+| GET | `/login/oauth2/code/keycloak` | Gateway OIDC callback |
+| GET | `/bff/me` | Session-authenticated user details |
+| POST | `/logout` | Ends the session and starts OIDC logout |
 
-O BFF mantém os tokens no servidor e usa sessão no Redis. Requisições que alteram estado com autenticação por sessão, inclusive logout, exigem proteção CSRF (`XSRF-TOKEN` e header `X-XSRF-TOKEN`). O acesso por Bearer token é stateless. Cadastro e recuperação de senha acontecem no Keycloak, conforme a configuração do realm.
+The BFF keeps tokens on the server and stores sessions in Redis. State-changing requests with session authentication, including logout, require CSRF protection (`XSRF-TOKEN` and the `X-XSRF-TOKEN` header). Bearer token access is stateless. Registration and password recovery take place in Keycloak according to the realm configuration.
 
-### API de negócio
+### Business API
 
-| Método | Rota | Acesso |
+| Method | Route | Access |
 |---|---|---|
-| GET | `/api/product`, `/api/product/{id}` | Público |
+| GET | `/api/product`, `/api/product/{id}` | Public |
 | POST | `/api/product` | `ROLE_ADMIN` |
 | PUT, DELETE | `/api/product/{id}` | `ROLE_ADMIN` |
-| GET | `/api/inventory?skuCode=id` | Público |
+| GET | `/api/inventory?skuCode=id` | Public |
 | POST | `/api/inventory` | `ROLE_ADMIN` |
 | PUT | `/api/inventory/{skuCode}` | `ROLE_ADMIN` |
-| GET | `/api/order` | Autenticado; usuário vê seus pedidos, admin vê todos |
-| GET | `/api/order/{id}` | Dono ou admin |
-| POST | `/api/order` | Autenticado |
-| POST | `/api/order/{id}/cancel` | Dono ou admin; cancelamento idempotente de pedido confirmado |
+| GET | `/api/order` | Authenticated; users see their own orders, admins see all orders |
+| GET | `/api/order/{id}` | Owner or admin |
+| POST | `/api/order` | Authenticated |
+| POST | `/api/order/{id}/cancel` | Owner or admin; idempotent cancellation of a confirmed order |
 
-`PUT`, `DELETE` e `GET /api/inventory/reservations/{reservationId}` são contratos internos do livro-razão de reservas, bloqueados no gateway (`denyAll`). Na criação do pedido e na reconciliação de pendentes expirados, o Order obtém um token com `client_credentials` e scope `inventory:reserve` para chamá-los diretamente no Inventory. O cancelamento de pedido confirmado grava o evento `ORDER_CANCELLED` (v3) no Outbox e o Inventory libera o estoque de forma assíncrona e idempotente via RabbitMQ (`inventory.order.cancelled.queue`).
+`PUT`, `DELETE`, and `GET /api/inventory/reservations/{reservationId}` are internal reservation ledger contracts, blocked at the gateway (`denyAll`). During order creation and reconciliation of expired pending orders, Order obtains a token using `client_credentials` with the `inventory:reserve` scope to call them directly on Inventory. Cancelling a confirmed order writes the `ORDER_CANCELLED` (v3) event to the Outbox, and Inventory releases stock asynchronously and idempotently through RabbitMQ (`inventory.order.cancelled.queue`).
 
-## Execução local
+## Local execution
 
-### Pré-requisitos
+### Prerequisites
 
-- Docker com Docker Compose v2; Java 21 para executar pela IDE ou Maven Wrapper
-- OpenSSL para gerar os segredos locais
-- Portas `3000`, `5432`, `5672`, `6379`, `8025`, `8080`, `8180`, `9090`, `9411`, `15672` e `27017` disponíveis
+- Docker with Docker Compose v2; Java 21 to run through the IDE or Maven Wrapper
+- OpenSSL to generate local secrets
+- Ports `3000`, `5432`, `5672`, `6379`, `8025`, `8080`, `8180`, `9090`, `9411`, `15672`, and `27017` available
 
-### Build com Maven
+### Building with Maven
 
-Importe o `pom.xml` da raiz como projeto Maven com JDK 21. O parent agrega os cinco serviços e o JAR `common-security`, que concentra apenas a conversão de autoridades Keycloak. O Maven Wrapper é único na raiz (Maven 3.9.12); no Windows, use `mvnw.cmd`.
+Import the root `pom.xml` as a Maven project with JDK 21. The parent aggregates the five services and the `common-security` JAR, which handles only Keycloak authority conversion. There is a single Maven Wrapper at the root (Maven 3.9.12); on Windows, use `mvnw.cmd`.
 
-Execute a partir da raiz:
+Run from the root:
 
 ```bash
-# Compila e verifica todos os módulos
+# Builds and verifies all modules
 ./mvnw verify
 
-# Verifica um serviço e os módulos dos quais ele depende
+# Verifies one service and the modules it depends on
 ./mvnw -pl order-service -am verify
 
-# Executa apenas os testes do conversor compartilhado
+# Runs only the shared converter tests
 ./mvnw -pl common-security test
 ```
 
-Os testes de integração com Testcontainers precisam de Docker acessível. A primeira execução do wrapper e a resolução de dependências precisam de acesso ao Maven Central. O Compose usa a raiz como contexto de build e o Dockerfile de cada serviço; a imagem final contém somente o runtime Java e o curl necessário aos healthchecks.
+Integration tests using Testcontainers require access to Docker. The first wrapper run and dependency resolution require access to Maven Central. Compose uses the root as the build context and each service's Dockerfile; the final image contains only the Java runtime and curl, which is required for health checks.
 
-### Arquivos e profiles do Compose
+### Compose files and profiles
 
-O Compose da raiz é o ponto de entrada oficial de toda a infraestrutura.
+The root Compose configuration is the official entry point for all infrastructure.
 
-| Arquivo | Conteúdo |
+| File | Contents |
 |---|---|
-| `docker-compose.yml` | Produção: aplicações, Keycloak, RabbitMQ, Redis e monitoramento; bancos externos na OCI |
-| `docker-compose.dev.yml` | Override local: PostgreSQL, MongoDB, Mailpit e ajustes de rede/configuração para desenvolvimento |
+| `docker-compose.yml` | Production: applications, Keycloak, RabbitMQ, Redis, and monitoring; external databases on OCI |
+| `docker-compose.dev.yml` | Local override: PostgreSQL, MongoDB, Mailpit, and network/configuration adjustments for development |
 
-| Profile | Serviços |
+| Profile | Services |
 |---|---|
-| _(nenhum)_ | `keycloak`, `keycloak-config`, `rabbitmq`, `rabbitmq-init`, `redis`; em dev também `postgres`, `mongo`, `mailpit` |
+| _(none)_ | `keycloak`, `keycloak-config`, `rabbitmq`, `rabbitmq-init`, `redis`; in development, also `postgres`, `mongo`, `mailpit` |
 | `monitoring` | `zipkin`, `prometheus`, `grafana` |
 | `apps` | `api-gateway`, `product-service`, `inventory-service`, `order-service`, `notification-service` |
 
-O `.env.example` da raiz é a referência oficial e define `COMPOSE_PROFILES=monitoring,apps`. Endereços e segredos são configuráveis por ambiente; variáveis obrigatórias usam `${VAR:?}` para o Compose rejeitar configuração incompleta.
+The root `.env.example` is the official reference and sets `COMPOSE_PROFILES=monitoring,apps`. Addresses and secrets are configurable per environment; required variables use `${VAR:?}` so Compose rejects incomplete configuration.
 
-### Configuração do ambiente
+### Environment configuration
 
-Na raiz do repositório:
+From the repository root:
 
 ```bash
 ./scripts/generate-env.sh
 ```
 
-O script cria `.env` a partir do exemplo: substitui valores marcados com `troque-politica-...` (senhas de usuários do realm do Keycloak, como `KC_ADMIN_USER_PASSWORD`) por uma senha de 24 caracteres compatível com a política do realm (maiúscula, minúscula, dígito e caractere especial entre `-_.`) e **cada** outro valor `troque-...` por um segredo independente de 24 bytes gerado por `openssl rand -hex 24`. Não imprime os segredos e cria o arquivo com permissão `600`. Recusa sobrescrever um `.env` existente; `./scripts/generate-env.sh --force` cria um backup com permissão `600` antes da substituição. O `.env` e seus backups contêm credenciais e não devem ser compartilhados ou versionados.
+The script creates `.env` from the example: it replaces values marked with `troque-politica-...` (Keycloak realm user passwords, such as `KC_ADMIN_USER_PASSWORD`) with a 24-character password that meets the realm policy (uppercase, lowercase, digit, and a special character from `-_.`), and **each** other `troque-...` value with an independent 24-byte secret generated by `openssl rand -hex 24`. It does not print secrets and creates the file with permissions `600`. It refuses to overwrite an existing `.env`; `./scripts/generate-env.sh --force` creates a backup with permissions `600` before replacement. `.env` and its backups contain credentials and must not be shared or committed to version control.
 
-Em desenvolvimento, Order e Inventory usam o usuário `postgres` do container local: a senha efetiva é `DB_PASSWORD`. O exemplo define `ORDER_DB_PASSWORD=${DB_PASSWORD}` e `INVENTORY_DB_PASSWORD=${DB_PASSWORD}`, referências expandidas pelo Compose. Em produção, configure usuários e senhas próprios para cada banco e gere as variáveis pelo OCI Vault. O banco do Keycloak tem usuário e senha separados.
+In development, Order and Inventory use the `postgres` user in the local container: the effective password is `DB_PASSWORD`. The example sets `ORDER_DB_PASSWORD=${DB_PASSWORD}` and `INVENTORY_DB_PASSWORD=${DB_PASSWORD}`, references expanded by Compose. In production, configure separate users and passwords for each database and generate the variables through OCI Vault. The Keycloak database has a separate user and password.
 
-Os endereços dos serviços são configuração de ambiente: o gateway usa `PRODUCT_SERVICE_URL`, `ORDER_SERVICE_URL` e `INVENTORY_SERVICE_URL`; o Order usa somente `PRODUCT_SERVICE_URL` e `INVENTORY_SERVICE_URL`. No Compose, essas variáveis apontam para `http://product-service:8082`, `http://order-service:8081` e `http://inventory-service:8083`, resolvidos pelo DNS da rede dos containers. Cada consumidor aguarda os healthchecks das suas dependências. Pela IDE, os valores padrão são `http://localhost:8082`, `http://localhost:8081` e `http://localhost:8083`. A resolução de nomes fica a cargo da plataforma: Docker Compose hoje, Kubernetes Service futuramente.
+Service addresses are environment configuration: the gateway uses `PRODUCT_SERVICE_URL`, `ORDER_SERVICE_URL`, and `INVENTORY_SERVICE_URL`; Order uses only `PRODUCT_SERVICE_URL` and `INVENTORY_SERVICE_URL`. In Compose, these variables point to `http://product-service:8082`, `http://order-service:8081`, and `http://inventory-service:8083`, resolved by DNS on the container network. Each consumer waits for its dependencies' health checks. In the IDE, the defaults are `http://localhost:8082`, `http://localhost:8081`, and `http://localhost:8083`. The platform handles name resolution: Docker Compose today, Kubernetes Services in the future.
 
-### Realm do Keycloak
+### Keycloak realm
 
-O realm `ecommerce` é código: [`keycloak/realm-ecommerce.yaml`](keycloak/realm-ecommerce.yaml). A cada subida do Compose, o serviço de execução única `keycloak-config` ([keycloak-config-cli](https://github.com/adorsys/keycloak-config-cli)) espera o Keycloak ficar saudável e reconcilia o realm com o arquivo; as aplicações que validam tokens só iniciam depois que ele termina com código `0`. O cache de importação fica desligado, então qualquer configuração declarada no arquivo que for alterada à mão no console volta ao valor do arquivo na próxima subida: mude o realm pelo arquivo, em PR. A ferramenta só remove recursos que ela mesma criou; um client ou role criado à mão fora do arquivo continua existindo e deve ser removido manualmente.
+The `ecommerce` realm is managed as code: [`keycloak/realm-ecommerce.yaml`](keycloak/realm-ecommerce.yaml). On every Compose startup, the one-shot `keycloak-config` service ([keycloak-config-cli](https://github.com/adorsys/keycloak-config-cli)) waits for Keycloak to become healthy and reconciles the realm with the file; applications that validate tokens start only after it exits with code `0`. The import cache is disabled, so any setting declared in the file that is manually changed in the console reverts to the file's value on the next startup: change the realm through the file in a PR. The tool only removes resources it created; a client or role created manually outside the file continues to exist and must be removed manually.
 
-Secrets, URL pública e SMTP entram por variáveis de ambiente (`KC_BFF_CLIENT_SECRET`, `KC_ORDER_SERVICE_CLIENT_SECRET`, `GATEWAY_PUBLIC_URL`, `KC_SMTP_*`), substituídas na hora da aplicação; o mesmo valor do `.env`/Vault chega ao Keycloak e ao serviço que usa o client. Esses valores devem usar só caracteres seguros (`A–Z`, `a–z`, `0–9`, `_`, `.`, `~` e `-`), como os gerados por `scripts/generate-env.sh`. O arquivo não define usuários: clientes se cadastram pela página do Keycloak e recebem só a role `CUSTOMER`; `ADMIN` é atribuída manualmente.
+Secrets, the public URL, and SMTP settings are supplied through environment variables (`KC_BFF_CLIENT_SECRET`, `KC_ORDER_SERVICE_CLIENT_SECRET`, `GATEWAY_PUBLIC_URL`, `KC_SMTP_*`), substituted when the configuration is applied; the same value from `.env`/Vault reaches Keycloak and the service that uses the client. These values must use only safe characters (`A–Z`, `a–z`, `0–9`, `_`, `.`, `~`, and `-`), such as those generated by `scripts/generate-env.sh`. The file does not define users: customers register through the Keycloak page and receive only the `CUSTOMER` role; `ADMIN` is assigned manually.
 
-| Client | Configuração |
+| Client | Configuration |
 |---|---|
-| `ecommerce-bff` | Confidencial; Authorization Code com PKCE S256; redirect exato `${GATEWAY_PUBLIC_URL}/login/oauth2/code/keycloak`; sem Password Grant, Implicit, device flow ou `offline_access`; tokens só com as roles `CUSTOMER`/`ADMIN`, também no ID token (lido pelo `/bff/me`) |
-| `order-service` | Confidencial; só service account (`client_credentials`); scope `inventory:reserve`; sem roles de usuário no token |
+| `ecommerce-bff` | Confidential; Authorization Code with PKCE S256; exact redirect `${GATEWAY_PUBLIC_URL}/login/oauth2/code/keycloak`; no Password Grant, Implicit, device flow, or `offline_access`; tokens contain only the `CUSTOMER`/`ADMIN` roles, also included in the ID token (read by `/bff/me`) |
+| `order-service` | Confidential; service account only (`client_credentials`); `inventory:reserve` scope; no user roles in the token |
 
-O realm exige HTTPS fora da rede local, verificação de e-mail, senha forte com histórico, bloqueio progressivo contra força bruta, access token de 5 minutos e sessão limitada a 30 minutos ociosa ou 10 horas no total, e registra eventos de login e administrativos (sem o corpo das requisições, que incluiria secrets). Os access tokens levam `aud=ecommerce-api`. No ambiente local, o issuer público é `http://localhost:8180/realms/ecommerce`; containers consultam JWKs e token endpoint pela rede interna. As variáveis `OIDC_*` controlam esses endereços. Em desenvolvimento, o SMTP aponta para o Mailpit (`http://localhost:8025`).
+The realm requires HTTPS outside the local network, email verification, strong passwords with history, progressive brute-force protection, 5-minute access tokens, and sessions limited to 30 minutes idle or 10 hours total. It records login and administrative events (without request bodies, which would include secrets). Access tokens carry `aud=ecommerce-api`. In the local environment, the public issuer is `http://localhost:8180/realms/ecommerce`; containers access JWKs and the token endpoint through the internal network. The `OIDC_*` variables control these addresses. In development, SMTP points to Mailpit (`http://localhost:8025`).
 
-Login com Google e GitHub é opcional e fica desligado por padrão. Para ligar, crie um OAuth client no provedor com a URL de callback `${KEYCLOAK_HOSTNAME}/realms/ecommerce/broker/<google|github>/endpoint` e preencha no `.env` `KC_IDP_<GOOGLE|GITHUB>_ENABLED=true`, `_CLIENT_ID` e `_CLIENT_SECRET`. Contas vindas do provedor nunca são vinculadas automaticamente por e-mail: se o e-mail já existir, o Keycloak pede que o usuário confirme a vinculação entrando com a conta existente. O e-mail do Google é confiado (já verificado pelo Google); o do GitHub passa pela verificação de e-mail do realm.
+Google and GitHub login is optional and disabled by default. To enable it, create an OAuth client with the provider using the callback URL `${KEYCLOAK_HOSTNAME}/realms/ecommerce/broker/<google|github>/endpoint` and set `KC_IDP_<GOOGLE|GITHUB>_ENABLED=true`, `_CLIENT_ID`, and `_CLIENT_SECRET` in `.env`. Provider accounts are never linked automatically by email: if the email already exists, Keycloak asks the user to confirm the link by signing in with the existing account. Google email is trusted (already verified by Google); GitHub email goes through the realm's email verification.
 
-Com a verificação de e-mail ligada, o formulário de cadastro pede só os dados do perfil; a senha é definida depois do clique no link de verificação. Isso impede que alguém crie uma conta com o e-mail de outra pessoa e uma senha própria antes do dono do e-mail.
+With email verification enabled, the registration form asks only for profile details; the password is set after clicking the verification link. This prevents someone from creating an account with another person's email and a password of their own before the email owner does.
 
-Para produção com HTTPS, consulte [Deploy na OCI](#deploy-na-oci). O override de desenvolvimento usa `SESSION_COOKIE_SECURE=false` para HTTP local.
+For production with HTTPS, see [Deploy on OCI](#deploy-na-oci). The development override uses `SESSION_COOKIE_SECURE=false` for local HTTP.
 
-### Inicialização
+### Startup
 
-Para produção, siga [Deploy na OCI](#deploy-na-oci). Para desenvolvimento local:
+For production, follow [Deploy on OCI](#deploy-na-oci). For local development:
 
 ```bash
-# Desenvolvimento local: infraestrutura e aplicações
+# Local development: infrastructure and applications
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 ```
 
-`rabbitmq-init` é um serviço de execução única: após o broker ficar saudável, `scripts/rabbitmq-init.sh` usa a API HTTP para provisionar o vhost `ecommerce` e os usuários `order-service`, `notification-service` e `inventory-service`. A saída normal desse container é terminar com código `0`; não é um processo permanente.
+`rabbitmq-init` is a one-shot service: after the broker becomes healthy, `scripts/rabbitmq-init.sh` uses the HTTP API to provision the `ecommerce` vhost and the `order-service`, `notification-service`, and `inventory-service` users. This container normally exits with code `0`; it is not a long-running process.
 
-As aplicações usam `RABBITMQ_ORDER_PASSWORD`, `RABBITMQ_NOTIFICATION_PASSWORD` e `RABBITMQ_INVENTORY_PASSWORD` no vhost `ecommerce` com privilégio mínimo: `order-service` (único dono da topologia e produtor) tem `configure`, `write` e `read` em `^(order|inventory)\.`, `notification-service` (consumidor) tem `configure` e `write` em `^$` e `read` apenas em `^order\.(created|cancelled)\.queue$`, e `inventory-service` (consumidor do cancelamento) tem `configure` e `write` em `^$` e `read` apenas em `^inventory\.order\.cancelled\.queue$`. `RABBITMQ_ADMIN_USERNAME`/`RABBITMQ_ADMIN_PASSWORD` são credenciais administrativas para o console e o provisionamento, não para os microsserviços. AMQP (`5672`) só é publicado no override local, em loopback.
+The applications use `RABBITMQ_ORDER_PASSWORD`, `RABBITMQ_NOTIFICATION_PASSWORD`, and `RABBITMQ_INVENTORY_PASSWORD` in the `ecommerce` vhost with least privilege: `order-service` (the sole topology owner and producer) has `configure`, `write`, and `read` on `^(order|inventory)\.`, `notification-service` (consumer) has `configure` and `write` on `^$` and `read` only on `^order\.(created|cancelled)\.queue$`, and `inventory-service` (cancellation consumer) has `configure` and `write` on `^$` and `read` only on `^inventory\.order\.cancelled\.queue$`. `RABBITMQ_ADMIN_USERNAME`/`RABBITMQ_ADMIN_PASSWORD` are administrative credentials for the console and provisioning, not for the microservices. AMQP (`5672`) is published only in the local override, on loopback.
 
-### Dados de demonstração (somente dev)
+### Demo data (development only)
 
-O override de desenvolvimento inclui três serviços de execução única: `seed-products` (20 produtos no MongoDB), `seed-inventory` (estoque desses produtos no PostgreSQL, com um item esgotado e um com estoque baixo) e `seed-keycloak-admin` (usuário `ADMIN` da loja no realm `ecommerce` do Keycloak). Os scripts ficam em [`scripts/dev/seed/`](scripts/dev/seed/) e são montados **apenas** pelo `docker-compose.dev.yml`: o Compose de produção não os referencia e o `.dockerignore` os mantém fora das imagens.
+The development override includes three one-shot services: `seed-products` (20 products in MongoDB), `seed-inventory` (stock for those products in PostgreSQL, with one out-of-stock item and one low-stock item), and `seed-keycloak-admin` (store `ADMIN` user in the Keycloak `ecommerce` realm). The scripts are in [`scripts/dev/seed/`](scripts/dev/seed/) and are mounted **only** by `docker-compose.dev.yml`: production Compose does not reference them, and `.dockerignore` keeps them out of the images.
 
-Os produtos têm `_id` fixo porque o estoque usa o id do produto como `sku_code`. A carga é idempotente e não destrutiva: roda a cada subida, insere só o que ainda não existe e nunca sobrescreve produtos ou quantidades alterados pela API. `product-service` e `order-service` aguardam a carga terminar. O `seed-inventory` espera a tabela criada pelo Flyway do `inventory-service`, então também funciona com o serviço rodando pela IDE. Para recarregar sem recriar volumes:
+Products have fixed `_id` values because inventory uses the product ID as `sku_code`. Seeding is idempotent and non-destructive: it runs on every startup, inserts only missing records, and never overwrites products or quantities changed through the API. `product-service` and `order-service` wait for seeding to finish. `seed-inventory` waits for the table created by Inventory Service's Flyway migrations, so it also works with the service running through the IDE. To reload without recreating volumes:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up seed-products seed-inventory
 ```
 
-O `seed-keycloak-admin` aguarda o `keycloak-config` terminar e usa `kcadm.sh` para criar (se ainda não existir) o usuário `ADMIN` da loja no realm `ecommerce` a partir de `KC_ADMIN_USER_EMAIL` e `KC_ADMIN_USER_PASSWORD`, habilitado, com `emailVerified=true`, sem ações pendentes e com a role `ADMIN` atribuída. A senha é sempre reaplicada, então alterar `KC_ADMIN_USER_PASSWORD` no `.env` e executar o seed novamente rotaciona a senha:
+`seed-keycloak-admin` waits for `keycloak-config` to finish and uses `kcadm.sh` to create the store's `ADMIN` user (if it does not already exist) in the `ecommerce` realm from `KC_ADMIN_USER_EMAIL` and `KC_ADMIN_USER_PASSWORD`. The user is enabled, has `emailVerified=true`, has no pending actions, and is assigned the `ADMIN` role. The password is always reapplied, so changing `KC_ADMIN_USER_PASSWORD` in `.env` and running the seed again rotates the password:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up seed-keycloak-admin
 ```
 
-Serviços úteis (publicados em `127.0.0.1`; na VM, acesse por túnel SSH):
+Useful services (published on `127.0.0.1`; on the VM, access through an SSH tunnel):
 
 - Gateway: `http://localhost:8080`
 - Keycloak: `http://localhost:8180` (`admin` / `KEYCLOAK_ADMIN_PASSWORD`)
 - RabbitMQ Management: `http://localhost:15672` (`RABBITMQ_ADMIN_USERNAME` / `RABBITMQ_ADMIN_PASSWORD`)
-- Mailpit, somente dev: `http://localhost:8025`
+- Mailpit, development only: `http://localhost:8025`
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3000` (`admin` / `GRAFANA_ADMIN_PASSWORD`)
 - Zipkin: `http://localhost:9411`
 
-O Actuator do gateway usa a porta interna `8090`, sem publicação no host. O Prometheus coleta as métricas pela rede interna. A amostragem de traces é `1.0` em dev e, por padrão, `0.1` em produção.
+The gateway Actuator uses internal port `8090`, without host publication. Prometheus collects metrics through the internal network. Trace sampling is `1.0` in development and defaults to `0.1` in production.
 
-### Execução pela IDE
+### Running through the IDE
 
-Remova `COMPOSE_PROFILES` do `.env` para subir só a infraestrutura; para manter o monitoramento, use `COMPOSE_PROFILES=monitoring`. Execute o mesmo comando Compose de desenvolvimento. Importe o `pom.xml` da raiz na IDE, aguarde a sincronização Maven e configure o JDK 21. Crie uma configuração Spring Boot para a classe principal anotada com `@SpringBootApplication` de cada serviço, usando o classpath do respectivo módulo; `common-security` é uma biblioteca, sem aplicação própria. Use o diretório do serviço como diretório de trabalho e configure as variáveis emitidas pelo script:
+Remove `COMPOSE_PROFILES` from `.env` to start only the infrastructure; to keep monitoring, use `COMPOSE_PROFILES=monitoring`. Run the same development Compose command. Import the root `pom.xml` into the IDE, wait for Maven synchronization, and configure JDK 21. Create a Spring Boot configuration for each service's main class annotated with `@SpringBootApplication`, using the corresponding module's classpath; `common-security` is a library without its own application. Use the service directory as the working directory and configure the variables emitted by the script:
 
 ```bash
 ./scripts/ide-env.sh
 ```
 
-O script lê o `.env` da raiz e emite as variáveis para Product, Inventory, Order, Notification e Gateway, incluindo os endereços locais necessários. Copie cada bloco para a configuração do módulo correspondente na IDE. **A saída contém segredos: execute apenas no seu terminal e não cole em chats, logs ou arquivos versionados.**
+The script reads the root `.env` and emits variables for Product, Inventory, Order, Notification, and Gateway, including the required local addresses. Copy each block into the corresponding module's IDE configuration. **The output contains secrets: run it only in your terminal and do not paste it into chats, logs, or version-controlled files.**
 
-### Dados existentes e upgrades
+### Existing data and upgrades
 
-O `init-db.sh` só roda quando o volume local do PostgreSQL é criado. Em volumes antigos, crie manualmente os bancos/usuários que faltam. Alterar a senha no `.env` também não altera automaticamente as credenciais já persistidas nos bancos ou no Keycloak; coordene a rotação.
+`init-db.sh` runs only when the local PostgreSQL volume is created. On older volumes, manually create any missing databases/users. Changing the password in `.env` also does not automatically change credentials already persisted in databases or Keycloak; coordinate rotation.
 
-O Compose fixa PostgreSQL `16.12`, MongoDB `7.0.45`, RabbitMQ `4.2.5-management`, Keycloak `26.7.5` e Mailpit `v1.31.5`. Consulte as [notas oficiais do MongoDB 7.0](https://www.mongodb.com/docs/v7.0/release-notes/7.0/) e a [release do Mailpit](https://github.com/axllent/mailpit/releases/tag/v1.31.5) para as correções incluídas.
+Compose pins PostgreSQL `16.12`, MongoDB `7.0.45`, RabbitMQ `4.2.5-management`, Keycloak `26.7.5`, and Mailpit `v1.31.5`. See the [official MongoDB 7.0 release notes](https://www.mongodb.com/docs/v7.0/release-notes/7.0/) and the [Mailpit release](https://github.com/axllent/mailpit/releases/tag/v1.31.5) for the included fixes.
 
-**RabbitMQ 3.x → 4.x:** não reutilize diretamente um volume antigo sem preparar o upgrade. Para preservar mensagens, siga a [trilha de upgrade suportada](https://www.rabbitmq.com/docs/upgrade) e habilite as feature flags estáveis exigidas ainda na versão de origem antes de avançar. Em desenvolvimento, se puder perder as mensagens e definições locais, pare os serviços, identifique o volume deste projeto correspondente a `rabbitmq-data` e recrie **somente esse volume**. O nome Docker inclui o prefixo do projeto. O provisionamento recriará o vhost e os usuários; bancos e os outros volumes devem ser preservados.
+**RabbitMQ 3.x → 4.x:** do not directly reuse an old volume without preparing the upgrade. To preserve messages, follow the [supported upgrade path](https://www.rabbitmq.com/docs/upgrade) and enable the required stable feature flags on the source version before proceeding. In development, if you can discard local messages and definitions, stop the services, identify this project's volume corresponding to `rabbitmq-data`, and recreate **only that volume**. The Docker name includes the project prefix. Provisioning will recreate the vhost and users; databases and other volumes must be preserved.
 
-**Keycloak 26.4.7 → 26.7.5:** a versão anterior é afetada pelos avisos [GHSA-95cx-vmr5-3cmr](https://github.com/keycloak/keycloak/security/advisories/GHSA-95cx-vmr5-3cmr) e [GHSA-j97h-3f8r-mrjr](https://github.com/keycloak/keycloak/security/advisories/GHSA-j97h-3f8r-mrjr). O segundo lista correção em `26.6.4`, sem patch listado para a linha `26.4`. Antes de atualizar um banco existente, faça backup e revise as mudanças de migração `26.5`, `26.6` e `26.7`, até `26.7.5`, no [guia oficial de upgrade](https://www.keycloak.org/docs/latest/upgrading/index.html). Valide realm, clients, redirects, login e emissão de tokens após a atualização.
+**Keycloak 26.4.7 → 26.7.5:** the previous version is affected by advisories [GHSA-95cx-vmr5-3cmr](https://github.com/keycloak/keycloak/security/advisories/GHSA-95cx-vmr5-3cmr) and [GHSA-j97h-3f8r-mrjr](https://github.com/keycloak/keycloak/security/advisories/GHSA-j97h-3f8r-mrjr). The second lists a fix in `26.6.4`, with no patch listed for the `26.4` line. Before upgrading an existing database, back it up and review the `26.5`, `26.6`, and `26.7` migration changes, through `26.7.5`, in the [official upgrade guide](https://www.keycloak.org/docs/latest/upgrading/index.html). Validate the realm, clients, redirects, login, and token issuance after the upgrade.
 
-### Encerramento
+### Shutdown
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
 
-O `down` respeita os profiles ativos no ambiente. Não use `down -v` se quiser preservar os dados locais.
+`down` respects the active environment profiles. Do not use `down -v` if you want to preserve local data.
 
-## Deploy na OCI
+<a id="deploy-na-oci"></a>
 
-Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina de administração para o usuário da VM com chave e sudo. Os scripts não criam os recursos OCI. Endpoints e domínios estão fixados em `scripts/prod/prod.env`, nos bootstraps dos bancos e na configuração da borda; se mudarem ao recriar a infraestrutura, atualize os arquivos no git antes do deploy. Nunca edite arquivos na VM: toda mudança de configuração passa pelo git; o `.env` é gerado.
+## Deploy on OCI
 
-1. **Pré-requisitos na OCI.** Provisione VM Oracle Linux 9, com `firewalld` ativo, dynamic group incluindo a instância e policy permitindo ler os segredos do Vault via instance principal. Provisione PostgreSQL gerenciado (o bootstrap usa cliente 17) com endpoint privado e Autonomous JSON com endpoint privado e API Mongo habilitada. A VM precisa resolver e alcançar os bancos nas portas privadas `5432` e `27017`, além de saída para repositórios, imagens, APIs OCI, ACME e SMTP `587`.
+Run in the order below. `ecommerce-vm` is an SSH alias configured on the administration machine for the VM user with key authentication and sudo. The scripts do not create OCI resources. Endpoints and domains are fixed in `scripts/prod/prod.env`, the database bootstrap scripts, and the edge configuration; if they change when infrastructure is recreated, update the files in git before deployment. Never edit files on the VM: all configuration changes go through git; `.env` is generated.
 
-   Na Security List da VM, abra somente TCP `80`/`443` para a borda e `22` para SSH (restrito à origem administrativa). Não publique portas dos bancos ou consoles. Crie registros DNS A `loja.fabianoquirinos.com.br` e `auth.fabianoquirinos.com.br` apontando para o IP público da VM. No Email Delivery, aprove o remetente `noreply@loja.fabianoquirinos.com.br` e gere credenciais SMTP.
+1. **OCI prerequisites.** Provision an Oracle Linux 9 VM with `firewalld` enabled, a dynamic group including the instance, and a policy allowing Vault secrets to be read through instance principal authentication. Provision managed PostgreSQL (the bootstrap uses client 17) with a private endpoint and Autonomous JSON with a private endpoint and the Mongo API enabled. The VM must resolve and reach the databases on private ports `5432` and `27017`, and have outbound access to repositories, images, OCI APIs, ACME, and SMTP `587`.
 
-   Crie um Vault e uma chave de criptografia. Os 15 nomes exigidos por `SECRET_NAMES` em `generate-prod-env.sh` são:
+   In the VM Security List, open only TCP `80`/`443` for the edge and `22` for SSH (restricted to the administrative source). Do not expose database or console ports. Create DNS A records for `loja.fabianoquirinos.com.br` and `auth.fabianoquirinos.com.br` pointing to the VM's public IP. In Email Delivery, approve the sender `noreply@loja.fabianoquirinos.com.br` and generate SMTP credentials.
+
+   Create a Vault and an encryption key. The 15 names required by `SECRET_NAMES` in `generate-prod-env.sh` are:
 
    ```text
    KEYCLOAK_ADMIN_PASSWORD       KEYCLOAK_DB_PASSWORD
@@ -242,18 +244,18 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
    PRODUCT_MONGODB_PASSWORD
    ```
 
-   Cadastre `KC_SMTP_USER` e `KC_SMTP_PASSWORD` com as credenciais reais do Email Delivery, não valores aleatórios. Cadastre também `prod-postgres-password` e `prod-mongoDB-password` com as senhas administrativas reais dos bancos; os bootstraps leem esses dois segredos adicionais. Valores não podem ser vazios nem conter quebras de linha ou aspas simples.
+   Set `KC_SMTP_USER` and `KC_SMTP_PASSWORD` to the actual Email Delivery credentials, not random values. Also set `prod-postgres-password` and `prod-mongoDB-password` to the actual database administrator passwords; the bootstrap scripts read these two additional secrets. Values must not be empty or contain line breaks or single quotes.
 
-2. **Bootstrap da VM.** Na máquina de administração, a partir de um checkout de `main`, copie o script para a VM e execute como root via sudo:
+2. **VM bootstrap.** On the administration machine, from a `main` checkout, copy the script to the VM and run it as root through sudo:
 
    ```bash
    scp scripts/prod/vm-bootstrap.sh ecommerce-vm:/tmp/vm-bootstrap.sh
    ssh -t ecommerce-vm 'sudo bash /tmp/vm-bootstrap.sh'
    ```
 
-   O script expande o disco com `oci-growfs` quando disponível, atualiza pacotes, ativa atualizações automáticas de segurança sem reboot automático e instala Git, OCI CLI, Docker Engine e Compose. Configura rotação de logs (`10m`, cinco arquivos), `live-restore` e SSH só por chave, sem login root, autenticação interativa ou X11, com três tentativas. Se indicar reinício, execute `sudo systemctl reboot` na VM e reconecte.
+   The script expands the disk with `oci-growfs` when available, updates packages, enables automatic security updates without automatic reboots, and installs Git, OCI CLI, Docker Engine, and Compose. It configures log rotation (`10m`, five files), `live-restore`, and key-only SSH, without root login, interactive authentication, or X11, with three attempts. If it indicates a reboot is required, run `sudo systemctl reboot` on the VM and reconnect.
 
-3. **Clone como root, somente `main`.** Entre na VM; os comandos seguintes, salvo indicação contrária, rodam nela:
+3. **Clone as root, `main` only.** Log in to the VM; the following commands run there unless otherwise indicated:
 
    ```bash
    ssh ecommerce-vm
@@ -261,21 +263,21 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
    cd /opt/ecommerce
    ```
 
-   Atualizações usam `sudo git pull --ff-only`; não crie alterações locais na VM.
+   Updates use `sudo git pull --ff-only`; do not make local changes on the VM.
 
-4. **Borda HTTPS.** Com DNS propagado e porta `80` acessível:
+4. **HTTPS edge.** With DNS propagated and port `80` accessible:
 
    ```bash
    sudo ./scripts/prod/edge-setup.sh
    ```
 
-   Instala nginx do AppStream e certbot via EPEL restrito aos pacotes do certbot e suas dependências listadas. Libera HTTP/HTTPS no `firewalld`, habilita `httpd_can_network_relay` no SELinux e rotula `8180` como `http_port_t` (`8080` já é `http_cache_port_t`; `8008`, usada pelo frontend, já é `http_port_t`). Emite certificado Let's Encrypt por HTTP-01 para os dois domínios, instala `scripts/prod/nginx/ecommerce.conf` e ativa `certbot-renew.timer`, com reload do nginx após renovação. A borda redireciona HTTP para HTTPS e usa TLS 1.2/1.3; antes da subida dos containers, os proxies ainda podem retornar `502`.
+   Installs nginx from AppStream and certbot through EPEL, restricted to certbot packages and their listed dependencies. Allows HTTP/HTTPS in `firewalld`, enables `httpd_can_network_relay` in SELinux, and labels `8180` as `http_port_t` (`8080` is already `http_cache_port_t`; `8008`, used by the frontend, is already `http_port_t`). Issues a Let's Encrypt certificate through HTTP-01 for both domains, installs `scripts/prod/nginx/ecommerce.conf`, and enables `certbot-renew.timer`, reloading nginx after renewal. The edge redirects HTTP to HTTPS and uses TLS 1.2/1.3; before containers start, the proxies may still return `502`.
 
-5. **Segredos aleatórios.** Na máquina de administração, use OCI CLI autenticada como usuário autorizado a consultar o Vault e gerenciar segredos, além de Python 3. Na raiz do checkout, informe os OCIDs do Vault e da chave:
+5. **Random secrets.** On the administration machine, use OCI CLI authenticated as a user authorized to query Vault and manage secrets, along with Python 3. At the checkout root, provide the Vault and key OCIDs:
 
    ```bash
-   read -r -p 'OCID do Vault: ' VAULT_ID
-   read -r -p 'OCID da chave: ' KEY_ID
+   read -r -p 'Vault OCID: ' VAULT_ID
+   read -r -p 'Key OCID: ' KEY_ID
    for name in KEYCLOAK_ADMIN_PASSWORD KEYCLOAK_DB_PASSWORD \
      KC_BFF_CLIENT_SECRET KC_ORDER_SERVICE_CLIENT_SECRET \
      ORDER_DB_PASSWORD INVENTORY_DB_PASSWORD RABBITMQ_ADMIN_PASSWORD \
@@ -286,35 +288,35 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
    done
    ```
 
-   Argumentos: `<nome> <vault-ocid> <key-ocid> [tamanho]`; padrão `30`, intervalo `12–30`. Gera senha alfanumérica com maiúscula, minúscula e dígito, sem exibir o valor; segredo existente é preservado. Não use para gerar novamente senhas administrativas de bancos já criados nem credenciais SMTP.
+   Arguments: `<name> <vault-ocid> <key-ocid> [length]`; default `30`, range `12–30`. Generates an alphanumeric password containing uppercase, lowercase, and a digit, without displaying the value; existing secrets are preserved. Do not use it to regenerate administrator passwords for databases that have already been created or SMTP credentials.
 
-6. **Bancos.** De volta à VM, em `/opt/ecommerce`, informe o mesmo Vault:
+6. **Databases.** Back on the VM, in `/opt/ecommerce`, provide the same Vault:
 
    ```bash
-   read -r -p 'OCID do Vault: ' VAULT_ID
+   read -r -p 'Vault OCID: ' VAULT_ID
    sudo ./scripts/prod/db-bootstrap.sh "$VAULT_ID"
    sudo ./scripts/prod/adb-bootstrap.sh "$VAULT_ID"
    ```
 
-   O primeiro lê o Vault por instance principal e usa `psql` em `postgres:17-alpine` para reconciliar os usuários `order_service`, `inventory_service` e `keycloak`, donos dos bancos `order-service`, `inventory_service` e `keycloak`, com acesso de `PUBLIC` revogado. Usa `verify-full`; `scripts/prod/certs/oci-postgresql-ca.pem` é a CA pública para validar certificado e hostname do PostgreSQL, também montada somente para leitura nos containers pelo override de produção. Ao recriar o banco, confira a CA fornecida pela OCI e atualize-a pelo git se necessário.
+   The first script reads Vault through instance principal authentication and uses `psql` in `postgres:17-alpine` to reconcile users `order_service`, `inventory_service`, and `keycloak`, owners of databases `order-service`, `inventory_service`, and `keycloak`, with `PUBLIC` access revoked. It uses `verify-full`; `scripts/prod/certs/oci-postgresql-ca.pem` is the public CA used to validate the PostgreSQL certificate and hostname, also mounted read-only in containers by the production override. When recreating the database, check the CA supplied by OCI and update it through git if needed.
 
-   O segundo usa `mongosh` em `mongo:7.0`, via API Mongo com TLS na porta `27017`, autenticado como `ADMIN`. Cria/atualiza `PRODUCT_SERVICE`, cota de `5G`, privilégios de schema e habilitação ORDS com autenticação; testa escrita/leitura e remove a coleção de teste. Não usa SQL*Net `1522` nem ORDS `443`. A senha de `PRODUCT_SERVICE` deve ter `12–30` caracteres alfanuméricos, maiúscula, minúscula e dígito, sem conter o nome do usuário.
+   The second uses `mongosh` in `mongo:7.0`, through the Mongo API with TLS on port `27017`, authenticated as `ADMIN`. It creates/updates `PRODUCT_SERVICE`, a `5G` quota, schema privileges, and ORDS enablement with authentication; it tests writes/reads and removes the test collection. It does not use SQL*Net `1522` or ORDS `443`. The `PRODUCT_SERVICE` password must contain `12–30` alphanumeric characters, including uppercase, lowercase, and a digit, and must not contain the username.
 
-7. **`.env` a partir do Vault.** Na VM:
+7. **`.env` from Vault.** On the VM:
 
    ```bash
-   sudo IMAGE_TAG=<sha-completo-do-commit> ./scripts/prod/generate-prod-env.sh "$VAULT_ID"
+   sudo IMAGE_TAG=<full-commit-sha> ./scripts/prod/generate-prod-env.sh "$VAULT_ID"
    ```
 
-   `IMAGE_TAG` só é exigido na primeira geração; nas seguintes, o script preserva a linha `IMAGE_TAG=` do `.env` atual (lida isoladamente, sem executar o arquivo) e a valida como SHA de 40 caracteres hexadecimais. Usa instance principal, combina `scripts/prod/prod.env` com os 15 segredos e monta `PRODUCT_MONGODB_URI`. O template define URLs públicas HTTPS e `SESSION_COOKIE_SECURE=true`. Valida com Compose, substitui atomicamente o `.env` com dono root e modo `600`, preservando backup `600` se já existir. Não imprime segredos. Não execute o `.env` como shell nem compartilhe o arquivo ou seus backups.
+   `IMAGE_TAG` is required only for the first generation; on subsequent runs, the script preserves the `IMAGE_TAG=` line from the current `.env` (read in isolation, without executing the file) and validates it as a 40-character hexadecimal SHA. It uses instance principal authentication, combines `scripts/prod/prod.env` with the 15 secrets, and assembles `PRODUCT_MONGODB_URI`. The template sets public HTTPS URLs and `SESSION_COOKIE_SECURE=true`. It validates with Compose, atomically replaces `.env` with root ownership and mode `600`, and preserves a `600` backup if one already exists. It does not print secrets. Do not execute `.env` as a shell script or share the file or its backups.
 
-8. **Subida.** Na VM, em `/opt/ecommerce`:
+8. **Startup.** On the VM, in `/opt/ecommerce`:
 
    ```bash
    sudo docker compose up -d --remove-orphans
    ```
 
-   Os seis apps (cinco serviços Java e o frontend Angular) não são compilados na VM: o override de produção remove o `build` (`!reset`) e aponta cada app para `${IMAGE_REGISTRY}/ecommerce-<serviço>:${IMAGE_TAG}`, as imagens publicadas pelo CI no GHCR com SBOM e atestado de proveniência. O pull é anônimo (pacotes públicos), sem credencial do GitHub na VM. O `.env` define `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` e `COMPOSE_PROFILES=monitoring,apps`. Na primeira aplicação do `frontendUrl` do master, `keycloak-config` pode sair com `401`: o atributo já foi gravado, mas o token do CLI ainda tem o issuer anterior (comentários em `scripts/prod/keycloak/realm-master.yaml`). Nesse caso, execute novamente e confirme saída `0`; depois retome a subida das aplicações:
+   The six apps (five Java services and the Angular frontend) are not built on the VM: the production override removes `build` (`!reset`) and points each app to `${IMAGE_REGISTRY}/ecommerce-<service>:${IMAGE_TAG}`, the images published by CI to GHCR with an SBOM and provenance attestation. Pulls are anonymous (public packages), without GitHub credentials on the VM. `.env` sets `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` and `COMPOSE_PROFILES=monitoring,apps`. When the master realm's `frontendUrl` is first applied, `keycloak-config` may exit with `401`: the attribute has already been written, but the CLI token still has the previous issuer (comments in `scripts/prod/keycloak/realm-master.yaml`). In that case, run it again and confirm exit code `0`; then resume application startup:
 
    ```bash
    sudo docker compose run --rm keycloak-config
@@ -322,36 +324,36 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
    sudo docker compose ps -a
    ```
 
-9. **Acesso administrativo.** Somente por túnel SSH, iniciado na máquina de administração:
+9. **Administrative access.** Only through an SSH tunnel started on the administration machine:
 
    ```bash
    ssh -o ExitOnForwardFailure=yes -L 8180:localhost:8180 ecommerce-vm
    ```
 
-   Abra `http://localhost:8180/admin/` (`admin` / `KEYCLOAK_ADMIN_PASSWORD`). Para os demais consoles, use o mesmo comando trocando ambos os números de porta: RabbitMQ `15672`, Grafana `3000`, Prometheus `9090`, Zipkin `9411`. Todos são publicados somente em loopback. No domínio público de autenticação, nginx bloqueia `/admin` e `/realms/master` com `404`; apenas o realm de negócio e seus recursos ficam acessíveis.
+   Open `http://localhost:8180/admin/` (`admin` / `KEYCLOAK_ADMIN_PASSWORD`). For other consoles, use the same command, replacing both port numbers: RabbitMQ `15672`, Grafana `3000`, Prometheus `9090`, Zipkin `9411`. All are published only on loopback. On the public authentication domain, nginx blocks `/admin` and `/realms/master` with `404`; only the business realm and its resources are accessible.
 
-10. **Atualização de versão.** Publique toda mudança em `main` antes de atualizar. Na VM:
+10. **Version update.** Publish every change to `main` before updating. On the VM:
 
     ```bash
     cd /opt/ecommerce
     sudo git pull --ff-only
-    sudo ./scripts/prod/deploy.sh <sha-completo-do-commit>
+    sudo ./scripts/prod/deploy.sh <full-commit-sha>
     ```
 
-    Use o SHA de um commit da `main` cujo job de publicação de imagens no CI terminou com sucesso. O `deploy.sh` baixa as imagens antes de alterar qualquer coisa, registra os digests, grava a tag no `.env` de forma atômica, recria somente os seis apps e aguarda `running+healthy` (`DEPLOY_HEALTH_TIMEOUT`, padrão 300 s). Se algo falhar depois da troca, volta sozinho para a tag anterior e sai com erro. A versão no ar é a linha `IMAGE_TAG` do `.env`; rollback manual é rodar o script com o SHA anterior. O rollback não desfaz migrations: mantenha-as aditivas e faça `pg_dump` antes de releases com mudança de schema. Mudanças em realm, topologia do RabbitMQ ou infraestrutura não são aplicadas pelo `deploy.sh`: rode `sudo docker compose run --rm keycloak-config`, `sudo docker compose up -d --remove-orphans` conforme o caso.
+    Use the SHA of a `main` commit whose CI image publishing job completed successfully. `deploy.sh` pulls images before changing anything, records digests, atomically writes the tag to `.env`, recreates only the six apps, and waits for `running+healthy` (`DEPLOY_HEALTH_TIMEOUT`, default 300 s). If anything fails after the switch, it automatically rolls back to the previous tag and exits with an error. The live version is the `IMAGE_TAG` line in `.env`; manual rollback means running the script with the previous SHA. Rollback does not undo migrations: keep them additive and run `pg_dump` before releases with schema changes. Changes to the realm, RabbitMQ topology, or infrastructure are not applied by `deploy.sh`: run `sudo docker compose run --rm keycloak-config` or `sudo docker compose up -d --remove-orphans` as appropriate.
 
-    Na primeira versão com frontend, reinstale uma vez a configuração da borda versionada, após atualizar o checkout e subir o sexto app:
+    For the first version with the frontend, reinstall the version-controlled edge configuration once, after updating the checkout and starting the sixth app:
 
     ```bash
     sudo install -o root -g root -m 0644 scripts/prod/nginx/ecommerce.conf /etc/nginx/conf.d/ecommerce.conf
     sudo nginx -t && sudo systemctl reload nginx
     ```
 
-    A borda envia `/api`, `/bff`, `/oauth2`, `/login/oauth2`, `/logout` e `/actuator` ao gateway; as demais rotas, inclusive `/cart`, vão para a SPA em `127.0.0.1:8008`. O healthcheck `/healthz` é interno ao container. O nginx do frontend serve `index.html` sem cache, assets com hash com cache imutável de um ano e CSP com scripts apenas da mesma origem. O build desativa CSS crítico inline para evitar o script inline gerado pelo Angular; estilos inline continuam necessários ao PrimeNG. PID e arquivos temporários do nginx ficam no tmpfs `/tmp`; o restante do filesystem é somente leitura.
+    The edge forwards `/api`, `/bff`, `/oauth2`, `/login/oauth2`, `/logout`, and `/actuator` to the gateway; other routes, including `/cart`, go to the SPA at `127.0.0.1:8008`. The `/healthz` health check is internal to the container. The frontend nginx serves `index.html` without caching, hashed assets with one year of immutable caching, and a CSP allowing scripts only from the same origin. The build disables inline critical CSS to avoid the inline script generated by Angular; inline styles remain necessary for PrimeNG. The nginx PID and temporary files reside in the `/tmp` tmpfs; the rest of the filesystem is read-only.
 
-    Regenere o `.env` pelo passo 7 nesta primeira atualização para aplicar o retorno de login para `/` e de logout para `https://loja.fabianoquirinos.com.br/`. O realm já permite esse retorno via `GATEWAY_PUBLIC_URL`; `webOrigins` vazio é intencional, pois a SPA usa o BFF na mesma origem. Rollback entre versões com frontend exige as seis imagens publicadas no SHA de destino; um SHA antigo que só tenha cinco imagens não é um destino completo para o novo deploy. Na transição inicial, se for necessário voltar à versão sem frontend, use o checkout e o `deploy.sh` anteriores, junto com a configuração anterior da borda.
+    Regenerate `.env` through step 7 on this first update to apply the login redirect to `/` and the logout redirect to `https://loja.fabianoquirinos.com.br/`. The realm already allows this redirect through `GATEWAY_PUBLIC_URL`; empty `webOrigins` is intentional because the SPA uses the BFF on the same origin. Rollback between versions with the frontend requires all six images published for the target SHA; an older SHA with only five images is not a complete target for the new deployment. During the initial transition, if you need to return to the version without the frontend, use the previous checkout and `deploy.sh`, together with the previous edge configuration.
 
-    Se configuração pública ou segredos mudaram, regenere o `.env` pelo passo 7 antes da subida; mudanças na borda exigem reaplicar o passo 4. Alterar um segredo não rotaciona automaticamente credenciais persistidas: coordene a rotação com cada serviço/banco. Após a primeira subida e a cada atualização, aguarde os healthchecks e execute os smoke tests sem sessão (saídas esperadas: `200`, `200`, `200`, `401`, `403`):
+    If public configuration or secrets have changed, regenerate `.env` through step 7 before startup; edge changes require reapplying step 4. Changing a secret does not automatically rotate persisted credentials: coordinate rotation with each service/database. After the first startup and each update, wait for health checks and run the smoke tests without a session (expected outputs: `200`, `200`, `200`, `401`, `403`):
 
     ```bash
     curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/
@@ -361,22 +363,22 @@ Execute na ordem abaixo. `ecommerce-vm` é um alias SSH configurado na máquina 
     curl -sS -o /dev/null -w '%{http_code}\n' https://loja.fabianoquirinos.com.br/actuator/health
     ```
 
-11. **Deploy contínuo.** `.github/workflows/cd.yml` roda quando o CI da `main` termina com sucesso, ou manualmente com um SHA (redeploy/rollback). O job usa o environment `production`, que exige aprovação; depois valida o SHA, confirma que o commit está na `main`, verifica o atestado SLSA das seis imagens e executa na VM, pelo OCI Run Command (sem SSH aberto), `sudo /opt/ecommerce/scripts/prod/release.sh <sha>`. O `release.sh` posiciona o repositório no commit e chama o `deploy.sh`; o workflow termina com os smoke tests externos. Configuração única:
+11. **Continuous deployment.** `.github/workflows/cd.yml` runs when CI on `main` completes successfully, or manually with a SHA (redeploy/rollback). The job uses the `production` environment, which requires approval; it then validates the SHA, confirms that the commit is on `main`, verifies the SLSA attestation for all six images, and runs `sudo /opt/ecommerce/scripts/prod/release.sh <sha>` on the VM through OCI Run Command (without opening SSH). `release.sh` checks out the commit and calls `deploy.sh`; the workflow ends with external smoke tests. One-time setup:
 
-    - **IAM do CI:** usuário `github-cd-deployer` sem console, só com API key; grupo `ecommerce-deployers` com `manage instance-agent-command-family`, `read instance-agent-command-execution-family` e `read instances` restrito à VM (`where target.instance.id = '<OCID da VM>'`); sem esta última, a criação do comando responde `NotAuthorizedOrNotFound`. A VM precisa de `use instance-agent-command-execution-family` para o dynamic group `ecommerce-vm-dg`, com `where request.instance.id = target.instance.id`.
-    - **VM:** plugin *Compute Instance Run Command* ativo (após criar a policy do dynamic group, `sudo systemctl restart oracle-cloud-agent` faz o agente buscar comandos na hora, em vez de até 30 minutos depois) e a regra de sudoers versionada, que permite ao usuário `ocarun` executar apenas o `release.sh`:
+    - **CI IAM:** `github-cd-deployer` user without console access, using only an API key; `ecommerce-deployers` group with `manage instance-agent-command-family`, `read instance-agent-command-execution-family`, and `read instances` restricted to the VM (`where target.instance.id = '<VM-OCID>'`); without the last permission, command creation returns `NotAuthorizedOrNotFound`. The VM needs `use instance-agent-command-execution-family` for the `ecommerce-vm-dg` dynamic group, with `where request.instance.id = target.instance.id`.
+    - **VM:** *Compute Instance Run Command* plugin enabled (after creating the dynamic group policy, `sudo systemctl restart oracle-cloud-agent` makes the agent fetch commands immediately rather than up to 30 minutes later), and the version-controlled sudoers rule, which allows the `ocarun` user to run only `release.sh`:
 
       ```bash
       sudo install -m 0440 -o root -g root scripts/prod/sudoers/ecommerce-release /etc/sudoers.d/ecommerce-release
       sudo visudo -c
       ```
 
-    - **Ruleset da `main`:** exija também o check `Frontend: lint, testes e build` e `Validar imagem (frontend)`, além dos checks existentes. A publicação das seis imagens depende de `Build e testes` e `Frontend: lint, testes e build`; cada imagem usa como tag o SHA completo e recebe SBOM e atestado.
-    - **GitHub:** environment `production` com revisor obrigatório e deploy restrito à `main`. Secrets: `OCI_USER_OCID`, `OCI_TENANCY_OCID`, `OCI_FINGERPRINT`, `OCI_PRIVATE_KEY`. Variables: `OCI_REGION`, `OCI_COMPARTMENT_OCID`, `OCI_INSTANCE_OCID`.
+    - **`main` ruleset:** also require the `Frontend: lint, testes e build` and `Validar imagem (frontend)` checks, in addition to existing checks. Publishing the six images depends on `Build e testes` and `Frontend: lint, testes e build`; each image is tagged with the full SHA and receives an SBOM and attestation.
+    - **GitHub:** `production` environment with a required reviewer and deployment restricted to `main`. Secrets: `OCI_USER_OCID`, `OCI_TENANCY_OCID`, `OCI_FINGERPRINT`, `OCI_PRIVATE_KEY`. Variables: `OCI_REGION`, `OCI_COMPARTMENT_OCID`, `OCI_INSTANCE_OCID`.
 
-## Testes
+## Tests
 
-Use o Maven Wrapper único, a partir da raiz:
+Use the single Maven Wrapper from the root:
 
 ```bash
 ./mvnw -pl order-service -am test
@@ -384,10 +386,10 @@ Use o Maven Wrapper único, a partir da raiz:
 python3 -m unittest discover -s scripts/tests -v
 ```
 
-Há testes unitários, de autorização MVC, de sessão/Bearer no gateway e de integração do fluxo Order/Inventory. Os testes que usam Testcontainers precisam de Docker acessível. A cobertura ainda deve ser ampliada, especialmente para eventos e o fluxo ponta a ponta.
+There are unit tests, MVC authorization tests, session/Bearer tests in the gateway, and integration tests for the Order/Inventory flow. Tests using Testcontainers require access to Docker. Coverage still needs to be expanded, especially for events and the end-to-end flow.
 
-As chamadas externas passam pelo gateway; o login de usuário usa Authorization Code com PKCE. As rotas internas de reserva (`/api/inventory/reservations/{reservationId}`) usam `client_credentials` do `order-service` e permanecem bloqueadas no gateway.
+External requests go through the gateway; user login uses Authorization Code with PKCE. Internal reservation routes (`/api/inventory/reservations/{reservationId}`) use `client_credentials` from `order-service` and remain blocked at the gateway.
 
-## Escopo
+## Scope
 
-O frontend Angular acompanha os cinco serviços Java no deploy de produção. Não há Payment Service ou AI Service neste repositório. A prioridade é estabilizar e ampliar a validação do fluxo completo de catálogo, carrinho e pedidos.
+The Angular frontend is deployed to production alongside the five Java services. There is no Payment Service or AI Service in this repository. The priority is to stabilize and expand validation of the complete catalog, cart, and order flow.

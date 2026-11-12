@@ -33,13 +33,13 @@ read_previous_tag() {
   local line value found=0
   while IFS= read -r line || [[ -n $line ]]; do
     [[ $line == IMAGE_TAG=* ]] || continue
-    [[ $found -eq 0 ]] || fail 'IMAGE_TAG duplicada no .env.'
+    [[ $found -eq 0 ]] || fail 'Duplicate IMAGE_TAG in .env.'
     found=1
     value=${line#IMAGE_TAG=}
     if [[ $value == \"*\" || $value == \'*\' ]]; then
       value=${value:1:${#value}-2}
     fi
-    valid_tag "$value" || fail 'IMAGE_TAG atual inválida no .env.'
+    valid_tag "$value" || fail 'Invalid current IMAGE_TAG in .env.'
     previous_tag=$value
   done < "$env_file"
 }
@@ -151,13 +151,13 @@ wait_healthy() {
       [[ $fatal -eq 0 ]] || failed+=("$service")
     done
     if [[ ${#failed[@]} -gt 0 ]]; then
-      printf '==> Serviços com falha: %s\n' "${failed[*]}" >&2
+      printf '==> Failed services: %s\n' "${failed[*]}" >&2
       return 1
     fi
     [[ ${#pending[@]} -gt 0 ]] || return 0
     remaining=$((deadline - SECONDS))
     if [[ $remaining -le 0 ]]; then
-      printf '==> Timeout aguardando running+healthy: %s\n' "${pending[*]}" >&2
+      printf '==> Timeout waiting for running+healthy: %s\n' "${pending[*]}" >&2
       return 1
     fi
     pause=$health_interval
@@ -174,14 +174,14 @@ on_exit() {
   if [[ $committed -eq 1 && $completed -eq 0 ]]; then
     status=1
     if [[ -n $previous_tag ]]; then
-      printf '==> Deploy falhou; iniciando rollback para %s.\n' "$previous_tag" >&2
+      printf '==> Deployment failed; starting rollback to %s.\n' "$previous_tag" >&2
       if write_tag "$previous_tag" && up_apps "$previous_tag" && wait_healthy "$previous_tag"; then
-        printf '==> Rollback concluído; tag ativa: %s. O deploy falhou.\n' "$previous_tag" >&2
+        printf '==> Rollback completed; active tag: %s. Deployment failed.\n' "$previous_tag" >&2
       else
-        printf '==> Rollback também falhou; verifique os apps e a tag no .env.\n' >&2
+        printf '==> Rollback also failed; check the apps and the tag in .env.\n' >&2
       fi
     else
-      printf '==> Deploy falhou sem rollback: não existe tag anterior.\n' >&2
+      printf '==> Deployment failed without rollback: no previous tag exists.\n' >&2
     fi
   fi
   cleanup_temp
@@ -189,46 +189,46 @@ on_exit() {
 }
 
 main() {
-  [[ $EUID -eq 0 ]] || fail 'Execute com sudo.'
-  [[ $# -eq 1 ]] || fail 'Uso: sudo ./scripts/prod/deploy.sh <sha-de-40-hex>'
+  [[ $EUID -eq 0 ]] || fail 'Run with sudo.'
+  [[ $# -eq 1 ]] || fail 'Usage: sudo ./scripts/prod/deploy.sh <40-hex-sha>'
   local new_tag=$1
-  valid_tag "$new_tag" || fail 'Tag inválida: informe exatamente 40 caracteres hexadecimais minúsculos.'
+  valid_tag "$new_tag" || fail 'Invalid tag: provide exactly 40 lowercase hexadecimal characters.'
 
   local lock_file=${DEPLOY_LOCK_FILE:-/run/lock/ecommerce-deploy.lock}
   [[ ! -L $lock_file && ( ! -e $lock_file || -f $lock_file ) ]] \
-    || fail 'Lock deve ser um arquivo regular, sem link simbólico.'
+    || fail 'Lock must be a regular file, not a symbolic link.'
   exec {lock_fd}>> "$lock_file"
-  flock -n "$lock_fd" || fail 'Outro deploy está em andamento.'
+  flock -n "$lock_fd" || fail 'Another deployment is in progress.'
 
   root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
   env_file="$root_dir/.env"
-  check_env || fail '.env deve existir e ser um arquivo regular, sem link simbólico.'
+  check_env || fail '.env must exist and be a regular file, not a symbolic link.'
   cd -- "$root_dir"
   docker_bin=${DOCKER_BIN:-docker}
   health_timeout=${DEPLOY_HEALTH_TIMEOUT:-300}
   health_interval=${DEPLOY_HEALTH_INTERVAL:-5}
   [[ $health_timeout =~ ^(0|[1-9][0-9]{0,5})$ ]] \
-    || fail 'DEPLOY_HEALTH_TIMEOUT deve ser um inteiro entre 0 e 999999 segundos.'
+    || fail 'DEPLOY_HEALTH_TIMEOUT must be an integer between 0 and 999999 seconds.'
   [[ $health_interval =~ ^(0|[1-9][0-9]{0,5})$ ]] \
-    || fail 'DEPLOY_HEALTH_INTERVAL deve ser um inteiro entre 0 e 999999 segundos.'
+    || fail 'DEPLOY_HEALTH_INTERVAL must be an integer between 0 and 999999 seconds.'
   read_previous_tag
   if [[ -z $previous_tag ]]; then
-    printf '==> Primeiro deploy: não haverá rollback automático.\n' >&2
+    printf '==> First deployment: there will be no automatic rollback.\n' >&2
   elif [[ $new_tag == "$previous_tag" ]]; then
-    printf '==> A tag solicitada já está ativa; seguindo para reparar os apps.\n' >&2
+    printf '==> The requested tag is already active; proceeding to repair the apps.\n' >&2
   fi
 
   trap on_exit EXIT
-  trap 'fail "Deploy interrompido."' HUP INT TERM
-  printf '==> Baixando imagens para %s.\n' "$new_tag"
+  trap 'fail "Deployment interrupted."' HUP INT TERM
+  printf '==> Pulling images for %s.\n' "$new_tag"
   compose "$new_tag" pull "${APPS[@]}" >/dev/null 2>&1 \
-    || fail "Pull falhou; .env e containers não foram alterados. Diagnóstico: sudo IMAGE_TAG=$new_tag docker compose pull"
-  print_digests "$new_tag" || fail 'Falha ao obter os digests; .env e containers não foram alterados.'
-  write_tag "$new_tag" || fail 'Falha ao gravar e validar a nova tag no .env.'
-  up_apps "$new_tag" || fail 'Falha ao subir os apps. Diagnóstico: sudo docker compose logs --tail 100 <serviço>'
-  wait_healthy "$new_tag" || fail 'Os apps não ficaram saudáveis.'
-  printf '==> Tag ativa: %s\n' "$new_tag"
-  compose "$new_tag" ps "${APPS[@]}" 2>/dev/null || fail 'Falha ao listar os apps.'
+    || fail "Pull failed; .env and containers were not changed. Diagnostics: sudo IMAGE_TAG=$new_tag docker compose pull"
+  print_digests "$new_tag" || fail 'Failed to retrieve digests; .env and containers were not changed.'
+  write_tag "$new_tag" || fail 'Failed to write and validate the new tag in .env.'
+  up_apps "$new_tag" || fail 'Failed to start the apps. Diagnostics: sudo docker compose logs --tail 100 <service>'
+  wait_healthy "$new_tag" || fail 'The apps did not become healthy.'
+  printf '==> Active tag: %s\n' "$new_tag"
+  compose "$new_tag" ps "${APPS[@]}" 2>/dev/null || fail 'Failed to list the apps.'
   completed=1
 }
 

@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ $EUID -eq 0 ]] || { echo 'Execute com sudo.' >&2; exit 1; }
+[[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
 
-echo '==> Disco: expande a partição e o sistema de arquivos até o tamanho do boot volume'
+echo '==> Disk: expanding the partition and filesystem to the boot volume size'
 if [[ -x /usr/libexec/oci-growfs ]]; then
-  /usr/libexec/oci-growfs -y || echo 'oci-growfs: nada a expandir.'
+  /usr/libexec/oci-growfs -y || echo 'oci-growfs: nothing to expand.'
 fi
 
-echo '==> Atualizações: aplica todos os pacotes pendentes'
+echo '==> Updates: applying all pending package updates'
 dnf -y upgrade
 
-echo '==> Atualizações automáticas: só correções de segurança, sem reinício automático'
+echo '==> Automatic updates: security fixes only, no automatic reboot'
 dnf -y install dnf-automatic
 sed -i -E \
   -e 's/^upgrade_type *=.*/upgrade_type = security/' \
@@ -19,10 +19,10 @@ sed -i -E \
   /etc/dnf/automatic.conf
 systemctl enable --now dnf-automatic.timer
 
-echo '==> Ferramentas do deploy: git (clone do repo público) e OCI CLI (segredos do Vault via instance principal)'
+echo '==> Deployment tools: git (public repository clone) and OCI CLI (Vault secrets via instance principal)'
 dnf -y install git python39-oci-cli
 
-echo '==> Docker Engine e Compose (repositório oficial da Docker)'
+echo '==> Docker Engine and Compose (official Docker repository)'
 dnf -y install dnf-plugins-core
 [[ -f /etc/yum.repos.d/docker-ce.repo ]] \
   || dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
@@ -43,7 +43,7 @@ fi
 rm -f "$daemon_json"
 systemctl enable --now docker
 
-echo '==> SSH: só chave, sem root, poucas tentativas'
+echo '==> SSH: key authentication only, no root login, limited attempts'
 cat > /etc/ssh/sshd_config.d/01-ecommerce-hardening.conf <<'EOF'
 PermitRootLogin no
 PasswordAuthentication no
@@ -55,10 +55,10 @@ chmod 600 /etc/ssh/sshd_config.d/01-ecommerce-hardening.conf
 sshd -t
 systemctl reload sshd
 
-echo '==> Resultado'
+echo '==> Result'
 df -h /
 if needs-restarting -r >/dev/null; then
-  echo 'Reinício não é necessário.'
+  echo 'No reboot required.'
 else
-  echo 'REINÍCIO NECESSÁRIO: kernel ou bibliotecas base foram atualizados (sudo systemctl reboot).'
+  echo 'REBOOT REQUIRED: the kernel or core libraries were updated (sudo systemctl reboot).'
 fi
