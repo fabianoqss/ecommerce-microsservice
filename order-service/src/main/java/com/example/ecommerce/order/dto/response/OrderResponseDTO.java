@@ -11,7 +11,7 @@ import java.util.UUID;
 public record OrderResponseDTO (
         @Schema(description = "Database-generated order ID", example = "01929b2e-7c3a-7d4f-9b1e-2f6a8c4d5e10", accessMode = Schema.AccessMode.READ_ONLY)
         UUID id,
-        @Schema(description = "Order status", example = "PLACED")
+        @Schema(description = "Order status", example = "CONFIRMED")
         String status,
         @Schema(description = "Order total", example = "699.80")
         BigDecimal totalValue,
