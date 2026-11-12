@@ -36,7 +36,7 @@ describe('Cart', () => {
     localStorage.clear();
   });
 
-  it('acumula quantidades e persiste as alterações', () => {
+  it('accumulates quantities and persists changes', () => {
     expect(cart.add('p1')).toBe('added');
     expect(cart.add('p1')).toBe('added');
     expect(cart.items()).toEqual([{ productId: 'p1', quantity: 2 }]);
@@ -47,7 +47,7 @@ describe('Cart', () => {
     ]);
   });
 
-  it('recusa o produto 51 sem alterar os cinquenta existentes', () => {
+  it('rejects product 51 without changing the existing fifty', () => {
     for (let i = 0; i < MAX_CART_PRODUCTS; i++) cart.add('p' + i);
     const before = cart.itemsSnapshotKey();
     expect(cart.add('extra')).toBe('limit-products');
@@ -57,34 +57,31 @@ describe('Cart', () => {
     expect(cart.totalQuantity()).toBe(51);
   });
 
-  it('recusa quantidades acima de 10000 sem alterar o carrinho', () => {
+  it('rejects quantities above 10000 without changing the cart', () => {
     cart.add('p1', MAX_QUANTITY_PER_PRODUCT);
     expect(cart.add('p1')).toBe('limit-quantity');
     expect(cart.add('p2', 10001)).toBe('limit-quantity');
     expect(cart.totalQuantity()).toBe(10000);
   });
 
-  it.each([0, -1, 1.5, NaN, Infinity])(
-    'recusa quantidade inválida ao adicionar: %s',
-    (quantity) => {
-      expect(cart.add('p1', quantity)).toBe('limit-quantity');
-      expect(cart.items()).toEqual([]);
-    },
-  );
+  it.each([0, -1, 1.5, NaN, Infinity])('rejects invalid quantity when adding: %s', (quantity) => {
+    expect(cart.add('p1', quantity)).toBe('limit-quantity');
+    expect(cart.items()).toEqual([]);
+  });
 
-  it('altera quantidades válidas, ignora inválidas e remove com zero', () => {
+  it('updates valid quantities, ignores invalid ones and removes items at zero', () => {
     cart.add('p1');
     cart.setQuantity('p1', 3);
     expect(cart.totalQuantity()).toBe(3);
     for (const quantity of [-1, 1.5, NaN, Infinity, 10001]) cart.setQuantity('p1', quantity);
-    cart.setQuantity('ausente', 2);
+    cart.setQuantity('missing', 2);
     expect(cart.items()).toEqual([{ productId: 'p1', quantity: 3 }]);
     cart.setQuantity('p1', 0);
     expect(cart.items()).toEqual([]);
     expect(localStorage.getItem('cart:ana')).toBe('[]');
   });
 
-  it('remove um item e limpa o carrinho da conta atual', () => {
+  it('removes an item and clears the current account cart', () => {
     cart.add('p1');
     cart.add('p2', 2);
     cart.remove('p1');
@@ -94,7 +91,7 @@ describe('Cart', () => {
     expect(localStorage.getItem('cart:ana')).toBe('[]');
   });
 
-  it('subtrai as quantidades pedidas do carrinho atual e persiste os itens restantes', () => {
+  it('subtracts ordered quantities from the current cart and persists remaining items', () => {
     cart.add('p1', 5);
     cart.add('p2', 4);
     const before = cart.items();
@@ -116,21 +113,21 @@ describe('Cart', () => {
     ]);
   });
 
-  it('remove itens com saldo zero ou negativo e não recria itens já removidos', () => {
+  it('removes items with zero or negative balances and does not recreate removed items', () => {
     cart.add('p1', 2);
     cart.add('p2');
     cart.add('p3', 4);
     cart.removeOrdered([
       { productId: 'p1', quantity: 2 },
       { productId: 'p2', quantity: 3 },
-      { productId: 'ausente', quantity: 1 },
+      { productId: 'missing', quantity: 1 },
     ]);
     expect(cart.items()).toEqual([{ productId: 'p3', quantity: 4 }]);
     expect(cart.totalQuantity()).toBe(4);
     expect(cart.distinctCount()).toBe(1);
   });
 
-  it('preserva o carrinho persistido ao receber itens pedidos sem usuário autenticado', () => {
+  it('preserves the stored cart when receiving ordered items without an authenticated user', () => {
     cart.add('p1', 2);
     user.set(null);
     cart.removeOrdered([{ productId: 'p1', quantity: 2 }]);
@@ -138,11 +135,11 @@ describe('Cart', () => {
     expect(localStorage.getItem('cart:ana')).toBe('[{"productId":"p1","quantity":2}]');
   });
 
-  it('isola as contas imediatamente e preserva o carrinho ao sair', () => {
+  it('isolates accounts immediately and preserves the cart on logout', () => {
     cart.add('p1');
     user.set(null);
     expect(cart.items()).toEqual([]);
-    cart.add('ignorado');
+    cart.add('ignored');
     cart.setQuantity('p1', 2);
     cart.remove('p1');
     cart.clear();
@@ -160,7 +157,7 @@ describe('Cart', () => {
     ]);
   });
 
-  it('recarrega somente alterações externas da conta atual', () => {
+  it('reloads only external changes for the current account', () => {
     cart.add('p1');
     localStorage.setItem('cart:ana', '[{"productId":"p2","quantity":3}]');
     changes.next('bia');
@@ -172,7 +169,7 @@ describe('Cart', () => {
     expect(cart.items()).toEqual([]);
   });
 
-  it('gera chave estável por conteúdo ordenado sem reordenar os itens', () => {
+  it('generates a stable key from sorted contents without reordering items', () => {
     cart.add('b', 2);
     cart.add('a');
     const key = cart.itemsSnapshotKey();

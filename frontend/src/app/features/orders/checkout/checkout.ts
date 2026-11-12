@@ -33,13 +33,13 @@ export class Checkout {
       ...line,
       name:
         line.product?.name ??
-        `${line.status === 'unavailable' ? 'Produto indisponível' : 'Produto'} (${line.productId})`,
+        `${line.status === 'unavailable' ? 'Product unavailable' : 'Product'} (${line.productId})`,
       unitPrice: priceParts(line.product?.price ?? 0),
       total: priceParts((line.product?.price ?? 0) * line.quantity),
     })),
   );
   protected readonly loadError = computed(() =>
-    problemDetail(this.view.error(), 'Não foi possível carregar o pedido. Tente novamente.'),
+    problemDetail(this.view.error(), 'Unable to load the order. Please try again.'),
   );
   private alive = true;
 
@@ -69,11 +69,11 @@ export class Checkout {
         error: (error: unknown) => {
           if (error instanceof HttpErrorResponse && error.status === 422) {
             this.attempt.renew();
-            this.submitError.set('Seu carrinho mudou. Revise e tente novamente.');
+            this.submitError.set('Your cart has changed. Review it and try again.');
             return;
           }
           this.submitError.set(
-            problemDetail(error, 'Não foi possível finalizar o pedido. Tente novamente.'),
+            problemDetail(error, 'Unable to place your order. Please try again.'),
           );
         },
       });

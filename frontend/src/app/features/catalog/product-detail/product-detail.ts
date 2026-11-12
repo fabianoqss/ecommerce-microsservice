@@ -38,16 +38,13 @@ export class ProductDetail {
       (this.inventory()?.quantity ?? 0) > 0,
   );
   protected readonly stockLabel = computed(() => {
-    if (this.inventoryResource.isLoading()) return 'Consultando estoque';
-    if (!this.inventoryResource.hasValue()) return 'Adicionar ao carrinho';
+    if (this.inventoryResource.isLoading()) return 'Checking stock';
+    if (!this.inventoryResource.hasValue()) return 'Add to cart';
     const stock = this.inventory();
-    return !stock || !stock.inStock || stock.quantity < 1 ? 'Sem estoque' : 'Adicionar ao carrinho';
+    return !stock || !stock.inStock || stock.quantity < 1 ? 'Out of stock' : 'Add to cart';
   });
   protected readonly inventoryErrorMessage = computed(() =>
-    problemDetail(
-      this.inventoryResource.error(),
-      'Não foi possível consultar o estoque deste produto.',
-    ),
+    problemDetail(this.inventoryResource.error(), 'Unable to check stock for this product.'),
   );
   protected readonly productResource = inject(ProductApi).byId(this.id);
   protected readonly product = computed(() =>
@@ -59,10 +56,7 @@ export class ProductDetail {
     return error instanceof HttpErrorResponse && error.status === 404;
   });
   protected readonly errorMessage = computed(() =>
-    problemDetail(
-      this.productResource.error(),
-      'Não foi possível carregar o produto. Tente novamente.',
-    ),
+    problemDetail(this.productResource.error(), 'Unable to load the product. Please try again.'),
   );
 
   protected addToCart(): void {
@@ -78,7 +72,7 @@ export class ProductDetail {
       this.messages.add({
         key: 'cart',
         severity: 'error',
-        detail: `Apenas ${stock.quantity} em estoque. Você já tem ${inCart} no carrinho.`,
+        detail: `Only ${stock.quantity} in stock. You already have ${inCart} in your cart.`,
       });
       return;
     }
@@ -88,10 +82,10 @@ export class ProductDetail {
       severity: result === 'added' ? 'success' : 'error',
       detail:
         result === 'added'
-          ? 'Produto adicionado ao carrinho'
+          ? 'Product added to cart'
           : result === 'limit-products'
-            ? 'O carrinho pode ter no máximo 50 produtos diferentes.'
-            : 'Você pode adicionar no máximo 10000 unidades de cada produto.',
+            ? 'Your cart can contain up to 50 different products.'
+            : 'You can add up to 10,000 units of each product.',
     });
   }
 
@@ -101,7 +95,7 @@ export class ProductDetail {
       this.title.setTitle(
         product && !this.productResource.isLoading()
           ? product.name + ' | DS Catalog'
-          : 'Produto | DS Catalog',
+          : 'Product | DS Catalog',
       );
     });
   }

@@ -5,7 +5,7 @@ import { AuthService } from './auth.service';
 import { authGuard } from './auth.guard';
 
 describe('authGuard', () => {
-  it.each([true, false])('permite acesso somente com sessão: %s', (authenticated) => {
+  it.each([true, false])('allows access only with a session: %s', (authenticated) => {
     const login = vi.fn();
     TestBed.configureTestingModule({
       providers: [

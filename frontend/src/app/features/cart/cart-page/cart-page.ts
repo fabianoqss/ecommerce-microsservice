@@ -20,7 +20,7 @@ export class CartPage {
   protected readonly view = loadCartView(this.cart.items);
   protected readonly subtotal = computed(() => priceParts(this.view.subtotal()));
   protected readonly errorMessage = computed(() =>
-    problemDetail(this.view.error(), 'Não foi possível carregar o carrinho. Tente novamente.'),
+    problemDetail(this.view.error(), 'Unable to load your cart. Please try again.'),
   );
 
   protected continueToCheckout(): void {

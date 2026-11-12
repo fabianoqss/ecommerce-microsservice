@@ -6,11 +6,11 @@ import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { PublicLayout } from './public-layout';
 
-@Component({ template: '<h1>Página pública</h1>' })
+@Component({ template: '<h1>Public page</h1>' })
 class PageStub {}
 
 describe('PublicLayout', () => {
-  it('mostra notificações públicas com link para o carrinho', async () => {
+  it('shows public notifications with a link to the cart', async () => {
     TestBed.configureTestingModule({
       providers: [MessageService, provideRouter([{ path: '', component: PublicLayout }])],
     });
@@ -18,20 +18,20 @@ describe('PublicLayout', () => {
     TestBed.inject(MessageService).add({
       key: 'cart',
       severity: 'success',
-      detail: 'Produto adicionado ao carrinho',
+      detail: 'Product added to cart',
       sticky: true,
     });
     await TestBed.inject(ApplicationRef).whenStable();
-    expect(harness.routeNativeElement?.textContent).toContain('Produto adicionado ao carrinho');
+    expect(harness.routeNativeElement?.textContent).toContain('Product added to cart');
     expect(harness.routeNativeElement?.querySelector('a[href="/cart"]')?.textContent?.trim()).toBe(
-      'Ver carrinho',
+      'View cart',
     );
     const clear = vi.spyOn(TestBed.inject(MessageService), 'clear');
     harness.routeNativeElement?.querySelector<HTMLAnchorElement>('a[href="/cart"]')?.click();
     expect(clear).toHaveBeenCalledExactlyOnceWith('cart');
   });
 
-  it('renderiza a página pública dentro do contêiner', async () => {
+  it('renders the public page inside the container', async () => {
     TestBed.configureTestingModule({
       providers: [
         MessageService,
@@ -49,6 +49,6 @@ describe('PublicLayout', () => {
 
     expect(container).toBeTruthy();
     expect(container?.querySelector('router-outlet')).toBeTruthy();
-    expect(container?.querySelector('h1')?.textContent).toBe('Página pública');
+    expect(container?.querySelector('h1')?.textContent).toBe('Public page');
   });
 });

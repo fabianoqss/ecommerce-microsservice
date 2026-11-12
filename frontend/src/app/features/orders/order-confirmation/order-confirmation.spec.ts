@@ -17,8 +17,8 @@ const order: Order = {
   totalValue: 42.75,
   orderTime: '2026-03-26T14:30:00',
   items: [
-    { productId: 'a', productName: 'Teclado comprado', quantity: 2, priceAtPurchase: 12.5 },
-    { productId: 'b', productName: 'Mouse comprado', quantity: 1, priceAtPurchase: 15 },
+    { productId: 'a', productName: 'Purchased keyboard', quantity: 2, priceAtPurchase: 12.5 },
+    { productId: 'b', productName: 'Purchased mouse', quantity: 1, priceAtPurchase: 15 },
   ],
 };
 const url = '/orders/' + order.id + '/confirmation';
@@ -62,7 +62,7 @@ describe('OrderConfirmation', () => {
     const harness = await RouterTestingHarness.create(path);
     TestBed.tick();
     const element = harness.routeNativeElement;
-    if (!element) throw new Error('Página ausente');
+    if (!element) throw new Error('Page missing');
     return { harness, element };
   }
 
@@ -71,11 +71,11 @@ describe('OrderConfirmation', () => {
     harness.detectChanges();
   }
 
-  it('mostra carregamento acessível enquanto busca o pedido', async () => {
+  it('shows accessible loading while fetching the order', async () => {
     const { harness, element } = await render();
     expect(element.querySelector('p-skeleton')).not.toBeNull();
     expect(element.querySelector('[aria-busy]')?.getAttribute('aria-busy')).toBe('true');
-    expect(element.querySelector('[role="status"]')?.textContent).toContain('Carregando pedido.');
+    expect(element.querySelector('[role="status"]')?.textContent).toContain('Loading order.');
     const request = http.expectOne('/api/order/' + order.id);
     expect(request.request.method).toBe('GET');
     request.flush(order);
@@ -84,52 +84,50 @@ describe('OrderConfirmation', () => {
     expect(element.querySelector('[aria-busy]')?.getAttribute('aria-busy')).toBe('false');
   });
 
-  it('mostra número, snapshots dos itens, total do servidor e retorno ao catálogo', async () => {
+  it('shows the number, item snapshots, server total and return to catalog', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/order/' + order.id).flush(order);
     await settle(harness);
-    expect(document.title).toBe('Pedido realizado | DS Catalog');
-    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Pedido realizado!');
+    expect(document.title).toBe('Order confirmed | DS Catalog');
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Order confirmed!');
     expect(element.textContent).toContain(order.id);
-    const lines = element.querySelector('ul[aria-label="Produtos no pedido"]');
+    const lines = element.querySelector('ul[aria-label="Products in your order"]');
     expect(lines?.querySelectorAll('li')).toHaveLength(2);
     const keyboard = lines?.querySelector('li');
-    expect(keyboard?.textContent).toContain('Teclado comprado');
-    expect(keyboard?.textContent).toContain('Quantidade: 2');
-    expect(keyboard?.textContent).toContain('Preço unitário: R$ 12,50');
-    expect(lines?.textContent).toContain('Mouse comprado');
-    expect(lines?.textContent).toContain('Quantidade: 1');
-    expect(lines?.textContent).toContain('Preço unitário: R$ 15,00');
-    expect(element.querySelector('aside')?.textContent).toContain('R$ 42,75');
-    expect(element.querySelector('a[href="/catalog"]')?.textContent).toContain(
-      'Continuar comprando',
-    );
+    expect(keyboard?.textContent).toContain('Purchased keyboard');
+    expect(keyboard?.textContent).toContain('Quantity: 2');
+    expect(keyboard?.textContent).toContain('Unit price: R$12.50');
+    expect(lines?.textContent).toContain('Purchased mouse');
+    expect(lines?.textContent).toContain('Quantity: 1');
+    expect(lines?.textContent).toContain('Unit price: R$15.00');
+    expect(element.querySelector('aside')?.textContent).toContain('R$42.75');
+    expect(element.querySelector('a[href="/catalog"]')?.textContent).toContain('Continue shopping');
     expect(element.querySelector('input, p-inputnumber')).toBeNull();
   });
 
-  it('apresenta PENDING como processamento normal com orientação sobre o estoque', async () => {
+  it('presents PENDING as normal processing with stock guidance', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/order/' + order.id).flush(order);
     await settle(harness);
-    expect(element.textContent).toContain('Processando');
-    expect(element.textContent).toContain('Estamos confirmando a reserva do estoque.');
+    expect(element.textContent).toContain('Processing');
+    expect(element.textContent).toContain('We are confirming your stock reservation.');
     expect(element.querySelector('p-message[severity="error"]')).toBeNull();
   });
 
-  it('mostra outro status sem orientação de processamento pendente', async () => {
+  it('shows another status without pending processing guidance', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/order/' + order.id).flush({ ...order, status: 'CONFIRMED' });
     await settle(harness);
-    expect(element.textContent).toContain('Confirmado');
-    expect(element.textContent).not.toContain('Estamos confirmando a reserva do estoque.');
+    expect(element.textContent).toContain('Confirmed');
+    expect(element.textContent).not.toContain('We are confirming your stock reservation.');
   });
 
   it.each([
-    ['2026-03-26T14:30:00', '26/03/2026 14:30'],
-    ['2026-01-01T00:05:00', '01/01/2026 00:05'],
-    ['2026-03-08T02:30:00', '08/03/2026 02:30'],
-    ['2026-12-31T23:59:59.123456', '31/12/2026 23:59'],
-  ])('formata %s como data e hora locais sem mudar o horário', async (orderTime, expected) => {
+    ['2026-03-26T14:30:00', 'Mar 26, 2026, 2:30 PM'],
+    ['2026-01-01T00:05:00', 'Jan 1, 2026, 12:05 AM'],
+    ['2026-03-08T02:30:00', 'Mar 8, 2026, 2:30 AM'],
+    ['2026-12-31T23:59:59.123456', 'Dec 31, 2026, 11:59 PM'],
+  ])('formats %s as local date and time without changing the time', async (orderTime, expected) => {
     const { harness, element } = await render();
     http.expectOne('/api/order/' + order.id).flush({ ...order, orderTime });
     await settle(harness);
@@ -138,46 +136,44 @@ describe('OrderConfirmation', () => {
     expect(time?.getAttribute('datetime')).toBe(orderTime);
   });
 
-  it('mostra pedido não encontrado no 404 sem expor o detalhe do servidor', async () => {
+  it('shows order not found on 404 without exposing server detail', async () => {
     const { harness, element } = await render();
     http
       .expectOne('/api/order/' + order.id)
-      .flush({ detail: 'Pedido de outro cliente.' }, { status: 404, statusText: 'Not Found' });
+      .flush({ detail: 'Another customer order.' }, { status: 404, statusText: 'Not Found' });
     await settle(harness);
-    expect(element.textContent).toContain('Pedido não encontrado.');
-    expect(element.textContent).not.toContain('Pedido de outro cliente.');
-    expect(element.textContent).not.toContain('Pedido realizado!');
+    expect(element.textContent).toContain('Order not found.');
+    expect(element.textContent).not.toContain('Another customer order.');
+    expect(element.textContent).not.toContain('Order confirmed!');
     expect(element.querySelector('button')).toBeNull();
-    expect(element.querySelector('a[href="/catalog"]')?.textContent).toContain(
-      'Continuar comprando',
-    );
+    expect(element.querySelector('a[href="/catalog"]')?.textContent).toContain('Continue shopping');
   });
 
   it.each([
-    'pedido-invalido',
+    'invalid-order',
     'd715a7c9-d942-4c65-92eb-704c797dc6eg',
     'd715a7c9d9424c6592eb704c797dc6ee',
-  ])('rejeita id inválido %s sem chamar a API', async (id) => {
+  ])('rejects invalid ID %s without calling the API', async (id) => {
     const { harness, element } = await render('/orders/' + id + '/confirmation');
     await settle(harness);
-    expect(element.textContent).toContain('Pedido não encontrado.');
-    expect(element.textContent).not.toContain('Pedido realizado!');
+    expect(element.textContent).toContain('Order not found.');
+    expect(element.textContent).not.toContain('Order confirmed!');
     http.expectNone((request) => request.url.startsWith('/api/'));
   });
 
   it.each([
-    [{ detail: 'Pedidos indisponíveis.' }, 'Pedidos indisponíveis.'],
-    [{}, 'Não foi possível carregar o pedido. Tente novamente.'],
-  ])('mostra ProblemDetail ou fallback e permite tentar novamente', async (problem, message) => {
+    [{ detail: 'Orders unavailable.' }, 'Orders unavailable.'],
+    [{}, 'Unable to load the order. Please try again.'],
+  ])('shows ProblemDetail or fallback and allows retrying', async (problem, message) => {
     const { harness, element } = await render();
     http
       .expectOne('/api/order/' + order.id)
       .flush(problem, { status: 503, statusText: 'Unavailable' });
     await settle(harness);
     expect(element.querySelector('p-message[severity="error"]')?.textContent).toContain(message);
-    expect(element.textContent).not.toContain('Pedido realizado!');
+    expect(element.textContent).not.toContain('Order confirmed!');
     const retry = Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Tentar novamente'),
+      button.textContent?.includes('Try again'),
     );
     expect(retry).toBeDefined();
     retry?.click();
@@ -185,10 +181,10 @@ describe('OrderConfirmation', () => {
     http.expectOne('/api/order/' + order.id).flush(order);
     await settle(harness);
     expect(element.querySelector('p-message[severity="error"]')).toBeNull();
-    expect(element.querySelector('h1')?.textContent).toContain('Pedido realizado!');
+    expect(element.querySelector('h1')?.textContent).toContain('Order confirmed!');
   });
 
-  it('acompanha mudanças do id e remove os dados anteriores ao receber um id inválido', async () => {
+  it('follows ID changes and removes previous data when receiving an invalid ID', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/order/' + order.id).flush(order);
     await settle(harness);
@@ -199,14 +195,14 @@ describe('OrderConfirmation', () => {
     http.expectOne('/api/order/' + secondId).flush({ ...order, id: secondId });
     await settle(harness);
     expect(element.textContent).toContain(secondId);
-    await harness.navigateByUrl('/orders/invalido/confirmation');
+    await harness.navigateByUrl('/orders/invalid/confirmation');
     await settle(harness);
-    expect(element.textContent).toContain('Pedido não encontrado.');
+    expect(element.textContent).toContain('Order not found.');
     expect(element.textContent).not.toContain(secondId);
     http.expectNone((request) => request.url.startsWith('/api/'));
   });
 
-  it('exige login na navegação direta sem buscar o pedido', async () => {
+  it('requires login on direct navigation without fetching the order', async () => {
     TestBed.inject(AuthService).clear();
     await RouterTestingHarness.create(url);
     expect(login).toHaveBeenCalledExactlyOnceWith('/oauth2/authorization/keycloak');

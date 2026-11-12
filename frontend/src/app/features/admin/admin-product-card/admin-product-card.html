@@ -21,7 +21,7 @@
       {{ product().name }}
     </h2>
     <p class="mt-px flex h-[36px] items-baseline gap-[7px] overflow-hidden pl-[7px]">
-      <span class="sr-only">R$ {{ price().integer }}{{ price().decimal }}</span>
+      <span class="sr-only">R${{ price().integer }}{{ price().decimal }}</span>
       <span class="shrink-0 text-sm tracking-[-0.21px] text-muted-color" aria-hidden="true"
         >R$</span
       >
@@ -43,9 +43,9 @@
         <span class="truncate">{{ product().category }}</span>
       </div>
       @if (quantity() !== undefined) {
-        <p class="text-sm text-muted-color">Estoque: {{ quantity() }}</p>
+        <p class="text-sm text-muted-color">Stock: {{ quantity() }}</p>
       } @else {
-        <p class="text-sm text-muted-color">Estoque: indisponível</p>
+        <p class="text-sm text-muted-color">Stock: unavailable</p>
       }
     </div>
   </div>
@@ -54,19 +54,19 @@
   >
     <button
       type="button"
-      [attr.aria-label]="'Editar ' + product().name"
+      [attr.aria-label]="'Edit ' + product().name"
       (click)="edit.emit(product())"
       class="h-[38px] min-w-0 flex-1 rounded-[10px] border border-[#9E9E9E] bg-transparent text-sm font-bold tracking-[-0.21px] text-muted-color transition-colors hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:w-[213px] md:shrink-0 md:flex-none dark:hover:bg-surface-800"
     >
-      EDITAR
+      EDIT
     </button>
     <button
       type="button"
-      [attr.aria-label]="'Excluir ' + product().name"
+      [attr.aria-label]="'Delete ' + product().name"
       (click)="remove.emit(product())"
       class="h-[38px] min-w-0 flex-1 rounded-[10px] border border-[#DF5753] bg-transparent text-sm font-bold tracking-[-0.21px] text-[#DF5753] transition-colors hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:w-[213px] md:shrink-0 md:flex-none dark:hover:bg-surface-800"
     >
-      EXCLUIR
+      DELETE
     </button>
   </div>
 </article>

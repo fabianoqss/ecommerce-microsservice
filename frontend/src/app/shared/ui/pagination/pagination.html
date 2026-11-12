@@ -1,8 +1,8 @@
 @if (totalPages() > 1) {
-  <nav aria-label="Paginação" class="flex items-center justify-center gap-1 min-[480px]:gap-[9px]">
+  <nav aria-label="Pagination" class="flex items-center justify-center gap-1 min-[480px]:gap-[9px]">
     <button
       type="button"
-      aria-label="Página anterior"
+      aria-label="Previous page"
       [disabled]="page() <= 0"
       (click)="pageChange.emit(page() - 1)"
       class="flex h-10 w-6 shrink-0 items-center justify-center rounded-full text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-surface-200 sm:w-10"
@@ -13,7 +13,7 @@
       @if (typeof item === 'number') {
         <button
           type="button"
-          [attr.aria-label]="'Página ' + (item + 1)"
+          [attr.aria-label]="'Page ' + (item + 1)"
           [attr.aria-current]="item === page() ? 'page' : null"
           [class.bg-primary]="item === page()"
           [class.bg-surface-200]="item !== page()"
@@ -28,7 +28,7 @@
     }
     <button
       type="button"
-      aria-label="Próxima página"
+      aria-label="Next page"
       [disabled]="page() >= totalPages() - 1"
       (click)="pageChange.emit(page() + 1)"
       class="flex h-10 w-6 shrink-0 items-center justify-center rounded-full text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:text-surface-200 sm:w-10"

@@ -7,14 +7,14 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { MessageService } from 'primeng/api';
 import { AdminProductForm } from './admin-product-form';
 
-@Component({ template: '<h1>Produtos</h1>' })
+@Component({ template: '<h1>Products</h1>' })
 class ListStub {}
 
 const product = {
   id: '1',
-  name: 'Teclado',
-  description: 'Teclado mecânico',
-  category: 'Periféricos',
+  name: 'Keyboard',
+  description: 'Mechanical keyboard',
+  category: 'Peripherals',
   price: 1234.56,
   imageUrl: 'https://example.com/image.png',
   version: 3,
@@ -46,10 +46,10 @@ describe('AdminProductForm', () => {
 
   async function render(edit = false, complete = true, quantity: number | null = 8) {
     harness = await RouterTestingHarness.create(
-      '/admin/products/' + (edit ? '1/edit' : 'new') + '?name=Teclado&extra=1',
+      '/admin/products/' + (edit ? '1/edit' : 'new') + '?name=Keyboard&extra=1',
     );
     TestBed.tick();
-    http.expectOne('/api/product/categories').flush(['Periféricos']);
+    http.expectOne('/api/product/categories').flush(['Peripherals']);
     if (edit) {
       http
         .expectOne('/api/inventory?skuCode=1')
@@ -59,7 +59,7 @@ describe('AdminProductForm', () => {
     if (!edit || complete) await settle();
     else harness.detectChanges();
     const root = harness.routeNativeElement;
-    if (!root) throw new Error('Formulário ausente');
+    if (!root) throw new Error('Form missing');
     element = root;
   }
 
@@ -70,15 +70,15 @@ describe('AdminProductForm', () => {
 
   function field(label: string): HTMLInputElement | HTMLTextAreaElement {
     const control = element.querySelector<HTMLInputElement | HTMLTextAreaElement>('#' + label);
-    if (!control) throw new Error('Campo ausente: ' + label);
+    if (!control) throw new Error('Field missing: ' + label);
     return control;
   }
 
   function fill(
-    name = ' Teclado ',
-    description = ' Teclado mecânico ',
-    category = ' Nova categoria ',
-    price = '1.234,56',
+    name = ' Keyboard ',
+    description = ' Mechanical keyboard ',
+    category = ' New category ',
+    price = '1,234.56',
     quantity = '8',
   ) {
     for (const [key, value] of Object.entries({ name, description, category, price, quantity })) {
@@ -107,7 +107,7 @@ describe('AdminProductForm', () => {
     const button = Array.from(element.querySelectorAll('button')).find(
       (item) => item.textContent?.trim() === text,
     );
-    if (!button) throw new Error('Ação ausente: ' + text);
+    if (!button) throw new Error('Action missing: ' + text);
     button.click();
   }
 
@@ -120,17 +120,17 @@ describe('AdminProductForm', () => {
     request.flush({ skuCode: '1', quantity, inStock: quantity > 0 });
   }
 
-  it('cria com campos aparados, preço numérico e imagem nula e preserva os filtros', async () => {
+  it('creates with trimmed fields, numeric price and null image and preserves filters', async () => {
     await render();
-    expect(element.querySelector('datalist option')?.getAttribute('value')).toBe('Periféricos');
+    expect(element.querySelector('datalist option')?.getAttribute('value')).toBe('Peripherals');
     fill();
     submit();
     const req = http.expectOne('/api/product');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
-      name: 'Teclado',
-      description: 'Teclado mecânico',
-      category: 'Nova categoria',
+      name: 'Keyboard',
+      description: 'Mechanical keyboard',
+      category: 'New category',
       price: 1234.56,
       imageUrl: null,
     });
@@ -139,11 +139,11 @@ describe('AdminProductForm', () => {
     expect(toast).not.toHaveBeenCalled();
     stockSaved();
     await settle();
-    expect(TestBed.inject(Router).url).toBe('/admin/products?name=Teclado&extra=1');
+    expect(TestBed.inject(Router).url).toBe('/admin/products?name=Keyboard&extra=1');
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ severity: 'success' }));
   });
 
-  it('cria com a URL da imagem aparada', async () => {
+  it('creates with a trimmed image URL', async () => {
     await render();
     fill();
     fillImageUrl(' https://example.com/new.png ');
@@ -155,7 +155,7 @@ describe('AdminProductForm', () => {
     await settle();
   });
 
-  it('envia imagem nula quando a URL contém apenas espaços', async () => {
+  it('sends a null image when the URL contains only spaces', async () => {
     await render();
     fill();
     fillImageUrl('   ');
@@ -167,10 +167,10 @@ describe('AdminProductForm', () => {
     await settle();
   });
 
-  it('carrega edição, formata preço e envia a imagem alterada e ETag', async () => {
+  it('loads editing, formats the price and sends the updated image and ETag', async () => {
     await render(true);
-    expect(field('price').value).toBe('1.234,56');
-    expect(field('name').value).toBe('Teclado');
+    expect(field('price').value).toBe('1,234.56');
+    expect(field('name').value).toBe('Keyboard');
     expect(field('quantity').value).toBe('8');
     expect(field('imageUrl').value).toBe(product.imageUrl);
     fillImageUrl(' https://example.com/changed.png ');
@@ -184,7 +184,7 @@ describe('AdminProductForm', () => {
     await settle();
   });
 
-  it('preenche imagem nula com campo vazio', async () => {
+  it('fills a null image with an empty field', async () => {
     await render(true, false);
     http.expectOne('/api/product/1').flush({ ...product, imageUrl: null });
     await settle();
@@ -192,7 +192,7 @@ describe('AdminProductForm', () => {
     expect(element.querySelector('img')).toBeNull();
   });
 
-  it('permite remover a imagem existente', async () => {
+  it('allows removing the existing image', async () => {
     await render(true);
     fillImageUrl('');
     submit();
@@ -204,9 +204,9 @@ describe('AdminProductForm', () => {
   });
 
   it.each([
-    ['http://example.com/image.png', 'Informe uma URL https válida'],
-    ['https://example.com/' + 'a'.repeat(2029), 'A URL deve ter no máximo 2048 caracteres'],
-  ])('bloqueia URL inválida e mostra erro acessível: %s', async (url, message) => {
+    ['http://example.com/image.png', 'Enter a valid HTTPS URL'],
+    ['https://example.com/' + 'a'.repeat(2029), 'The URL must be at most 2048 characters'],
+  ])('blocks an invalid URL and shows an accessible error: %s', async (url, message) => {
     await render();
     fill();
     fillImageUrl(url);
@@ -218,21 +218,21 @@ describe('AdminProductForm', () => {
     expect(element.querySelector('img')).toBeNull();
   });
 
-  it('mostra prévia válida e troca por aviso sem bloquear o envio quando a imagem falha', async () => {
+  it('shows a valid preview and a warning without blocking submission when the image fails', async () => {
     await render();
     fill();
     expect(element.querySelector('img')).toBeNull();
     fillImageUrl(' https://example.com/image.png ');
     const preview = element.querySelector('img');
-    if (!preview) throw new Error('Pré-visualização ausente');
+    if (!preview) throw new Error('Preview missing');
     expect(preview.getAttribute('src')).toBe(product.imageUrl);
-    expect(preview.getAttribute('alt')).toBe('Pré-visualização da imagem do produto');
+    expect(preview.getAttribute('alt')).toBe('Product image preview');
     expect(preview.getAttribute('loading')).toBe('lazy');
     expect(preview.getAttribute('referrerpolicy')).toBe('no-referrer');
     preview.dispatchEvent(new Event('error'));
     harness.detectChanges();
     expect(element.querySelector('img')).toBeNull();
-    expect(element.textContent).toContain('Não foi possível carregar a imagem');
+    expect(element.textContent).toContain('Unable to load the image');
     expect(field('imageUrl').getAttribute('aria-invalid')).toBe('false');
     expect(field('imageUrl').getAttribute('aria-describedby')).toBe('imageUrl-hint');
     submit();
@@ -243,39 +243,39 @@ describe('AdminProductForm', () => {
     await settle();
   });
 
-  it('tenta uma nova prévia após alterar a URL que falhou', async () => {
+  it('tries a new preview after changing the failed URL', async () => {
     await render();
     fillImageUrl(product.imageUrl);
     element.querySelector('img')?.dispatchEvent(new Event('error'));
     harness.detectChanges();
     fillImageUrl('https://example.com/other.png');
     expect(element.querySelector('img')?.getAttribute('src')).toBe('https://example.com/other.png');
-    expect(element.textContent).not.toContain('Não foi possível carregar a imagem');
+    expect(element.textContent).not.toContain('Unable to load the image');
     fillImageUrl('');
     expect(element.querySelector('img')).toBeNull();
   });
 
-  it('não envia formulário inválido e conecta mensagens acessíveis aos campos', async () => {
+  it('does not submit an invalid form and connects accessible messages to fields', async () => {
     await render();
     submit();
     http.expectNone((req) => req.method === 'POST');
     expect(field('name').getAttribute('aria-invalid')).toBe('true');
     expect(field('name').getAttribute('aria-describedby')).toBe('name-error');
-    expect(element.querySelector('#name-error')?.textContent).toContain('nome');
-    fill('a'.repeat(256), 'curta', 'a'.repeat(101), '1234.56');
+    expect(element.querySelector('#name-error')?.textContent).toContain('name');
+    fill('a'.repeat(256), 'short', 'a'.repeat(101), '1234,56');
     submit();
-    expect(element.textContent).toContain('1.234,56');
+    expect(element.textContent).toContain('1,234.56');
     http.expectNone((req) => req.method === 'POST');
   });
 
   it.each([
-    [' ', 'Descrição válida', 'Categoria', '1'],
-    ['Nome', ' '.repeat(10), 'Categoria', '1'],
-    ['Nome', 'a'.repeat(2001), 'Categoria', '1'],
-    ['Nome', 'Descrição válida', ' ', '1'],
-    ['Nome', 'Descrição válida', 'Categoria', '1000000000000'],
+    [' ', 'Valid description', 'Category', '1'],
+    ['Name', ' '.repeat(10), 'Category', '1'],
+    ['Name', 'a'.repeat(2001), 'Category', '1'],
+    ['Name', 'Valid description', ' ', '1'],
+    ['Name', 'Valid description', 'Category', '1000000000000'],
   ])(
-    'valida regras normalizadas antes de enviar: %s',
+    'validates normalized rules before submission: %s',
     async (name, description, category, price) => {
       await render();
       fill(name, description, category, price);
@@ -284,7 +284,7 @@ describe('AdminProductForm', () => {
     },
   );
 
-  it('impede envio duplicado enquanto salva e mostra estado ocupado', async () => {
+  it('prevents duplicate submission while saving and shows the busy state', async () => {
     await render();
     fill();
     submit();
@@ -292,7 +292,7 @@ describe('AdminProductForm', () => {
     const requests = http.match((req) => req.method === 'POST');
     expect(requests).toHaveLength(1);
     expect(element.querySelector('form')?.getAttribute('aria-busy')).toBe('true');
-    expect(element.textContent).toContain('SALVANDO');
+    expect(element.textContent).toContain('SAVING');
     requests[0].flush(product);
     submit();
     http.expectNone('/api/product');
@@ -300,42 +300,42 @@ describe('AdminProductForm', () => {
     await settle();
   });
 
-  it('mapeia fields do 400 e mostra detail quando há campo desconhecido', async () => {
+  it('maps 400 fields and shows detail when a field is unknown', async () => {
     await render();
     fill();
     submit();
     http.expectOne('/api/product').flush(
       {
-        detail: 'Revise os dados enviados.',
-        fields: { name: 'Nome já utilizado.', unknownField: 'Campo inválido.' },
+        detail: 'Review the submitted details.',
+        fields: { name: 'Name already in use.', unknownField: 'Invalid field.' },
       },
       { status: 400, statusText: 'Bad Request' },
     );
     await settle();
-    expect(element.querySelector('#name-error')?.textContent).toContain('Nome já utilizado.');
-    expect(element.textContent).toContain('Revise os dados enviados.');
-    field('name').value = 'Outro nome';
+    expect(element.querySelector('#name-error')?.textContent).toContain('Name already in use.');
+    expect(element.textContent).toContain('Review the submitted details.');
+    field('name').value = 'Another name';
     field('name').dispatchEvent(new Event('input'));
     harness.detectChanges();
     expect(element.querySelector('#name-error')).toBeNull();
   });
 
-  it('mantém input no 412 e só substitui valores e versão após recarga explícita', async () => {
+  it('preserves input on 412 and replaces values and version only after an explicit reload', async () => {
     await render(true);
-    fill('Meu nome');
+    fill('My name');
     submit();
     http
       .expectOne('/api/product/1')
-      .flush({ detail: 'Conflito' }, { status: 412, statusText: 'Precondition Failed' });
+      .flush({ detail: 'Conflict' }, { status: 412, statusText: 'Precondition Failed' });
     await settle();
-    expect(field('name').value).toBe('Meu nome');
-    expect(element.textContent).toContain('Outra pessoa alterou');
+    expect(field('name').value).toBe('My name');
+    expect(element.textContent).toContain('Someone else changed');
     http.expectNone('/api/product/1');
-    click('Recarregar dados');
+    click('Reload details');
     TestBed.tick();
     http.expectOne('/api/product/1').flush({
       ...product,
-      name: 'Atualizado',
+      name: 'Updated',
       version: 8,
       imageUrl: 'https://example.com/new.png',
     });
@@ -343,7 +343,7 @@ describe('AdminProductForm', () => {
       .expectOne('/api/inventory?skuCode=1')
       .flush([{ skuCode: '1', quantity: 21, inStock: true }]);
     await settle();
-    expect(field('name').value).toBe('Atualizado');
+    expect(field('name').value).toBe('Updated');
     expect(field('quantity').value).toBe('21');
     submit();
     const req = http.expectOne('/api/product/1');
@@ -354,15 +354,15 @@ describe('AdminProductForm', () => {
     await settle();
   });
 
-  it('cancela sem escrever e preserva query params', async () => {
+  it('cancels without writing and preserves query parameters', async () => {
     await render();
-    click('CANCELAR');
+    click('CANCEL');
     await settle();
-    expect(TestBed.inject(Router).url).toBe('/admin/products?name=Teclado&extra=1');
+    expect(TestBed.inject(Router).url).toBe('/admin/products?name=Keyboard&extra=1');
     http.expectNone((req) => req.method !== 'GET');
   });
 
-  it('mostra skeletons até concluir o carregamento da edição', async () => {
+  it('shows skeletons until editing data finishes loading', async () => {
     await render(true, false);
     expect(element.querySelector('p-skeleton')).not.toBeNull();
     expect(element.querySelector('form')).toBeNull();
@@ -372,95 +372,95 @@ describe('AdminProductForm', () => {
     expect(element.querySelector('form')).not.toBeNull();
   });
 
-  it('mostra produto ausente e link de retorno no 404', async () => {
+  it('shows a missing product and a back link on 404', async () => {
     await render(true, false);
     http
       .expectOne('/api/product/1')
-      .flush({ detail: 'Ausente' }, { status: 404, statusText: 'Not Found' });
+      .flush({ detail: 'Missing' }, { status: 404, statusText: 'Not Found' });
     await settle();
-    expect(element.textContent).toContain('Produto não encontrado');
+    expect(element.textContent).toContain('Product not found');
     expect(element.querySelector('a')?.getAttribute('href')).toBe(
-      '/admin/products?name=Teclado&extra=1',
+      '/admin/products?name=Keyboard&extra=1',
     );
     expect(element.querySelector('form')).toBeNull();
   });
 
-  it('mostra detail e permite repetir carga que falhou', async () => {
+  it('shows detail and allows retrying a failed load', async () => {
     await render(true, false);
     http
       .expectOne('/api/product/1')
-      .flush({ detail: 'Falha temporária.' }, { status: 503, statusText: 'Unavailable' });
+      .flush({ detail: 'Temporary failure.' }, { status: 503, statusText: 'Unavailable' });
     await settle();
-    expect(element.textContent).toContain('Falha temporária.');
-    click('Tentar novamente');
+    expect(element.textContent).toContain('Temporary failure.');
+    click('Try again');
     TestBed.tick();
     http.expectOne('/api/product/1').flush(product);
     await settle();
-    expect(field('name').value).toBe('Teclado');
+    expect(field('name').value).toBe('Keyboard');
   });
 
-  it('mostra erro de salvamento e permite nova tentativa manual', async () => {
+  it('shows a save error and allows a manual retry', async () => {
     await render();
     fill();
     submit();
     http
       .expectOne('/api/product')
-      .flush({ detail: 'Serviço indisponível.' }, { status: 503, statusText: 'Unavailable' });
+      .flush({ detail: 'Service unavailable.' }, { status: 503, statusText: 'Unavailable' });
     await settle();
-    expect(element.textContent).toContain('Serviço indisponível.');
-    expect(field('name').value).toBe(' Teclado ');
+    expect(element.textContent).toContain('Service unavailable.');
+    expect(field('name').value).toBe(' Keyboard ');
     submit();
     http.expectOne('/api/product').flush(product);
     stockSaved();
     await settle();
   });
-  it('mapeia todos os campos conhecidos do 400 sem erro global redundante', async () => {
+  it('maps all known 400 fields without a redundant global error', async () => {
     await render();
     fill();
     submit();
     http.expectOne('/api/product').flush(
       {
-        detail: 'Validação de campos.',
+        detail: 'Field validation.',
         fields: {
-          name: 'Nome inválido.',
-          category: 'Categoria inválida.',
-          price: 'Preço inválido.',
-          description: 'Descrição inválida.',
-          imageUrl: 'Imagem inválida.',
+          name: 'Invalid name.',
+          category: 'Invalid category.',
+          price: 'Invalid price.',
+          description: 'Invalid description.',
+          imageUrl: 'Invalid image.',
         },
       },
       { status: 400, statusText: 'Bad Request' },
     );
     await settle();
     for (const [id, message] of Object.entries({
-      name: 'Nome inválido.',
-      category: 'Categoria inválida.',
-      price: 'Preço inválido.',
-      description: 'Descrição inválida.',
-      imageUrl: 'Imagem inválida.',
+      name: 'Invalid name.',
+      category: 'Invalid category.',
+      price: 'Invalid price.',
+      description: 'Invalid description.',
+      imageUrl: 'Invalid image.',
     })) {
       expect(element.querySelector('#' + id + '-error')?.textContent).toContain(message);
       expect(field(id).getAttribute('aria-invalid')).toBe('true');
     }
-    expect(element.textContent).not.toContain('Validação de campos.');
+    expect(element.textContent).not.toContain('Field validation.');
   });
 
-  it('cancela edição sem PUT e preserva filtros', async () => {
+  it('cancels editing without PUT and preserves filters', async () => {
     await render(true);
     fill();
-    click('CANCELAR');
+    click('CANCEL');
     await settle();
-    expect(TestBed.inject(Router).url).toBe('/admin/products?name=Teclado&extra=1');
+    expect(TestBed.inject(Router).url).toBe('/admin/products?name=Keyboard&extra=1');
     http.expectNone((req) => req.method !== 'GET');
   });
 
-  it('permite criar categoria quando a consulta de categorias falha', async () => {
+  it('allows creating a category when the category query fails', async () => {
     harness = await RouterTestingHarness.create('/admin/products/new');
     TestBed.tick();
     http.expectOne('/api/product/categories').flush({}, { status: 503, statusText: 'Unavailable' });
     await settle();
     const root = harness.routeNativeElement;
-    if (!root) throw new Error('Formulário ausente');
+    if (!root) throw new Error('Form missing');
     element = root;
     fill();
     expect(field('category').disabled).toBe(false);
@@ -470,7 +470,7 @@ describe('AdminProductForm', () => {
     await settle();
   });
   it.each(['', '-1', '1.5', '2147483648'])(
-    'recusa estoque inválido %s com erro acessível',
+    'rejects invalid stock %s with an accessible error',
     async (quantity) => {
       await render();
       fill(undefined, undefined, undefined, undefined, quantity);
@@ -478,11 +478,11 @@ describe('AdminProductForm', () => {
       http.expectNone((req) => req.method !== 'GET');
       expect(field('quantity').getAttribute('aria-invalid')).toBe('true');
       expect(field('quantity').getAttribute('aria-describedby')).toBe('quantity-error');
-      expect(element.querySelector('#quantity-error')?.textContent).toContain('inteiro');
+      expect(element.querySelector('#quantity-error')?.textContent).toContain('whole');
     },
   );
 
-  it.each([0, 2147483647])('aceita o limite de estoque %s', async (quantity) => {
+  it.each([0, 2147483647])('accepts the stock limit %s', async (quantity) => {
     await render();
     fill(undefined, undefined, undefined, undefined, String(quantity));
     submit();
@@ -491,7 +491,7 @@ describe('AdminProductForm', () => {
     await settle();
   });
 
-  it('prefill zero sem linha e cria estoque ao salvar a edição', async () => {
+  it('prefills zero without a record and creates stock when saving an edit', async () => {
     await render(true, true, null);
     expect(field('quantity').value).toBe('0');
     submit();
@@ -500,7 +500,7 @@ describe('AdminProductForm', () => {
     await settle();
   });
 
-  it('cria estoque quando o PUT encontra uma linha removida', async () => {
+  it('creates stock when PUT finds a removed record', async () => {
     await render(true);
     submit();
     http.expectOne('/api/product/1').flush({ ...product, version: 4 });
@@ -511,7 +511,7 @@ describe('AdminProductForm', () => {
   });
 
   it.each([400, 409, 503])(
-    'preserva produto criado e permite repetir após erro %s no estoque',
+    'preserves the created product and allows retrying after stock error %s',
     async (status) => {
       await render();
       fill();
@@ -520,13 +520,13 @@ describe('AdminProductForm', () => {
       http
         .expectOne('/api/inventory')
         .flush(
-          { detail: 'Falha no estoque.', fields: { quantity: 'Quantidade recusada.' } },
+          { detail: 'Stock update failed.', fields: { quantity: 'Quantity rejected.' } },
           { status, statusText: 'Error' },
         );
       await settle();
-      expect(element.textContent).toContain('O produto foi salvo, mas o estoque não');
-      expect(element.textContent).toContain('Falha no estoque.');
-      expect(element.textContent).toContain('Tente salvar novamente');
+      expect(element.textContent).toContain('The product was saved, but stock was not');
+      expect(element.textContent).toContain('Stock update failed.');
+      expect(element.textContent).toContain('Try saving again');
       expect(field('quantity').value).toBe('8');
       expect(toast).not.toHaveBeenCalled();
       expect(TestBed.inject(Router).url).toContain('/admin/products/new');
@@ -539,18 +539,18 @@ describe('AdminProductForm', () => {
       update.flush({ ...product, version: 5 });
       stockSaved('PUT');
       await settle();
-      expect(TestBed.inject(Router).url).toBe('/admin/products?name=Teclado&extra=1');
+      expect(TestBed.inject(Router).url).toBe('/admin/products?name=Keyboard&extra=1');
     },
   );
 
-  it('não faz POST para falha de PUT diferente de 404 e mantém a nova versão', async () => {
+  it('does not POST after a non-404 PUT failure and preserves the new version', async () => {
     await render(true);
     submit();
     http.expectOne('/api/product/1').flush({ ...product, version: 4 });
     http.expectOne('/api/inventory/1').flush({}, { status: 503, statusText: 'Unavailable' });
     await settle();
     http.expectNone('/api/inventory');
-    expect(element.textContent).toContain('O produto foi salvo, mas o estoque não');
+    expect(element.textContent).toContain('The product was saved, but stock was not');
     expect(toast).not.toHaveBeenCalled();
     submit();
     const update = http.expectOne('/api/product/1');
@@ -561,7 +561,7 @@ describe('AdminProductForm', () => {
     await settle();
   });
 
-  it('aguarda estoque e permite repetir consulta que falhou sem assumir zero', async () => {
+  it('waits for stock and allows retrying a failed query without assuming zero', async () => {
     harness = await RouterTestingHarness.create('/admin/products/1/edit');
     TestBed.tick();
     http.expectOne('/api/product/categories').flush([]);
@@ -569,16 +569,16 @@ describe('AdminProductForm', () => {
     await Promise.resolve();
     harness.detectChanges();
     const root = harness.routeNativeElement;
-    if (!root) throw new Error('Formulário ausente');
+    if (!root) throw new Error('Form missing');
     element = root;
     expect(element.querySelector('form')).toBeNull();
     http
       .expectOne('/api/inventory?skuCode=1')
-      .flush({ detail: 'Estoque indisponível.' }, { status: 503, statusText: 'Unavailable' });
+      .flush({ detail: 'Stock unavailable.' }, { status: 503, statusText: 'Unavailable' });
     await settle();
-    expect(element.textContent).toContain('Estoque indisponível.');
+    expect(element.textContent).toContain('Stock unavailable.');
     expect(element.querySelector('form')).toBeNull();
-    click('Tentar novamente');
+    click('Try again');
     TestBed.tick();
     http
       .expectOne('/api/inventory?skuCode=1')
@@ -586,7 +586,7 @@ describe('AdminProductForm', () => {
     await settle();
     expect(field('quantity').value).toBe('12');
   });
-  it('permite recarregar conflito após criar produto com falha de estoque', async () => {
+  it('allows reloading a conflict after creating a product with a stock failure', async () => {
     await render();
     fill();
     submit();
@@ -597,16 +597,16 @@ describe('AdminProductForm', () => {
     http.expectOne('/api/product/1').flush({}, { status: 412, statusText: 'Precondition Failed' });
     await settle();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
-    click('Recarregar dados');
+    click('Reload details');
     await navigate.mock.results[0]?.value;
     TestBed.tick();
     http.expectOne('/api/product/categories').flush([]);
     http.expectOne('/api/product/1').flush({ ...product, version: 8 });
     http.expectOne('/api/inventory?skuCode=1').flush([]);
     await settle();
-    expect(TestBed.inject(Router).url).toBe('/admin/products/1/edit?name=Teclado&extra=1');
+    expect(TestBed.inject(Router).url).toBe('/admin/products/1/edit?name=Keyboard&extra=1');
     const root = harness.routeNativeElement;
-    if (!root) throw new Error('Formulário ausente');
+    if (!root) throw new Error('Form missing');
     element = root;
     submit();
     const request = http.expectOne('/api/product/1');

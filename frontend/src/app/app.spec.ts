@@ -7,7 +7,7 @@ import { App } from './app';
 import { CartStore } from './core/cart/cart-store';
 import { LocalStorageCartStore } from './core/cart/local-storage-cart-store';
 
-@Component({ template: '<p>Conteúdo da rota</p>' })
+@Component({ template: '<p>Route content</p>' })
 class RouteStub {}
 
 describe('App', () => {
@@ -28,7 +28,7 @@ describe('App', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('mostra o cabeçalho com a marca da loja', async () => {
+  it('shows the header with the store brand', async () => {
     const element = await render();
 
     const header = element.querySelector('header');
@@ -36,11 +36,11 @@ describe('App', () => {
     expect(header?.textContent).toContain('DS Catalog');
   });
 
-  it('exibe a página da rota atual dentro da região principal', async () => {
+  it('displays the current route page inside the main region', async () => {
     const element = await render();
 
     const main = element.querySelector('main');
     expect(main).not.toBeNull();
-    expect(main?.textContent).toContain('Conteúdo da rota');
+    expect(main?.textContent).toContain('Route content');
   });
 });

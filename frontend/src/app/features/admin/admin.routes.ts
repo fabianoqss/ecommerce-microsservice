@@ -9,7 +9,7 @@ export const adminRoutes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'products' },
       {
         path: 'products/new',
-        title: 'Novo produto | DS Catalog',
+        title: 'New product | DS Catalog',
         loadComponent: () =>
           import('./admin-product-form/admin-product-form').then(
             (module) => module.AdminProductForm,
@@ -17,7 +17,7 @@ export const adminRoutes: Routes = [
       },
       {
         path: 'products/:id/edit',
-        title: 'Editar produto | DS Catalog',
+        title: 'Edit product | DS Catalog',
         loadComponent: () =>
           import('./admin-product-form/admin-product-form').then(
             (module) => module.AdminProductForm,
@@ -25,7 +25,7 @@ export const adminRoutes: Routes = [
       },
       {
         path: 'products',
-        title: 'Produtos | DS Catalog',
+        title: 'Products | DS Catalog',
         loadComponent: () =>
           import('./admin-products/admin-products').then((module) => module.AdminProducts),
       },

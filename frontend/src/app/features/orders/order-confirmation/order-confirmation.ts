@@ -9,6 +9,11 @@ import { OrderApi } from '../../../shared/data-access/order/order-api';
 import { priceParts } from '../../../shared/format/price-parts';
 import { orderStatusLabel } from '../order-status-label';
 
+const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Component({
@@ -30,20 +35,16 @@ export class OrderConfirmation {
     })),
   );
   protected readonly total = computed(() => priceParts(this.order()?.totalValue ?? 0));
-  protected readonly formattedOrderTime = computed(
-    () =>
-      this.order()?.orderTime.replace(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}).*$/, '$3/$2/$1 $4') ??
-      '',
-  );
+  protected readonly formattedOrderTime = computed(() => {
+    const orderTime = this.order()?.orderTime;
+    return orderTime ? dateTimeFormatter.format(new Date(orderTime)) : '';
+  });
   protected readonly statusLabel = orderStatusLabel;
   protected readonly notFound = computed(() => {
     const error = this.orderResource.error();
     return !this.validId() || (error instanceof HttpErrorResponse && error.status === 404);
   });
   protected readonly errorMessage = computed(() =>
-    problemDetail(
-      this.orderResource.error(),
-      'Não foi possível carregar o pedido. Tente novamente.',
-    ),
+    problemDetail(this.orderResource.error(), 'Unable to load the order. Please try again.'),
   );
 }

@@ -8,7 +8,7 @@
       DS Catalog
     </span>
 
-    <nav aria-label="Navegação principal" class="hidden md:block">
+    <nav aria-label="Main navigation" class="hidden md:block">
       <ul class="flex items-center gap-x-[86px] text-lg leading-normal tracking-[-0.27px]">
         <ng-container [ngTemplateOutlet]="links" [ngTemplateOutletContext]="{ mobile: false }" />
       </ul>
@@ -26,7 +26,7 @@
       class="flex size-11 cursor-pointer items-center justify-end rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current md:hidden"
       [attr.aria-expanded]="menuOpen()"
       aria-controls="header-mobile-menu"
-      [attr.aria-label]="menuOpen() ? 'Fechar menu' : 'Abrir menu'"
+      [attr.aria-label]="menuOpen() ? 'Close menu' : 'Open menu'"
       (click)="toggleMenu()"
     >
       <img src="/images/icons/menu.svg" alt="" width="17" height="17" />
@@ -36,7 +36,7 @@
   @if (menuOpen()) {
     <nav
       id="header-mobile-menu"
-      aria-label="Navegação móvel"
+      aria-label="Mobile navigation"
       class="w-full bg-primary pt-[44px] pr-5 pb-[42px] pl-[35px] text-lg leading-normal font-bold tracking-[-0.27px] md:hidden"
     >
       <ul class="flex flex-col items-start gap-[30px]">
@@ -93,6 +93,6 @@
     (click)="auth.isAuthenticated() ? logout() : login()"
     class="min-h-11 cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
   >
-    {{ auth.isAuthenticated() ? 'SAIR' : 'ENTRAR' }}
+    {{ auth.isAuthenticated() ? 'SIGN OUT' : 'SIGN IN' }}
   </button>
 </ng-template>

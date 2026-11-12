@@ -17,7 +17,7 @@ export class OrderApi {
       .pipe(
         map((response) => {
           if (response.status !== 201 || response.body === null) {
-            throw new Error('Resposta inesperada ao criar o pedido.');
+            throw new Error('Unexpected response when creating the order.');
           }
           return response.body;
         }),

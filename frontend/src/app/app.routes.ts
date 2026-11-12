@@ -17,13 +17,13 @@ export const routes: Routes = [
       {
         path: 'cart',
         canActivate: [authGuard],
-        title: 'Carrinho | DS Catalog',
+        title: 'Cart | DS Catalog',
         loadChildren: () =>
           import('./features/cart/cart.routes').then((module) => module.cartRoutes),
       },
       {
         path: 'catalog',
-        title: 'Catálogo | DS Catalog',
+        title: 'Catalog | DS Catalog',
         loadChildren: () =>
           import('./features/catalog/catalog.routes').then((module) => module.catalogRoutes),
       },

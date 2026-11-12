@@ -33,7 +33,7 @@ describe('adminGuard', () => {
   async function loadUser(roles: string[]): Promise<void> {
     const pending = auth.load();
     http.expectOne('/bff/me').flush({
-      sub: 'usuario-1',
+      sub: 'user-1',
       name: 'Ana Silva',
       email: 'ana@example.com',
       roles,
@@ -41,25 +41,25 @@ describe('adminGuard', () => {
     await pending;
   }
 
-  it('inicia login e recusa o acesso sem sessão', () => {
+  it('starts login and denies access without a session', () => {
     expect(runGuard()).toBe(false);
     expect(assign).toHaveBeenCalledExactlyOnceWith('/oauth2/authorization/keycloak');
   });
 
-  it('devolve UrlTree para a home quando o usuário não é ADMIN', async () => {
+  it('returns a home UrlTree when the user is not an ADMIN', async () => {
     await loadUser(['CUSTOMER']);
 
     const result = runGuard();
 
     expect(result).toBeInstanceOf(UrlTree);
     if (!(result instanceof UrlTree)) {
-      throw new Error('Era esperado um redirecionamento para a home.');
+      throw new Error('Expected a redirect to home.');
     }
     expect(TestBed.inject(Router).serializeUrl(result)).toBe('/');
     expect(assign).not.toHaveBeenCalled();
   });
 
-  it('permite o acesso de ADMIN', async () => {
+  it('allows ADMIN access', async () => {
     await loadUser(['CUSTOMER', 'ADMIN']);
 
     expect(runGuard()).toBe(true);

@@ -44,16 +44,16 @@ describe('sessionExpiredInterceptor', () => {
     await pending;
   }
 
-  it('limpa a sessão, inicia login e repassa o erro 401 de /api/**', async () => {
+  it('clears the session, starts login and propagates the /api/** 401 error', async () => {
     await loadUser();
     const result = firstValueFrom(client.get('/api/order?size=8'));
     const rejected = expect(result).rejects.toMatchObject({
       status: 401,
-      error: { detail: 'Sessão expirada.' },
+      error: { detail: 'Session expired.' },
     });
     http
       .expectOne('/api/order?size=8')
-      .flush({ detail: 'Sessão expirada.' }, { status: 401, statusText: 'Não autorizado' });
+      .flush({ detail: 'Session expired.' }, { status: 401, statusText: 'Unauthorized' });
     await rejected;
 
     expect(auth.user()).toBeNull();
@@ -61,13 +61,13 @@ describe('sessionExpiredInterceptor', () => {
     expect(assign).toHaveBeenCalledExactlyOnceWith('/oauth2/authorization/keycloak');
   });
 
-  it.each(['/bff/me', '/apiary/product', 'https://externo.example/api/product'])(
-    'não inicia login para 401 em %s',
+  it.each(['/bff/me', '/apiary/product', 'https://external.example/api/product'])(
+    'does not start login for 401 on %s',
     async (url) => {
       await loadUser();
       const result = firstValueFrom(client.get(url));
       const rejected = expect(result).rejects.toMatchObject({ status: 401 });
-      http.expectOne(url).flush({}, { status: 401, statusText: 'Não autorizado' });
+      http.expectOne(url).flush({}, { status: 401, statusText: 'Unauthorized' });
       await rejected;
 
       expect(auth.isAuthenticated()).toBe(true);
@@ -75,23 +75,26 @@ describe('sessionExpiredInterceptor', () => {
     },
   );
 
-  it.each([403, 404, 500, 503])('repassa o erro %i sem limpar a sessão', async (status) => {
-    await loadUser();
-    const result = firstValueFrom(client.get('/api/product'));
-    const rejected = expect(result).rejects.toMatchObject({
-      status,
-      error: { detail: 'Falha na API.' },
-    });
-    http
-      .expectOne('/api/product')
-      .flush({ detail: 'Falha na API.' }, { status, statusText: 'Falha' });
-    await rejected;
+  it.each([403, 404, 500, 503])(
+    'propagates error %i without clearing the session',
+    async (status) => {
+      await loadUser();
+      const result = firstValueFrom(client.get('/api/product'));
+      const rejected = expect(result).rejects.toMatchObject({
+        status,
+        error: { detail: 'API failure.' },
+      });
+      http
+        .expectOne('/api/product')
+        .flush({ detail: 'API failure.' }, { status, statusText: 'Failure' });
+      await rejected;
 
-    expect(auth.isAuthenticated()).toBe(true);
-    expect(assign).not.toHaveBeenCalled();
-  });
+      expect(auth.isAuthenticated()).toBe(true);
+      expect(assign).not.toHaveBeenCalled();
+    },
+  );
 
-  it('repassa falhas de rede sem iniciar login', async () => {
+  it('propagates network failures without starting login', async () => {
     const result = firstValueFrom(client.get('/api/product'));
     const rejected = expect(result).rejects.toBeInstanceOf(HttpErrorResponse);
     http.expectOne('/api/product').error(new ProgressEvent('error'));
@@ -100,7 +103,7 @@ describe('sessionExpiredInterceptor', () => {
     expect(assign).not.toHaveBeenCalled();
   });
 
-  it('repassa respostas bem-sucedidas', async () => {
+  it('passes through successful responses', async () => {
     const result = firstValueFrom(client.get('/api/product'));
     http.expectOne('/api/product').flush({ content: [] });
 

@@ -9,34 +9,34 @@ describe('CheckoutAttempt', () => {
     service = TestBed.inject(CheckoutAttempt);
   });
 
-  it('mantém o mesmo UUID para o mesmo snapshot', () => {
-    const key = service.keyFor('carrinho-a');
+  it('keeps the same UUID for the same snapshot', () => {
+    const key = service.keyFor('cart-a');
     expect(key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
-    expect(service.keyFor('carrinho-a')).toBe(key);
+    expect(service.keyFor('cart-a')).toBe(key);
   });
 
-  it('gera outro UUID quando o snapshot muda, inclusive ao voltar ao anterior', () => {
-    const first = service.keyFor('carrinho-a');
-    const second = service.keyFor('carrinho-b');
+  it('generates another UUID when the snapshot changes, including a return to the previous one', () => {
+    const first = service.keyFor('cart-a');
+    const second = service.keyFor('cart-b');
     expect(second).not.toBe(first);
-    const third = service.keyFor('carrinho-a');
+    const third = service.keyFor('cart-a');
     expect(third).not.toBe(first);
     expect(third).not.toBe(second);
   });
 
-  it('renova a chave após rejeição mesmo mantendo o snapshot', () => {
-    const first = service.keyFor('carrinho-a');
+  it('renews the key after rejection even with the same snapshot', () => {
+    const first = service.keyFor('cart-a');
     service.renew();
-    const renewed = service.keyFor('carrinho-a');
+    const renewed = service.keyFor('cart-a');
     expect(renewed).not.toBe(first);
-    expect(service.keyFor('carrinho-a')).toBe(renewed);
+    expect(service.keyFor('cart-a')).toBe(renewed);
   });
 
-  it('esquece a tentativa concluída para permitir outro pedido do mesmo snapshot', () => {
-    const first = service.keyFor('carrinho-a');
+  it('forgets the completed attempt to allow another order from the same snapshot', () => {
+    const first = service.keyFor('cart-a');
     service.complete();
-    const next = service.keyFor('carrinho-a');
+    const next = service.keyFor('cart-a');
     expect(next).not.toBe(first);
-    expect(service.keyFor('carrinho-a')).toBe(next);
+    expect(service.keyFor('cart-a')).toBe(next);
   });
 });

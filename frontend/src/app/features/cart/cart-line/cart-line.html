@@ -30,24 +30,24 @@
     </h2>
     @if (line().product) {
       <p class="text-muted-color">
-        Preço unitário: <span>R$ {{ unitPrice().integer }}{{ unitPrice().decimal }}</span>
+        Unit price: <span>R${{ unitPrice().integer }}{{ unitPrice().decimal }}</span>
       </p>
     }
     @switch (line().status) {
       @case ('error') {
-        <p-message severity="error">Não foi possível carregar este produto.</p-message>
+        <p-message severity="error">Unable to load this product.</p-message>
       }
       @case ('out-of-stock') {
-        <p-message severity="warn">Sem estoque</p-message>
+        <p-message severity="warn">Out of stock</p-message>
       }
       @case ('insufficient-stock') {
-        <p-message severity="warn">Apenas {{ line().stock }} em estoque</p-message>
+        <p-message severity="warn">Only {{ line().stock }} in stock</p-message>
       }
     }
     <div class="flex flex-wrap items-end gap-5">
       @if (line().product) {
         <div class="flex flex-col gap-2">
-          <label [for]="inputId()" class="font-medium">Quantidade de {{ name() }}</label>
+          <label [for]="inputId()" class="font-medium">Quantity for {{ name() }}</label>
           <p-inputnumber
             [inputId]="inputId()"
             [formControl]="quantity"
@@ -67,12 +67,12 @@
         </div>
         @if (line().status === 'ok') {
           <p class="font-bold text-primary">
-            Total: <span>R$ {{ total().integer }}{{ total().decimal }}</span>
+            Total: <span>R${{ total().integer }}{{ total().decimal }}</span>
           </p>
         }
       }
       <p-button
-        label="Remover"
+        label="Remove"
         icon="pi pi-trash"
         [text]="true"
         [ariaLabel]="removeLabel()"

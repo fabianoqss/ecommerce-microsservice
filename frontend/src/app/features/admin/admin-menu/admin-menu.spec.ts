@@ -23,12 +23,12 @@ describe('AdminMenu', () => {
     return { fixture, element: fixture.nativeElement as HTMLElement };
   }
 
-  it('marca Produtos como página atual em /admin/products', async () => {
+  it('marks Products as the current page at /admin/products', async () => {
     const { fixture, element } = await render();
-    const nav = element.querySelector('nav[aria-label="Administração"]');
+    const nav = element.querySelector('nav[aria-label="Administration"]');
     const products = nav?.querySelector('a[href="/admin/products"]');
 
-    expect(products?.textContent?.trim()).toBe('Produtos');
+    expect(products?.textContent?.trim()).toBe('Products');
     expect(products?.getAttribute('aria-current')).toBe('page');
     expect(products?.classList.contains('bg-primary/30')).toBe(true);
     await TestBed.inject(Router).navigateByUrl('/');
@@ -37,17 +37,17 @@ describe('AdminMenu', () => {
     expect(products?.classList.contains('bg-primary/30')).toBe(false);
   });
 
-  it('mostra Categorias e Usuários desabilitados e fora da navegação por teclado', async () => {
+  it('shows Categories and Users as disabled and excluded from keyboard navigation', async () => {
     const { element } = await render();
     const items = Array.from(element.querySelectorAll('nav ul > li'));
     const disabled = Array.from(element.querySelectorAll('[aria-disabled="true"]'));
 
     expect(items.map((item) => item.textContent?.trim())).toEqual([
-      'Produtos',
-      'Categorias',
-      'Usuários',
+      'Products',
+      'Categories',
+      'Users',
     ]);
-    expect(disabled.map((item) => item.textContent?.trim())).toEqual(['Categorias', 'Usuários']);
+    expect(disabled.map((item) => item.textContent?.trim())).toEqual(['Categories', 'Users']);
     for (const item of disabled) {
       expect(item.getAttribute('role')).toBe('link');
       expect(item.hasAttribute('href')).toBe(false);

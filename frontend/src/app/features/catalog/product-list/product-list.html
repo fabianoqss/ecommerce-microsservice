@@ -1,6 +1,6 @@
 <section class="mx-auto max-w-[1082px] text-color" aria-labelledby="catalog-title">
   <h1 id="catalog-title" class="mb-[30px] text-2xl leading-normal font-bold tracking-[-0.36px]">
-    Catálogo de produtos
+    Product catalog
   </h1>
   <app-product-search
     #search
@@ -40,13 +40,13 @@
           (click)="products.reload()"
           class="rounded-[10px] bg-primary px-5 py-3 font-bold text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
         >
-          Tentar novamente
+          Try again
         </button>
       </div>
     } @else if (productPage(); as result) {
       @if (result.content.length) {
         <ul
-          aria-label="Produtos"
+          aria-label="Products"
           class="grid grid-cols-1 gap-x-[31px] gap-y-[30px] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         >
           @for (product of result.content; track product.id) {
@@ -64,13 +64,13 @@
         <div
           class="flex flex-col items-center gap-5 rounded-[10px] bg-surface-0 px-5 py-12 dark:bg-surface-900"
         >
-          <p>Nenhum produto encontrado.</p>
+          <p>No products found.</p>
           <button
             type="button"
             (click)="search.clearFilters()"
             class="rounded-[10px] border border-surface-200 px-5 py-3 font-bold text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
-            Limpar filtros
+            Clear filters
           </button>
         </div>
       }

@@ -10,7 +10,7 @@ const line: CartLineView = {
   status: 'ok',
   product: {
     id: 'a',
-    name: 'Teclado',
+    name: 'Keyboard',
     price: 12.5,
     description: '',
     category: '',
@@ -30,49 +30,49 @@ describe('CartLine', () => {
     return { fixture, element };
   }
 
-  it('mostra nome, preço unitário, total e quantidade acessível limitada ao estoque', async () => {
+  it('shows name, unit price, total and accessible quantity limited to stock', async () => {
     const { element } = await render();
-    expect(element.textContent).toContain('Teclado');
-    expect(element.textContent).toContain('R$ 12,50');
-    expect(element.textContent).toContain('R$ 25,00');
+    expect(element.textContent).toContain('Keyboard');
+    expect(element.textContent).toContain('R$12.50');
+    expect(element.textContent).toContain('R$25.00');
     const input = element.querySelector('input');
     expect(input?.getAttribute('aria-valuemin')).toBe('1');
     expect(input?.getAttribute('aria-valuemax')).toBe('5');
-    expect(element.querySelector('label')?.textContent).toContain('Quantidade de Teclado');
+    expect(element.querySelector('label')?.textContent).toContain('Quantity for Keyboard');
     expect(input?.id).toBe(element.querySelector('label')?.htmlFor);
   });
 
-  it('emite alterações inteiras válidas e remoção a partir dos controles', async () => {
+  it('emits valid integer changes and removal from controls', async () => {
     const { fixture, element } = await render();
     const quantity = vi.fn();
     const remove = vi.fn();
     fixture.componentInstance.quantityChange.subscribe(quantity);
     fixture.componentInstance.remove.subscribe(remove);
     const input = element.querySelector('input');
-    if (!input) throw new Error('Quantidade ausente');
+    if (!input) throw new Error('Quantity missing');
     input.value = '3';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('blur'));
     await fixture.whenStable();
     expect(quantity).toHaveBeenCalledWith(3);
     Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Remover'))
+      .find((button) => button.textContent?.includes('Remove'))
       ?.click();
     expect(remove).toHaveBeenCalledTimes(1);
   });
 
-  it('limita a quantidade a 10000 mesmo com estoque maior', async () => {
+  it('limits quantity to 10000 even with higher stock', async () => {
     const { element } = await render({ ...line, stock: 20000 });
     expect(element.querySelector('input')?.getAttribute('aria-valuemax')).toBe('10000');
   });
 
   function quantityInput(element: HTMLElement): HTMLInputElement {
     const input = element.querySelector('input');
-    if (!input) throw new Error('Quantidade ausente');
+    if (!input) throw new Error('Quantity missing');
     return input;
   }
 
-  it('permite apagar a quantidade e digitar 3 sem inserir zero', async () => {
+  it('allows clearing the quantity and typing 3 without inserting zero', async () => {
     const { fixture, element } = await render({ ...line, stock: 100 });
     const change = vi.fn();
     fixture.componentInstance.quantityChange.subscribe(change);
@@ -102,7 +102,7 @@ describe('CartLine', () => {
     ['End', 5],
     ['ArrowUp', 3],
     ['ArrowDown', 1],
-  ] as const)('emite a quantidade %s pelo teclado', async (key, value) => {
+  ] as const)('emits quantity %s using the keyboard', async (key, value) => {
     const { fixture, element } = await render();
     const change = vi.fn();
     fixture.componentInstance.quantityChange.subscribe(change);
@@ -116,7 +116,7 @@ describe('CartLine', () => {
   });
 
   it.each(['', 'abc', '0', '-1', '6', '10001', '2.5'])(
-    'ignora a quantidade inválida %s e restaura a atual ao perder foco',
+    'ignores invalid quantity %s and restores the current value on blur',
     async (value) => {
       const { fixture, element } = await render();
       const change = vi.fn();
@@ -132,7 +132,7 @@ describe('CartLine', () => {
     },
   );
 
-  it('não emite quantidade acima de 10000 mesmo com estoque maior', async () => {
+  it('does not emit quantities above 10000 even with higher stock', async () => {
     const { fixture, element } = await render({ ...line, stock: 20000 });
     const change = vi.fn();
     fixture.componentInstance.quantityChange.subscribe(change);
@@ -145,7 +145,7 @@ describe('CartLine', () => {
     expect(input.value).toBe('2');
   });
 
-  it('permite diminuir quantidade insuficiente mesmo ainda acima do estoque', async () => {
+  it('allows decreasing an insufficient quantity even when still above stock', async () => {
     const { fixture, element } = await render({
       ...line,
       quantity: 10,
@@ -162,13 +162,13 @@ describe('CartLine', () => {
     expect(change).toHaveBeenCalledExactlyOnceWith(8);
   });
 
-  it('desabilita quantidade de produto sem estoque', async () => {
+  it('disables quantity for an out-of-stock product', async () => {
     const { element } = await render({ ...line, stock: 0, status: 'out-of-stock' });
     expect(quantityInput(element).disabled).toBe(true);
   });
 
   it.each(['out-of-stock', 'insufficient-stock', 'error'] as const)(
-    'mantém máximo acessível acima da quantidade exibida e não mostra total para %s',
+    'keeps the accessible maximum above the displayed quantity and hides the total for %s',
     async (status) => {
       const { element } = await render({ ...line, stock: 1, quantity: 10, status });
       const input = quantityInput(element);
@@ -179,17 +179,17 @@ describe('CartLine', () => {
   );
 
   it.each(['unavailable', 'error'] as const)(
-    'identifica linhas %s sem nome por ID e mantém remoção acessível',
+    'identifies unnamed %s lines by ID and keeps removal accessible',
     async (status) => {
       const { fixture, element } = await render({ ...line, product: null, status });
       const other = await render({ ...line, productId: 'b', product: null, status });
       expect(element.querySelector('article')?.getAttribute('aria-label')).toBe(
-        'Produto indisponível (a)',
+        'Product unavailable (a)',
       );
       expect(other.element.querySelector('article')?.getAttribute('aria-label')).toBe(
-        'Produto indisponível (b)',
+        'Product unavailable (b)',
       );
-      const button = element.querySelector('button[aria-label="Remover produto indisponível a"]');
+      const button = element.querySelector('button[aria-label="Remove unavailable product a"]');
       expect(button).not.toBeNull();
       const remove = vi.fn();
       fixture.componentInstance.remove.subscribe(remove);
@@ -198,16 +198,16 @@ describe('CartLine', () => {
       expect(element.querySelector('input')).toBeNull();
       expect(element.textContent).not.toContain('Total:');
       if (status === 'error') {
-        expect(element.textContent).toContain('Não foi possível carregar este produto.');
+        expect(element.textContent).toContain('Unable to load this product.');
       }
     },
   );
 
   it.each([
-    ['unavailable', 'Produto indisponível'],
-    ['out-of-stock', 'Sem estoque'],
-    ['insufficient-stock', 'Apenas 5 em estoque'],
-  ] as const)('mostra estado %s e mantém remoção disponível', async (status, message) => {
+    ['unavailable', 'Product unavailable'],
+    ['out-of-stock', 'Out of stock'],
+    ['insufficient-stock', 'Only 5 in stock'],
+  ] as const)('shows state %s and keeps removal available', async (status, message) => {
     const { element } = await render({
       ...line,
       status,
@@ -216,7 +216,7 @@ describe('CartLine', () => {
     expect(element.textContent).toContain(message);
     expect(
       Array.from(element.querySelectorAll('button')).find((button) =>
-        button.textContent?.includes('Remover'),
+        button.textContent?.includes('Remove'),
       )?.disabled,
     ).toBe(false);
     if (status === 'unavailable') expect(element.querySelector('input')).toBeNull();

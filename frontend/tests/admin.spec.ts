@@ -2,10 +2,10 @@ import { expect, Page, test } from '@playwright/test';
 
 const products = Array.from({ length: 4 }, (_, index) => ({
   id: String(index + 1),
-  name: 'Computador com nome extenso para verificar truncamento ' + (index + 1),
-  description: 'Computador para trabalho',
+  name: 'Computer with a long name to check truncation ' + (index + 1),
+  description: 'Computer for work',
   price: 2779,
-  category: 'Computadores e acessórios com categoria extensa',
+  category: 'Computers and accessories with a long category name',
   imageUrl: null,
   version: 0,
 }));
@@ -13,8 +13,8 @@ const productPage = { content: products, page: 0, size: 4, totalElements: 4, tot
 const paginatedProducts = Array.from({ length: 9 }, (_, index) => ({
   ...products[0],
   id: String(index + 1),
-  name: index < 6 ? `Teclado ${index + 1}` : `Monitor ${index + 1}`,
-  category: index < 6 ? 'Periféricos' : 'Monitores',
+  name: index < 6 ? `Keyboard ${index + 1}` : `Monitor ${index + 1}`,
+  category: index < 6 ? 'Peripherals' : 'Monitors',
 }));
 
 async function mockPaginatedProducts(page: Page) {
@@ -39,7 +39,7 @@ async function mockPaginatedProducts(page: Page) {
     });
   });
   await page.route('**/api/product/categories', (route) =>
-    route.fulfill({ json: ['Periféricos', 'Monitores'] }),
+    route.fulfill({ json: ['Peripherals', 'Monitors'] }),
   );
 }
 
@@ -83,15 +83,13 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('mostra os cursores de ação e de indisponibilidade nos botões administrativos', async ({
-  page,
-}) => {
+test('shows action and unavailable cursors on administrative buttons', async ({ page }) => {
   await mockPaginatedProducts(page);
   await page.goto('/admin/products');
 
-  const pageNumber = page.getByRole('button', { name: 'Página 2', exact: true });
-  const previousPage = page.getByRole('button', { name: 'Página anterior', exact: true });
-  const edit = page.getByRole('button', { name: 'Editar Teclado 1', exact: true });
+  const pageNumber = page.getByRole('button', { name: 'Page 2', exact: true });
+  const previousPage = page.getByRole('button', { name: 'Previous page', exact: true });
+  const edit = page.getByRole('button', { name: 'Edit Keyboard 1', exact: true });
 
   await expect(pageNumber).toBeEnabled();
   await expect(pageNumber).toHaveCSS('cursor', 'pointer');
@@ -101,71 +99,73 @@ test('mostra os cursores de ação e de indisponibilidade nos botões administra
   await expect(edit).toHaveCSS('cursor', 'pointer');
 });
 
-test('pagina a lista administrativa pela URL e mostra os cards da página 2', async ({ page }) => {
+test('paginates the administrative list through the URL and shows page 2 cards', async ({
+  page,
+}) => {
   await mockPaginatedProducts(page);
   await page.goto('/admin/products?extra=1');
-  const list = page.getByRole('list', { name: 'Produtos', exact: true });
+  const list = page.getByRole('list', { name: 'Products', exact: true });
   await expect(list.getByRole('heading')).toHaveText([
-    'Teclado 1',
-    'Teclado 2',
-    'Teclado 3',
-    'Teclado 4',
+    'Keyboard 1',
+    'Keyboard 2',
+    'Keyboard 3',
+    'Keyboard 4',
   ]);
-  await page.getByRole('button', { name: 'Página 2', exact: true }).click();
+  await page.getByRole('button', { name: 'Page 2', exact: true }).click();
   await expect(page).toHaveURL('/admin/products?extra=1&page=2');
   await expect(list.getByRole('article')).toHaveCount(4);
   await expect(list.getByRole('heading')).toHaveText([
-    'Teclado 5',
-    'Teclado 6',
+    'Keyboard 5',
+    'Keyboard 6',
     'Monitor 7',
     'Monitor 8',
   ]);
-  await expect(page.getByRole('button', { name: 'Página 2', exact: true })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: 'Page 2', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   );
 });
 
-for (const filter of ['nome', 'categoria', 'limpar']) {
-  test(`filtro ${filter} remove a página da URL e busca a primeira página`, async ({ page }) => {
+for (const filter of ['name', 'category', 'clear']) {
+  test(`filter ${filter} removes the page from the URL and fetches the first page`, async ({
+    page,
+  }) => {
     await mockPaginatedProducts(page);
     await page.goto(
-      filter === 'limpar'
-        ? '/admin/products?page=2&name=Teclado&category=Perif%C3%A9ricos&extra=1'
+      filter === 'clear'
+        ? '/admin/products?page=2&name=Keyboard&category=Peripherals&extra=1'
         : '/admin/products?page=2&extra=1',
     );
-    await expect(page.getByRole('button', { name: 'Página 2', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('button', { name: 'Page 2', exact: true })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    if (filter === 'nome') {
-      await page.getByRole('searchbox', { name: 'Nome do produto', exact: true }).fill('Monitor');
-    } else if (filter === 'categoria') {
-      await page
-        .getByRole('combobox', { name: 'Categoria', exact: true })
-        .selectOption('Monitores');
+    if (filter === 'name') {
+      await page.getByRole('searchbox', { name: 'Product name', exact: true }).fill('Monitor');
+    } else if (filter === 'category') {
+      await page.getByRole('combobox', { name: 'Category', exact: true }).selectOption('Monitors');
     } else {
-      await page.getByRole('button', { name: 'LIMPAR FILTRO', exact: true }).click();
+      await page.getByRole('button', { name: 'CLEAR FILTERS', exact: true }).click();
     }
     await expect(page).toHaveURL(
-      filter === 'nome'
+      filter === 'name'
         ? '/admin/products?extra=1&name=Monitor'
-        : filter === 'categoria'
-          ? '/admin/products?extra=1&category=Monitores'
+        : filter === 'category'
+          ? '/admin/products?extra=1&category=Monitors'
           : '/admin/products?extra=1',
     );
     await expect(
-      page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('heading'),
+      page.getByRole('list', { name: 'Products', exact: true }).getByRole('heading'),
     ).toHaveText(
-      filter === 'limpar'
-        ? ['Teclado 1', 'Teclado 2', 'Teclado 3', 'Teclado 4']
+      filter === 'clear'
+        ? ['Keyboard 1', 'Keyboard 2', 'Keyboard 3', 'Keyboard 4']
         : ['Monitor 7', 'Monitor 8', 'Monitor 9'],
     );
   });
 }
 
-for (const action of ['CANCELAR', 'SALVAR']) {
-  test(`editar da página 2 e ${action} retorna à mesma página`, async ({ page }) => {
+for (const action of ['CANCEL', 'SAVE']) {
+  test(`editing from page 2 and choosing ${action} returns to the same page`, async ({ page }) => {
     await mockPaginatedProducts(page);
     const product = paginatedProducts[4];
     await page.route('**/api/product/5', async (route) => {
@@ -174,49 +174,49 @@ for (const action of ['CANCELAR', 'SALVAR']) {
       await route.fulfill({ json: { ...product, version: 1 } });
     });
     await page.goto('/admin/products?extra=1');
-    await page.getByRole('button', { name: 'Página 2', exact: true }).click();
+    await page.getByRole('button', { name: 'Page 2', exact: true }).click();
     await expect(page).toHaveURL('/admin/products?extra=1&page=2');
-    await page.getByRole('button', { name: 'Editar Teclado 5', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit Keyboard 5', exact: true }).click();
     await expect(page).toHaveURL('/admin/products/5/edit?extra=1&page=2');
-    await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue('Teclado 5');
+    await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Keyboard 5');
     await page.getByRole('button', { name: action, exact: true }).click();
     await expect(page).toHaveURL('/admin/products?extra=1&page=2');
     await expect(
-      page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('heading'),
-    ).toHaveText(['Teclado 5', 'Teclado 6', 'Monitor 7', 'Monitor 8']);
-    await expect(page.getByRole('button', { name: 'Página 2', exact: true })).toHaveAttribute(
+      page.getByRole('list', { name: 'Products', exact: true }).getByRole('heading'),
+    ).toHaveText(['Keyboard 5', 'Keyboard 6', 'Monitor 7', 'Monitor 8']);
+    await expect(page.getByRole('button', { name: 'Page 2', exact: true })).toHaveAttribute(
       'aria-current',
       'page',
     );
   });
 }
 
-test('admin chega a Produtos com menu encostado à esquerda no desktop', async ({ page }) => {
+test('admin reaches Products with the menu flush left on desktop', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/admin');
 
   await expect(page).toHaveURL(/\/admin\/products$/);
-  await expect(page).toHaveTitle('Produtos | DS Catalog');
-  const menu = page.getByRole('navigation', { name: 'Administração', exact: true });
+  await expect(page).toHaveTitle('Products | DS Catalog');
+  const menu = page.getByRole('navigation', { name: 'Administration', exact: true });
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('link', { name: 'Produtos', exact: true })).toHaveAttribute(
+  await expect(menu.getByRole('link', { name: 'Products', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   );
   await expect(menu.getByRole('link', { disabled: false })).toHaveCount(1);
   await expect(menu.getByRole('button')).toHaveCount(0);
-  await expect(menu.getByRole('link', { disabled: true })).toHaveText(['Categorias', 'Usuários']);
+  await expect(menu.getByRole('link', { disabled: true })).toHaveText(['Categories', 'Users']);
   const bounds = await menu.boundingBox();
   expect(bounds?.x).toBe(0);
   expect(bounds?.y).toBe(70);
   expect(bounds?.width).toBe(304);
   expect(bounds?.height).toBeGreaterThanOrEqual(830);
-  const products = await menu.getByRole('link', { name: 'Produtos', exact: true }).boundingBox();
+  const products = await menu.getByRole('link', { name: 'Products', exact: true }).boundingBox();
   expect(products?.height).toBe(83);
   expect(products?.width).toBe(304);
 });
 
-test('CUSTOMER é redirecionado de /admin para a home', async ({ page }) => {
+test('redirects CUSTOMER from /admin to home', async ({ page }) => {
   await page.route('**/bff/me', async (route) => {
     await route.fulfill({
       json: {
@@ -231,16 +231,16 @@ test('CUSTOMER é redirecionado de /admin para a home', async ({ page }) => {
 
   await expect(page).toHaveURL('/');
   await expect(page).toHaveTitle('DS Catalog');
-  await expect(page.getByRole('navigation', { name: 'Administração', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    'Conheça o melhor catálogo de produtos',
+  await expect(page.getByRole('navigation', { name: 'Administration', exact: true })).toHaveCount(
+    0,
   );
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Explore our product catalog');
 });
 
-test('menu móvel tem três itens na mesma linha sem transbordar', async ({ page }) => {
+test('mobile menu has three items on the same row without overflow', async ({ page }) => {
   await page.setViewportSize({ width: 414, height: 896 });
   await page.goto('/admin');
-  const menu = page.getByRole('navigation', { name: 'Administração', exact: true });
+  const menu = page.getByRole('navigation', { name: 'Administration', exact: true });
   await expect(menu).toBeVisible();
   const bounds = await menu.boundingBox();
   expect(bounds?.x).toBe(0);
@@ -267,11 +267,11 @@ for (const viewport of [
   { width: 1600, height: 900, padding: '40px', x: 80 },
   { width: 414, height: 896, padding: '20px', x: 0 },
 ]) {
-  test(`home e catálogo preservam contêiner em ${viewport.width}px`, async ({ page }) => {
+  test(`home and catalog preserve the container at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     for (const route of [
       { url: '/', title: 'DS Catalog' },
-      { url: '/catalog', title: 'Catálogo | DS Catalog' },
+      { url: '/catalog', title: 'Catalog | DS Catalog' },
     ]) {
       await page.goto(route.url);
       await expect(page).toHaveTitle(route.title);
@@ -285,15 +285,15 @@ for (const viewport of [
       expect(bounds?.x).toBe(viewport.x);
       expect(bounds?.width).toBe(Math.min(viewport.width, 1440));
       await expect(
-        page.getByRole('navigation', { name: 'Administração', exact: true }),
+        page.getByRole('navigation', { name: 'Administration', exact: true }),
       ).toHaveCount(0);
     }
   });
 }
 
-test('menu acompanha o fundo escuro e mantém Produtos identificado', async ({ page }) => {
+test('menu follows the dark background and keeps Products identified', async ({ page }) => {
   await page.goto('/admin/products');
-  const menu = page.getByRole('navigation', { name: 'Administração', exact: true });
+  const menu = page.getByRole('navigation', { name: 'Administration', exact: true });
   await expect(menu).toBeVisible();
   const lightBackground = await menu.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
@@ -302,28 +302,30 @@ test('menu acompanha o fundo escuro e mantém Produtos identificado', async ({ p
   await expect
     .poll(() => menu.evaluate((element) => getComputedStyle(element).backgroundColor))
     .not.toBe(lightBackground);
-  await expect(menu.getByRole('link', { name: 'Produtos', exact: true })).toHaveAttribute(
+  await expect(menu.getByRole('link', { name: 'Products', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   );
-  await expect(menu.getByText('Categorias', { exact: true })).toBeVisible();
-  await expect(menu.getByText('Usuários', { exact: true })).toBeVisible();
+  await expect(menu.getByText('Categories', { exact: true })).toBeVisible();
+  await expect(menu.getByText('Users', { exact: true })).toBeVisible();
 });
 
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 1024, height: 900 },
 ]) {
-  test(`toolbar alinha botão e busca no desktop em ${viewport.width}px`, async ({ page }) => {
+  test(`toolbar aligns the button and search on desktop at ${viewport.width}px`, async ({
+    page,
+  }) => {
     await page.setViewportSize(viewport);
     await page.goto('/admin/products');
-    const button = page.getByRole('link', { name: 'ADICIONAR', exact: true });
+    const button = page.getByRole('link', { name: 'ADD', exact: true });
     const search = page.locator('app-admin-products app-product-search');
     await expect(button).toBeVisible();
     await expect(search).toBeVisible();
     const buttonBounds = await button.boundingBox();
     const searchBounds = await search.boundingBox();
-    if (!buttonBounds || !searchBounds) throw new Error('Toolbar ausente');
+    if (!buttonBounds || !searchBounds) throw new Error('Toolbar missing');
     expect(buttonBounds.x).toBe(345);
     expect(buttonBounds.y).toBe(96);
     expect(buttonBounds.width).toBe(170);
@@ -341,16 +343,18 @@ for (const viewport of [
   { width: 414, height: 896 },
   { width: 767, height: 1024 },
 ]) {
-  test(`toolbar empilha botão e busca no mobile em ${viewport.width}px`, async ({ page }) => {
+  test(`toolbar stacks the button and search on mobile at ${viewport.width}px`, async ({
+    page,
+  }) => {
     await page.setViewportSize(viewport);
     await page.goto('/admin/products');
-    const button = page.getByRole('link', { name: 'ADICIONAR', exact: true });
+    const button = page.getByRole('link', { name: 'ADD', exact: true });
     const search = page.locator('app-admin-products app-product-search');
     await expect(button).toBeVisible();
     await expect(search).toBeVisible();
     const buttonBounds = await button.boundingBox();
     const searchBounds = await search.boundingBox();
-    if (!buttonBounds || !searchBounds) throw new Error('Toolbar ausente');
+    if (!buttonBounds || !searchBounds) throw new Error('Toolbar missing');
     expect(buttonBounds.x).toBe(20);
     expect(buttonBounds.y).toBe(158);
     expect(buttonBounds.width).toBe(viewport.width - 40);
@@ -362,31 +366,31 @@ for (const viewport of [
   });
 }
 
-test('digitar nome na busca administrativa atualiza a URL', async ({ page }) => {
+test('typing a name in administrative search updates the URL', async ({ page }) => {
   await page.goto('/admin/products');
-  await page.getByRole('searchbox', { name: 'Nome do produto' }).fill('Teclado');
-  await expect(page).toHaveURL('/admin/products?name=Teclado');
-  await expect(page.getByRole('searchbox', { name: 'Nome do produto' })).toHaveValue('Teclado');
+  await page.getByRole('searchbox', { name: 'Product name' }).fill('Keyboard');
+  await expect(page).toHaveURL('/admin/products?name=Keyboard');
+  await expect(page.getByRole('searchbox', { name: 'Product name' })).toHaveValue('Keyboard');
 });
 
-test('cards seguem a geometria do design em 1440px', async ({ page }) => {
+test('cards follow the design geometry at 1440px', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/admin/products');
-  const list = page.getByRole('list', { name: 'Produtos', exact: true });
+  const list = page.getByRole('list', { name: 'Products', exact: true });
   const cards = list.getByRole('article');
   await expect(cards).toHaveCount(4);
   const first = await cards.nth(0).boundingBox();
   const second = await cards.nth(1).boundingBox();
-  if (!first || !second) throw new Error('Cards ausentes');
+  if (!first || !second) throw new Error('Cards missing');
   expect(first).toEqual({ x: 345, y: 199, width: 1055, height: 160 });
   expect(second.y - first.y - first.height).toBe(21);
   for (const [label, offset] of [
-    ['Editar', 31],
-    ['Excluir', 91],
+    ['Edit', 31],
+    ['Delete', 91],
   ] as const) {
     const button = cards.nth(0).getByRole('button', { name: label + ' ' + products[0].name });
     const bounds = await button.boundingBox();
-    if (!bounds) throw new Error('Botão ausente');
+    if (!bounds) throw new Error('Button missing');
     expect(bounds.width).toBe(213);
     expect(bounds.height).toBe(38);
     expect(bounds.x).toBe(first.x + first.width - 17 - 213);
@@ -394,17 +398,17 @@ test('cards seguem a geometria do design em 1440px', async ({ page }) => {
   }
 });
 
-test('cards não transbordam e têm botões lado a lado em 414px', async ({ page }) => {
+test('cards do not overflow and have side-by-side buttons at 414px', async ({ page }) => {
   await page.setViewportSize({ width: 414, height: 896 });
   await page.goto('/admin/products');
-  const cards = page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('article');
+  const cards = page.getByRole('list', { name: 'Products', exact: true }).getByRole('article');
   await expect(cards).toHaveCount(4);
   for (const card of await cards.all()) {
     const bounds = await card.boundingBox();
     const buttons = card.getByRole('button');
     const edit = await buttons.nth(0).boundingBox();
     const remove = await buttons.nth(1).boundingBox();
-    if (!bounds || !edit || !remove) throw new Error('Card ou botões ausentes');
+    if (!bounds || !edit || !remove) throw new Error('Card or buttons missing');
     expect(bounds.x).toBe(20);
     expect(bounds.width).toBe(374);
     expect(edit.y).toBe(remove.y);
@@ -415,14 +419,14 @@ test('cards não transbordam e têm botões lado a lado em 414px', async ({ page
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(414);
 });
 
-test('mantém os quatro cards sem skeleton durante resposta atrasada do filtro', async ({
+test('preserves four cards without skeletons during a delayed filter response', async ({
   page,
 }) => {
   await page.goto('/admin/products');
-  const list = page.getByRole('list', { name: 'Produtos', exact: true });
+  const list = page.getByRole('list', { name: 'Products', exact: true });
   await expect(list.getByRole('article')).toHaveCount(4);
   let releaseResponse: () => void = () => {
-    throw new Error('Resposta pendente não inicializada');
+    throw new Error('Pending response not initialized');
   };
   const pendingResponse = new Promise<void>((resolve) => {
     releaseResponse = resolve;
@@ -439,7 +443,7 @@ test('mantém os quatro cards sem skeleton durante resposta atrasada do filtro',
   });
   await list.evaluate((element) => {
     const region = element.parentElement;
-    if (!region) throw new Error('Região de resultados ausente');
+    if (!region) throw new Error('Results region missing');
     region.dataset['skeletonAppeared'] = 'false';
     new MutationObserver((mutations) => {
       for (const mutation of mutations) {
@@ -459,7 +463,7 @@ test('mantém os quatro cards sem skeleton durante resposta atrasada do filtro',
     return url.pathname === '/api/product' && url.searchParams.get('name') === 'Monitor';
   });
   try {
-    await page.getByRole('searchbox', { name: 'Nome do produto' }).fill('Monitor');
+    await page.getByRole('searchbox', { name: 'Product name' }).fill('Monitor');
     const sent = await request;
     expect(new URL(sent.url()).searchParams.get('size')).toBe('4');
     expect(new URL(sent.url()).searchParams.get('page')).toBe('0');
@@ -489,18 +493,18 @@ test('mantém os quatro cards sem skeleton durante resposta atrasada do filtro',
 });
 
 async function fillProduct(page: Page) {
-  await page.getByLabel('Nome do Produto', { exact: true }).fill(' Teclado novo ');
-  await page.getByLabel('Categorias', { exact: true }).fill(' Nova categoria ');
-  await page.getByLabel('Preço', { exact: true }).fill('1.234,56');
-  await page.getByLabel('Estoque', { exact: true }).fill('8');
-  await page.getByLabel('Descrição', { exact: true }).fill(' Teclado mecânico para trabalho ');
+  await page.getByLabel('Product name', { exact: true }).fill(' New keyboard ');
+  await page.getByLabel('Categories', { exact: true }).fill(' New category ');
+  await page.getByLabel('Price', { exact: true }).fill('1,234.56');
+  await page.getByLabel('Stock', { exact: true }).fill('8');
+  await page.getByLabel('Description', { exact: true }).fill(' Mechanical keyboard for work ');
 }
 
-test('cria produto com estoque, categoria nova e CSRF e retorna com filtros e toast', async ({
+test('creates a product with stock, a new category and CSRF and returns with filters and a toast', async ({
   page,
   baseURL,
 }) => {
-  if (!baseURL) throw new Error('URL de testes ausente');
+  if (!baseURL) throw new Error('Test URL missing');
   await page.context().addCookies([{ name: 'XSRF-TOKEN', value: 'stock-csrf', url: baseURL }]);
   let created = false;
   let stockCreated = false;
@@ -517,28 +521,28 @@ test('cria produto com estoque, categoria nova e CSRF e retorna com filtros e to
     expect(route.request().headers()['x-xsrf-token']).toBe('stock-csrf');
     const body: unknown = route.request().postDataJSON();
     expect(body).toEqual({
-      name: 'Teclado novo',
-      description: 'Teclado mecânico para trabalho',
-      category: 'Nova categoria',
+      name: 'New keyboard',
+      description: 'Mechanical keyboard for work',
+      category: 'New category',
       price: 1234.56,
       imageUrl: 'https://example.com/new.png',
     });
     created = true;
     await route.fulfill({ status: 201, json: { ...products[0], id: 'new' } });
   });
-  await page.goto('/admin/products?name=Teclado&extra=1');
-  await page.getByRole('link', { name: 'ADICIONAR', exact: true }).click();
-  await expect(page).toHaveTitle('Novo produto | DS Catalog');
+  await page.goto('/admin/products?name=Keyboard&extra=1');
+  await page.getByRole('link', { name: 'ADD', exact: true }).click();
+  await expect(page).toHaveTitle('New product | DS Catalog');
   await fillProduct(page);
-  await page.getByLabel('URL da imagem', { exact: true }).fill(' https://example.com/new.png ');
-  await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-  await expect(page).toHaveURL('/admin/products?name=Teclado&extra=1');
-  await expect(page.getByText('Produto criado com sucesso.', { exact: true })).toBeVisible();
+  await page.getByLabel('Image URL', { exact: true }).fill(' https://example.com/new.png ');
+  await page.getByRole('button', { name: 'SAVE', exact: true }).click();
+  await expect(page).toHaveURL('/admin/products?name=Keyboard&extra=1');
+  await expect(page.getByText('Product created successfully.', { exact: true })).toBeVisible();
   expect(created).toBe(true);
   expect(stockCreated).toBe(true);
 });
 
-test('edita com If-Match entre aspas e preserva imageUrl', async ({ page }) => {
+test('edits with quoted If-Match and preserves imageUrl', async ({ page }) => {
   const loaded = { ...products[0], imageUrl: 'https://example.com/existing.png', version: 3 };
   let updated = false;
   let stockUpdated = false;
@@ -554,9 +558,9 @@ test('edita com If-Match entre aspas e preserva imageUrl', async ({ page }) => {
     expect(route.request().method()).toBe('PUT');
     expect(route.request().headers()['if-match']).toBe('"3"');
     expect(route.request().postDataJSON()).toEqual({
-      name: 'Teclado novo',
-      description: 'Teclado mecânico para trabalho',
-      category: 'Nova categoria',
+      name: 'New keyboard',
+      description: 'Mechanical keyboard for work',
+      category: 'New category',
       price: 1234.56,
       imageUrl: 'https://example.com/existing.png',
     });
@@ -564,19 +568,19 @@ test('edita com If-Match entre aspas e preserva imageUrl', async ({ page }) => {
     await route.fulfill({ json: { ...loaded, version: 4 } });
   });
   await page.goto('/admin/products?extra=1');
-  await page.getByRole('button', { name: 'Editar ' + products[0].name, exact: true }).click();
+  await page.getByRole('button', { name: 'Edit ' + products[0].name, exact: true }).click();
   await expect(page).toHaveURL('/admin/products/1/edit?extra=1');
-  await expect(page).toHaveTitle('Editar produto | DS Catalog');
-  await expect(page.getByLabel('Preço', { exact: true })).toHaveValue('2.779,00');
-  await expect(page.getByLabel('Estoque', { exact: true })).toHaveValue('12');
+  await expect(page).toHaveTitle('Edit product | DS Catalog');
+  await expect(page.getByLabel('Price', { exact: true })).toHaveValue('2,779.00');
+  await expect(page.getByLabel('Stock', { exact: true })).toHaveValue('12');
   await fillProduct(page);
-  await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+  await page.getByRole('button', { name: 'SAVE', exact: true }).click();
   await expect(page).toHaveURL('/admin/products?extra=1');
   expect(updated).toBe(true);
   expect(stockUpdated).toBe(true);
 });
 
-test('exclui somente após confirmar, enviando ETag', async ({ page }) => {
+test('deletes only after confirmation and sends ETag', async ({ page }) => {
   let deleted = false;
   let reads = 0;
   await page.route('**/api/product?**', async (route) => {
@@ -594,25 +598,27 @@ test('exclui somente após confirmar, enviando ETag', async ({ page }) => {
     await route.fulfill({ status: 204 });
   });
   await page.goto('/admin/products');
-  await page.getByRole('button', { name: 'Excluir ' + products[0].name, exact: true }).click();
+  await page.getByRole('button', { name: 'Delete ' + products[0].name, exact: true }).click();
   const dialog = page.locator('div[role="alertdialog"]');
   await expect(dialog).toContainText(
-    'Excluir "' + products[0].name + '"? Esta ação não pode ser desfeita.',
+    'Delete "' + products[0].name + '"? This action cannot be undone.',
   );
-  await expect(dialog.getByRole('button', { name: 'Cancelar', exact: true })).toBeFocused();
+  await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
   expect(deleted).toBe(false);
-  await dialog.getByRole('button', { name: 'Excluir', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(
-    page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('article'),
+    page.getByRole('list', { name: 'Products', exact: true }).getByRole('article'),
   ).toHaveCount(3);
-  await expect(page.getByText('Produto excluído com sucesso.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Product deleted successfully.', { exact: true })).toBeVisible();
   expect(deleted).toBe(true);
   expect(reads).toBe(2);
 });
 
-test('cancelar exclusão não envia DELETE e nome com HTML é texto literal', async ({ page }) => {
+test('canceling deletion does not send DELETE and an HTML name stays literal text', async ({
+  page,
+}) => {
   let deletes = 0;
-  const name = '<img src=x onerror=alert(1)>Produto';
+  const name = '<img src=x onerror=alert(1)>Product';
   await page.route('**/api/product?**', (route) =>
     route.fulfill({ json: { ...productPage, content: [{ ...products[0], name }] } }),
   );
@@ -620,16 +626,16 @@ test('cancelar exclusão não envia DELETE e nome com HTML é texto literal', as
     if (request.method() === 'DELETE') deletes++;
   });
   await page.goto('/admin/products');
-  await page.getByRole('button', { name: 'Excluir ' + name, exact: true }).click();
+  await page.getByRole('button', { name: 'Delete ' + name, exact: true }).click();
   const dialog = page.locator('div[role="alertdialog"]');
   await expect(dialog).toContainText(name);
   await expect(dialog.locator('img')).toHaveCount(0);
-  await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(dialog).toBeHidden();
   expect(deletes).toBe(0);
 });
 
-test('412 mantém entrada até recarga explícita e usa versão atual na tentativa seguinte', async ({
+test('412 preserves input until an explicit reload and uses the current version on the next attempt', async ({
   page,
 }) => {
   let reads = 0;
@@ -640,7 +646,7 @@ test('412 mantém entrada até recarga explícita e usa versão atual na tentati
       return route.fulfill({
         json: {
           ...products[0],
-          name: reads === 1 ? 'Original' : 'Outra pessoa',
+          name: reads === 1 ? 'Original' : 'Someone else',
           version: reads === 1 ? 3 : 7,
           imageUrl: reads === 1 ? null : 'https://example.com/new.png',
         },
@@ -649,43 +655,43 @@ test('412 mantém entrada até recarga explícita e usa versão atual na tentati
     writes++;
     if (writes === 1) {
       expect(route.request().headers()['if-match']).toBe('"3"');
-      return route.fulfill({ status: 412, json: { detail: 'Versão desatualizada.' } });
+      return route.fulfill({ status: 412, json: { detail: 'Outdated version.' } });
     }
     expect(route.request().headers()['if-match']).toBe('"7"');
     expect(route.request().postDataJSON().imageUrl).toBe('https://example.com/new.png');
     await route.fulfill({ json: { ...products[0], version: 8 } });
   });
   await page.goto('/admin/products/1/edit');
-  await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue('Original');
+  await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Original');
   await fillProduct(page);
-  await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-  await expect(page.getByText(/Outra pessoa alterou este produto/)).toBeVisible();
-  await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue(' Teclado novo ');
+  await page.getByRole('button', { name: 'SAVE', exact: true }).click();
+  await expect(page.getByText(/Someone else changed this product/)).toBeVisible();
+  await expect(page.getByLabel('Product name', { exact: true })).toHaveValue(' New keyboard ');
   expect(reads).toBe(1);
   expect(writes).toBe(1);
-  await page.getByRole('button', { name: 'Recarregar dados', exact: true }).click();
-  await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue('Outra pessoa');
-  await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+  await page.getByRole('button', { name: 'Reload details', exact: true }).click();
+  await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Someone else');
+  await page.getByRole('button', { name: 'SAVE', exact: true }).click();
   await expect(page).toHaveURL('/admin/products');
   expect(writes).toBe(2);
 });
 
-test('formulário segue geometria desktop em 1440px', async ({ page }) => {
+test('form follows desktop geometry at 1440px', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1100 });
   await page.goto('/admin/products/new');
   const box = page.locator('app-admin-product-form > section');
-  const title = page.getByRole('heading', { name: 'DADOS DO PRODUTO', level: 1 });
+  const title = page.getByRole('heading', { name: 'PRODUCT DETAILS', level: 1 });
   await expect(title).toBeVisible();
   const bounds = await box.boundingBox();
   const heading = await title.boundingBox();
-  const name = await page.getByLabel('Nome do Produto', { exact: true }).boundingBox();
-  const category = await page.getByLabel('Categorias', { exact: true }).boundingBox();
-  const price = await page.getByLabel('Preço', { exact: true }).boundingBox();
-  const description = await page.getByLabel('Descrição', { exact: true }).boundingBox();
-  const cancel = await page.getByRole('button', { name: 'CANCELAR', exact: true }).boundingBox();
-  const save = await page.getByRole('button', { name: 'SALVAR', exact: true }).boundingBox();
+  const name = await page.getByLabel('Product name', { exact: true }).boundingBox();
+  const category = await page.getByLabel('Categories', { exact: true }).boundingBox();
+  const price = await page.getByLabel('Price', { exact: true }).boundingBox();
+  const description = await page.getByLabel('Description', { exact: true }).boundingBox();
+  const cancel = await page.getByRole('button', { name: 'CANCEL', exact: true }).boundingBox();
+  const save = await page.getByRole('button', { name: 'SAVE', exact: true }).boundingBox();
   if (!bounds || !heading || !name || !category || !price || !description || !cancel || !save)
-    throw new Error('Formulário ausente');
+    throw new Error('Form missing');
   expect(bounds.x).toBe(345);
   expect(bounds.y).toBe(110);
   expect(bounds.width).toBe(1055);
@@ -707,15 +713,15 @@ test('formulário segue geometria desktop em 1440px', async ({ page }) => {
   expect(bounds.y + bounds.height - save.y - save.height).toBe(49);
 });
 
-test('formulário móvel não transborda em 414px e SALVAR aparece primeiro', async ({ page }) => {
+test('mobile form does not overflow at 414px and SAVE appears first', async ({ page }) => {
   await page.setViewportSize({ width: 414, height: 1100 });
   await page.goto('/admin/products/new');
-  await expect(page.getByRole('heading', { name: 'DADOS DO PRODUTO' })).toBeVisible();
-  const save = await page.getByRole('button', { name: 'SALVAR', exact: true }).boundingBox();
-  const cancel = await page.getByRole('button', { name: 'CANCELAR', exact: true }).boundingBox();
-  const name = await page.getByLabel('Nome do Produto', { exact: true }).boundingBox();
-  const description = await page.getByLabel('Descrição', { exact: true }).boundingBox();
-  if (!save || !cancel || !name || !description) throw new Error('Formulário ausente');
+  await expect(page.getByRole('heading', { name: 'PRODUCT DETAILS' })).toBeVisible();
+  const save = await page.getByRole('button', { name: 'SAVE', exact: true }).boundingBox();
+  const cancel = await page.getByRole('button', { name: 'CANCEL', exact: true }).boundingBox();
+  const name = await page.getByLabel('Product name', { exact: true }).boundingBox();
+  const description = await page.getByLabel('Description', { exact: true }).boundingBox();
+  if (!save || !cancel || !name || !description) throw new Error('Form missing');
   expect(name.width).toBe(334);
   expect(description.width).toBe(name.width);
   expect(description.height).toBe(200);
@@ -725,7 +731,7 @@ test('formulário móvel não transborda em 414px e SALVAR aparece primeiro', as
 });
 
 for (const editing of [false, true]) {
-  test(`falha no estoque preserva produto ${editing ? 'editado' : 'criado'} e permite repetir`, async ({
+  test(`stock failure preserves the ${editing ? 'edited' : 'created'} product and allows retrying`, async ({
     page,
   }) => {
     let creates = 0;
@@ -753,11 +759,11 @@ for (const editing of [false, true]) {
       if (stockWrites === 1) {
         return route.fulfill({
           status: 503,
-          json: { detail: 'Estoque temporariamente indisponível.' },
+          json: { detail: 'Stock temporarily unavailable.' },
         });
       }
       if (!editing && stockWrites === 2) {
-        return route.fulfill({ status: 404, json: { detail: 'Estoque ainda não cadastrado.' } });
+        return route.fulfill({ status: 404, json: { detail: 'Stock not yet registered.' } });
       }
       expect(route.request().postDataJSON()).toEqual(
         route.request().method() === 'POST' ? { skuCode: '1', quantity: 8 } : { quantity: 8 },
@@ -769,13 +775,13 @@ for (const editing of [false, true]) {
     });
     await page.goto(editing ? '/admin/products/1/edit?extra=1' : '/admin/products/new?extra=1');
     await fillProduct(page);
-    await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-    await expect(page.getByText(/O produto foi salvo, mas o estoque não/)).toBeVisible();
-    await expect(page.getByText(/Estoque temporariamente indisponível/)).toBeVisible();
-    await expect(page.getByText(/Produto (criado|atualizado) com sucesso/)).toHaveCount(0);
-    await expect(page.getByLabel('Estoque', { exact: true })).toHaveValue('8');
-    await expect(page.getByLabel('Nome do Produto', { exact: true })).toHaveValue(' Teclado novo ');
-    await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+    await page.getByRole('button', { name: 'SAVE', exact: true }).click();
+    await expect(page.getByText(/The product was saved, but stock was not/)).toBeVisible();
+    await expect(page.getByText(/Stock temporarily unavailable/)).toBeVisible();
+    await expect(page.getByText(/Product (created|updated) successfully/)).toHaveCount(0);
+    await expect(page.getByLabel('Stock', { exact: true })).toHaveValue('8');
+    await expect(page.getByLabel('Product name', { exact: true })).toHaveValue(' New keyboard ');
+    await page.getByRole('button', { name: 'SAVE', exact: true }).click();
     await expect(page).toHaveURL('/admin/products?extra=1');
     expect(creates).toBe(editing ? 0 : 1);
     expect(updates).toBe(editing ? 2 : 1);
@@ -783,7 +789,7 @@ for (const editing of [false, true]) {
   });
 }
 
-test('mostra estoque dos cards com uma consulta em lote por página', async ({ page }) => {
+test('shows card stock with one batch query per page', async ({ page }) => {
   const batches: string[][] = [];
   await mockPaginatedProducts(page);
   await page.route('**/api/inventory?**', async (route) => {
@@ -794,27 +800,27 @@ test('mostra estoque dos cards com uma consulta em lote por página', async ({ p
     });
   });
   await page.goto('/admin/products');
-  const cards = page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('article');
-  await expect(cards.nth(0).getByText('Estoque: 1', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Página 2', exact: true }).click();
-  await expect(cards.nth(0).getByText('Estoque: 5', { exact: true })).toBeVisible();
+  const cards = page.getByRole('list', { name: 'Products', exact: true }).getByRole('article');
+  await expect(cards.nth(0).getByText('Stock: 1', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Page 2', exact: true }).click();
+  await expect(cards.nth(0).getByText('Stock: 5', { exact: true })).toBeVisible();
   expect(batches).toEqual([
     ['1', '2', '3', '4'],
     ['5', '6', '7', '8'],
   ]);
 });
 
-test('estoque dos cards permanece dentro do card em largura intermediária', async ({ page }) => {
+test('card stock stays inside the card at intermediate widths', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto('/admin/products');
-  const cards = page.getByRole('list', { name: 'Produtos', exact: true }).getByRole('article');
+  const cards = page.getByRole('list', { name: 'Products', exact: true }).getByRole('article');
   await expect(cards).toHaveCount(4);
   for (const card of await cards.all()) {
-    const stock = card.getByText('Estoque: 12', { exact: true });
+    const stock = card.getByText('Stock: 12', { exact: true });
     await expect(stock).toBeVisible();
     const bounds = await card.boundingBox();
     const stockBounds = await stock.boundingBox();
-    if (!bounds || !stockBounds) throw new Error('Card ou estoque ausente');
+    if (!bounds || !stockBounds) throw new Error('Card or stock missing');
     expect(stockBounds.y + stockBounds.height).toBeLessThanOrEqual(bounds.y + bounds.height);
     expect(stockBounds.x + stockBounds.width).toBeLessThanOrEqual(bounds.x + bounds.width);
   }

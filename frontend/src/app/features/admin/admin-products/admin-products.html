@@ -1,11 +1,11 @@
-<h1 class="sr-only">Produtos</h1>
+<h1 class="sr-only">Products</h1>
 <div class="flex w-full flex-col gap-5 md:flex-row md:gap-7">
   <a
     routerLink="/admin/products/new"
     queryParamsHandling="preserve"
     class="flex items-center justify-center h-[50px] w-full shrink-0 rounded-[10px] bg-primary font-sans text-base font-bold tracking-[-0.24px] text-white transition-colors hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:h-[60px] md:w-[170px]"
   >
-    ADICIONAR
+    ADD
   </a>
   <app-product-search
     #search
@@ -39,7 +39,7 @@
         (click)="products.reload()"
         class="rounded-[10px] bg-primary px-5 py-3 font-bold text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
       >
-        Tentar novamente
+        Try again
       </button>
     </div>
   } @else if (productPage(); as result) {
@@ -52,11 +52,11 @@
             (click)="inventory.reload()"
             class="rounded-[10px] border border-surface-200 px-5 py-3 font-bold text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
-            Recarregar estoque
+            Reload stock
           </button>
         </div>
       }
-      <ul aria-label="Produtos" class="grid gap-[21px]" [class.opacity-50]="products.isLoading()">
+      <ul aria-label="Products" class="grid gap-[21px]" [class.opacity-50]="products.isLoading()">
         @for (product of result.content; track product.id) {
           <li class="min-w-0">
             <app-admin-product-card
@@ -82,14 +82,14 @@
         class="flex flex-col items-center gap-5 rounded-[10px] bg-surface-0 px-5 py-12 text-color dark:bg-surface-900"
         [class.opacity-50]="products.isLoading()"
       >
-        <p>Nenhum produto encontrado.</p>
+        <p>No products found.</p>
         @if (hasFilters()) {
           <button
             type="button"
             (click)="search.clearFilters()"
             class="rounded-[10px] border border-surface-200 px-5 py-3 font-bold text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
-            Limpar filtros
+            Clear filters
           </button>
         }
       </div>

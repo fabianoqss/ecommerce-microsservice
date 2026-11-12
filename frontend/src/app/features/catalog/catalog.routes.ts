@@ -7,7 +7,7 @@ export const catalogRoutes: Routes = [
   },
   {
     path: ':id',
-    title: 'Produto | DS Catalog',
+    title: 'Product | DS Catalog',
     loadComponent: () =>
       import('./product-detail/product-detail').then((module) => module.ProductDetail),
   },

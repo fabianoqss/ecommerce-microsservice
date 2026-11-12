@@ -12,12 +12,12 @@ import { Cart } from '../../../core/cart/cart';
 import { CartStore } from '../../../core/cart/cart-store';
 import { LocalStorageCartStore } from '../../../core/cart/local-storage-cart-store';
 
-@Component({ template: '<h1>Destino da confirmação</h1>' })
+@Component({ template: '<h1>Confirmation destination</h1>' })
 class Destination {}
 
 const product = {
   id: 'a',
-  name: 'Teclado',
+  name: 'Keyboard',
   description: '',
   price: 12.5,
   category: '',
@@ -25,11 +25,11 @@ const product = {
   version: 0,
 };
 const order = {
-  id: 'pedido-1',
+  id: 'order-1',
   status: 'PENDING',
   totalValue: 25,
   orderTime: '2026-11-08T10:30:00',
-  items: [{ productId: 'a', productName: 'Teclado', quantity: 2, priceAtPurchase: 12.5 }],
+  items: [{ productId: 'a', productName: 'Keyboard', quantity: 2, priceAtPurchase: 12.5 }],
 };
 
 describe('Checkout', () => {
@@ -72,7 +72,7 @@ describe('Checkout', () => {
     const harness = await RouterTestingHarness.create('/checkout');
     TestBed.tick();
     const element = harness.routeNativeElement;
-    if (!element) throw new Error('Página ausente');
+    if (!element) throw new Error('Page missing');
     return { harness, element };
   }
 
@@ -81,11 +81,11 @@ describe('Checkout', () => {
     harness.detectChanges();
   }
 
-  function button(element: HTMLElement, label = 'Finalizar pedido') {
+  function button(element: HTMLElement, label = 'Place order') {
     const result = Array.from(element.querySelectorAll('button')).find((button) =>
       button.textContent?.includes(label),
     );
-    if (!result) throw new Error('Botão ausente: ' + label);
+    if (!result) throw new Error('Button missing: ' + label);
     return result;
   }
 
@@ -100,23 +100,23 @@ describe('Checkout', () => {
     return result;
   }
 
-  it('mostra estado vazio com link para catálogo sem buscar produtos', async () => {
+  it('shows an empty state with a catalog link without fetching products', async () => {
     const { element } = await render();
-    expect(element.textContent).toContain('Seu carrinho está vazio');
-    expect(element.querySelector('a[href="/catalog"]')?.textContent).toContain('Ver catálogo');
+    expect(element.textContent).toContain('Your cart is empty');
+    expect(element.querySelector('a[href="/catalog"]')?.textContent).toContain('Browse catalog');
     expect(element.querySelector('button')).toBeNull();
     http.expectNone((request) => request.url.startsWith('/api/'));
-    expect(document.title).toBe('Pedido | DS Catalog');
+    expect(document.title).toBe('Order | DS Catalog');
   });
 
-  it('exige autenticação ao navegar diretamente para checkout', async () => {
+  it('requires authentication when navigating directly to checkout', async () => {
     TestBed.inject(AuthService).clear();
     await RouterTestingHarness.create('/checkout');
     expect(login).toHaveBeenCalledExactlyOnceWith('/oauth2/authorization/keycloak');
     http.expectNone((request) => request.url.startsWith('/api/'));
   });
 
-  it('carrega produtos e estoque, mostra revisão somente leitura e total', async () => {
+  it('loads products and stock and shows a read-only review and total', async () => {
     cart.add('a', 2);
     cart.add('b', 3);
     const { harness, element } = await render();
@@ -130,34 +130,31 @@ describe('Checkout', () => {
     ]);
     await settle(harness);
     const lines = element.querySelector('ul');
-    expect(lines?.textContent).toContain('Teclado');
+    expect(lines?.textContent).toContain('Keyboard');
     expect(lines?.textContent).toContain('Mouse');
-    expect(lines?.textContent).toContain('Quantidade: 2');
-    expect(lines?.textContent).toContain('Quantidade: 3');
-    expect(lines?.textContent).toContain('R$ 12,50');
-    expect(lines?.textContent).toContain('R$ 25,00');
-    expect(lines?.textContent).toContain('R$ 30,00');
-    expect(element.querySelector('aside')?.textContent).toContain('R$ 55,00');
+    expect(lines?.textContent).toContain('Quantity: 2');
+    expect(lines?.textContent).toContain('Quantity: 3');
+    expect(lines?.textContent).toContain('R$12.50');
+    expect(lines?.textContent).toContain('R$25.00');
+    expect(lines?.textContent).toContain('R$30.00');
+    expect(element.querySelector('aside')?.textContent).toContain('R$55.00');
     expect(element.querySelector('input, p-inputnumber')).toBeNull();
     expect(button(element).disabled).toBe(false);
-    expect(element.querySelector('a[href="/cart"]')?.textContent).toContain('Voltar ao carrinho');
+    expect(element.querySelector('a[href="/cart"]')?.textContent).toContain('Back to cart');
   });
 
   it.each([
-    ['unavailable', 'Produto indisponível'],
-    ['out-of-stock', 'Sem estoque'],
-    ['insufficient-stock', 'Apenas 1 em estoque'],
-    ['error', 'Não foi possível carregar este produto.'],
-  ])('bloqueia envio e identifica linha com status %s', async (status, message) => {
+    ['unavailable', 'Product unavailable'],
+    ['out-of-stock', 'Out of stock'],
+    ['insufficient-stock', 'Only 1 in stock'],
+    ['error', 'Unable to load this product.'],
+  ])('blocks submission and identifies the line with status %s', async (status, message) => {
     cart.add('a', 2);
     const { harness, element } = await render();
     const request = http.expectOne('/api/product/a');
     if (status === 'unavailable') request.flush({}, { status: 404, statusText: 'Not Found' });
     else if (status === 'error')
-      request.flush(
-        { detail: 'Catálogo indisponível.' },
-        { status: 503, statusText: 'Unavailable' },
-      );
+      request.flush({ detail: 'Catalog unavailable.' }, { status: 503, statusText: 'Unavailable' });
     else request.flush(product);
     http.expectOne('/api/inventory?skuCode=a').flush([
       {
@@ -174,17 +171,17 @@ describe('Checkout', () => {
     expect(cart.totalQuantity()).toBe(2);
   });
 
-  it('mostra ProblemDetail de carregamento e permite tentar novamente', async () => {
+  it('shows loading ProblemDetail and allows retrying', async () => {
     cart.add('a', 2);
     const { harness, element } = await render();
     http.expectOne('/api/product/a').flush(product);
     http
       .expectOne('/api/inventory?skuCode=a')
-      .flush({ detail: 'Estoque indisponível.' }, { status: 503, statusText: 'Unavailable' });
+      .flush({ detail: 'Stock unavailable.' }, { status: 503, statusText: 'Unavailable' });
     await settle(harness);
-    expect(element.querySelector('p-message')?.textContent).toContain('Estoque indisponível.');
+    expect(element.querySelector('p-message')?.textContent).toContain('Stock unavailable.');
     expect(button(element).disabled).toBe(true);
-    button(element, 'Tentar novamente').click();
+    button(element, 'Try again').click();
     TestBed.tick();
     http
       .expectOne('/api/inventory?skuCode=a')
@@ -194,7 +191,7 @@ describe('Checkout', () => {
     expect(element.querySelector('p-message')).toBeNull();
   });
 
-  it('envia somente ids e quantidades com UUID v4 e impede duplo clique antes de renderizar', async () => {
+  it('sends only IDs and quantities with a UUID v4 and prevents double clicks before rendering', async () => {
     const { harness, element } = await ready();
     const submit = button(element);
     submit.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -212,27 +209,21 @@ describe('Checkout', () => {
     await settle(harness);
     expect(cart.items()).toEqual([]);
     expect(localStorage.getItem('cart:ana')).toBe('[]');
-    expect(TestBed.inject(Router).url).toBe('/orders/pedido-1/confirmation');
+    expect(TestBed.inject(Router).url).toBe('/orders/order-1/confirmation');
   });
 
   it.each([400, 409, 500, 503, 0])(
-    'mantém carrinho e chave após HTTP %s e permite retry',
+    'preserves the cart and key after HTTP %s and allows retrying',
     async (status) => {
       const { harness, element } = await ready();
       button(element).click();
       const first = http.expectOne('/api/order');
       const key = first.request.headers.get('Idempotency-Key');
       if (status === 0) first.error(new ProgressEvent('error'));
-      else
-        first.flush(
-          { detail: 'Não foi possível reservar o estoque.' },
-          { status, statusText: 'Erro' },
-        );
+      else first.flush({ detail: 'Unable to reserve stock.' }, { status, statusText: 'Error' });
       await settle(harness);
       expect(element.querySelector('p-message')?.textContent).toContain(
-        status === 0
-          ? 'Não foi possível finalizar o pedido. Tente novamente.'
-          : 'Não foi possível reservar o estoque.',
+        status === 0 ? 'Unable to place your order. Please try again.' : 'Unable to reserve stock.',
       );
       expect(cart.items()).toEqual([{ productId: 'a', quantity: 2 }]);
       expect(button(element).disabled).toBe(false);
@@ -247,18 +238,18 @@ describe('Checkout', () => {
     },
   );
 
-  it('troca chave após 422 e pede revisão mantendo o carrinho', async () => {
+  it('changes the key after 422 and requests review while preserving the cart', async () => {
     const { harness, element } = await ready();
     button(element).click();
     const first = http.expectOne('/api/order');
     const key = first.request.headers.get('Idempotency-Key');
     first.flush(
-      { detail: 'Chave já utilizada.' },
+      { detail: 'Key already used.' },
       { status: 422, statusText: 'Unprocessable Content' },
     );
     await settle(harness);
     expect(element.querySelector('p-message')?.textContent).toContain(
-      'Seu carrinho mudou. Revise e tente novamente.',
+      'Your cart has changed. Review it and try again.',
     );
     expect(cart.totalQuantity()).toBe(2);
     button(element).click();
@@ -268,12 +259,12 @@ describe('Checkout', () => {
     await settle(harness);
   });
 
-  it('troca chave quando o snapshot do carrinho muda antes do próximo clique', async () => {
+  it('changes the key when the cart snapshot changes before the next click', async () => {
     const { harness, element } = await ready();
     button(element).click();
     const first = http.expectOne('/api/order');
     const key = first.request.headers.get('Idempotency-Key');
-    first.flush({ detail: 'Tente novamente.' }, { status: 409, statusText: 'Conflict' });
+    first.flush({ detail: 'Try again.' }, { status: 409, statusText: 'Conflict' });
     await settle(harness);
     cart.setQuantity('a', 3);
     button(element).dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -284,7 +275,7 @@ describe('Checkout', () => {
     await settle(harness);
   });
 
-  it('não limpa carrinho nem navega após resposta 200 inesperada', async () => {
+  it('does not clear the cart or navigate after an unexpected 200 response', async () => {
     const { harness, element } = await ready();
     button(element).click();
     http.expectOne('/api/order').flush(order);
@@ -292,20 +283,20 @@ describe('Checkout', () => {
     expect(cart.totalQuantity()).toBe(2);
     expect(TestBed.inject(Router).url).toBe('/checkout');
     expect(element.querySelector('p-message')?.textContent).toContain(
-      'Não foi possível finalizar o pedido. Tente novamente.',
+      'Unable to place your order. Please try again.',
     );
     expect(button(element).disabled).toBe(false);
   });
 
   it.each([409, 0])(
-    'reutiliza a chave após HTTP %s ao sair e recriar o checkout',
+    'reuses the key after HTTP %s when leaving and recreating checkout',
     async (status) => {
       const { harness, element } = await ready();
       button(element).click();
       const first = http.expectOne('/api/order');
       const key = first.request.headers.get('Idempotency-Key');
       if (status === 0) first.error(new ProgressEvent('error'));
-      else first.flush({ detail: 'Em processamento.' }, { status, statusText: 'Conflict' });
+      else first.flush({ detail: 'Processing.' }, { status, statusText: 'Conflict' });
       await settle(harness);
       await harness.navigateByUrl('/orders/fora/confirmation');
       await harness.navigateByUrl('/checkout');
@@ -316,7 +307,7 @@ describe('Checkout', () => {
         .flush([{ skuCode: 'a', quantity: 10, inStock: true }]);
       await settle(harness);
       const recreated = harness.routeNativeElement;
-      if (!recreated) throw new Error('Página ausente');
+      if (!recreated) throw new Error('Page missing');
       button(recreated).click();
       const retry = http.expectOne('/api/order');
       retry.flush(order, { status: 201, statusText: 'Created' });
@@ -325,7 +316,7 @@ describe('Checkout', () => {
     },
   );
 
-  it('remove somente as quantidades enviadas quando o carrinho muda durante o POST', async () => {
+  it('removes only submitted quantities when the cart changes during POST', async () => {
     const { harness, element } = await ready();
     button(element).click();
     const request = http.expectOne('/api/order');
@@ -344,7 +335,7 @@ describe('Checkout', () => {
     await settle(harness);
   });
 
-  it('processa o 201 após destruir o checkout sem navegar para a confirmação', async () => {
+  it('processes 201 after destroying checkout without navigating to confirmation', async () => {
     const { harness, element } = await ready();
     button(element).click();
     const request = http.expectOne('/api/order');
@@ -356,7 +347,7 @@ describe('Checkout', () => {
     expect(TestBed.inject(Router).url).toBe('/orders/fora/confirmation');
   });
 
-  it('reutiliza a chave ao recriar o checkout enquanto o primeiro POST está pendente', async () => {
+  it('reuses the key when recreating checkout while the first POST is pending', async () => {
     const { harness, element } = await ready();
     button(element).click();
     const first = http.expectOne('/api/order');
@@ -370,10 +361,10 @@ describe('Checkout', () => {
       .flush([{ skuCode: 'a', quantity: 10, inStock: true }]);
     await settle(harness);
     const recreated = harness.routeNativeElement;
-    if (!recreated) throw new Error('Página ausente');
+    if (!recreated) throw new Error('Page missing');
     button(recreated).click();
     const retry = http.expectOne('/api/order');
-    retry.flush({ detail: 'Em processamento.' }, { status: 409, statusText: 'Conflict' });
+    retry.flush({ detail: 'Processing.' }, { status: 409, statusText: 'Conflict' });
     expect(retry.request.headers.get('Idempotency-Key')).toBe(key);
     first.flush(order, { status: 201, statusText: 'Created' });
     await settle(harness);
@@ -381,7 +372,7 @@ describe('Checkout', () => {
     expect(TestBed.inject(Router).url).toBe('/checkout');
   });
 
-  it('mostra confirmação em andamento sem exibir carrinho vazio enquanto a navegação aguarda', async () => {
+  it('shows confirmation in progress without an empty cart while navigation waits', async () => {
     const { harness, element } = await ready();
     let releaseConfirmation: () => void = () => undefined;
     const confirmation = new Promise<typeof Destination>((resolve) => {
@@ -396,9 +387,9 @@ describe('Checkout', () => {
       http.expectOne('/api/order').flush(order, { status: 201, statusText: 'Created' });
       harness.detectChanges();
       expect(element.querySelector('[role="status"]')?.textContent).toContain(
-        'Pedido realizado. Abrindo a confirmação…',
+        'Order confirmed. Opening confirmation…',
       );
-      expect(element.textContent).not.toContain('Seu carrinho está vazio');
+      expect(element.textContent).not.toContain('Your cart is empty');
       expect(element.querySelector('button')).toBeNull();
     } finally {
       releaseConfirmation();
@@ -407,7 +398,7 @@ describe('Checkout', () => {
   });
 
   it.each([false, true])(
-    'usa chave nova após 201 do mesmo snapshot, com checkout destruído: %s',
+    'uses a new key after 201 for the same snapshot with checkout destroyed: %s',
     async (destroyed) => {
       const { harness, element } = await ready();
       button(element).click();
@@ -425,7 +416,7 @@ describe('Checkout', () => {
         .flush([{ skuCode: 'a', quantity: 10, inStock: true }]);
       await settle(harness);
       const recreated = harness.routeNativeElement;
-      if (!recreated) throw new Error('Página ausente');
+      if (!recreated) throw new Error('Page missing');
       button(recreated).click();
       const next = http.expectOne('/api/order');
       next.flush(order, { status: 201, statusText: 'Created' });
@@ -435,14 +426,14 @@ describe('Checkout', () => {
   );
 
   it.each([
-    [404, 'Produto indisponível'],
-    [503, 'Produto'],
-  ])('identifica de forma única produtos sem dados após HTTP %s', async (status, label) => {
+    [404, 'Product unavailable'],
+    [503, 'Product'],
+  ])('uniquely identifies products without data after HTTP %s', async (status, label) => {
     cart.add('a');
     cart.add('b');
     const { harness, element } = await render();
     for (const id of ['a', 'b']) {
-      http.expectOne('/api/product/' + id).flush({}, { status, statusText: 'Erro' });
+      http.expectOne('/api/product/' + id).flush({}, { status, statusText: 'Error' });
     }
     http.expectOne('/api/inventory?skuCode=a&skuCode=b').flush([
       { skuCode: 'a', quantity: 10, inStock: true },
@@ -454,8 +445,8 @@ describe('Checkout', () => {
       expect(article).not.toBeNull();
       expect(article?.querySelector('h2')?.textContent).toBe(`${label} (${id})`);
       if (status === 503) {
-        expect(article?.textContent).toContain('Não foi possível carregar este produto.');
-        expect(article?.textContent).not.toContain('Produto indisponível');
+        expect(article?.textContent).toContain('Unable to load this product.');
+        expect(article?.textContent).not.toContain('Product unavailable');
       }
     }
   });

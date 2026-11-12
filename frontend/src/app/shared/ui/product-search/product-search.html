@@ -2,11 +2,11 @@
   class="grid grid-cols-[minmax(0,1fr)_95px] items-center gap-x-5 gap-y-4 rounded-[10px] bg-surface-0 px-4 py-4 shadow-[0px_4px_20px_0px_rgba(0,0,0,0.25)] sm:h-[60px] sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(150px,217px)] sm:gap-x-8 sm:py-0 dark:bg-surface-900"
 >
   <div class="relative col-span-2 border-b border-surface-200 sm:col-span-1">
-    <label class="sr-only" for="product-name">Nome do produto</label>
+    <label class="sr-only" for="product-name">Product name</label>
     <input
       id="product-name"
       type="search"
-      placeholder="Nome do produto"
+      placeholder="Product name"
       maxlength="100"
       [formControl]="nameControl"
       class="h-[38px] w-full min-w-0 bg-transparent pr-8 text-lg tracking-[-0.27px] text-color outline-offset-4 placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-primary"
@@ -17,13 +17,13 @@
     ></span>
   </div>
   <div class="relative min-w-0 border-b border-surface-200">
-    <label class="sr-only" for="product-category">Categoria</label>
+    <label class="sr-only" for="product-category">Category</label>
     <select
       id="product-category"
       [formControl]="categoryControl"
       class="h-[38px] w-full appearance-none truncate bg-transparent pr-7 text-lg tracking-[-0.27px] text-muted-color outline-offset-4 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <option value="">Categoria</option>
+      <option value="">Category</option>
       @for (category of categories(); track category) {
         <option [value]="category">{{ category }}</option>
       }
@@ -38,6 +38,6 @@
     (click)="clearFilters()"
     class="min-h-[38px] rounded-[10px] border border-surface-200 px-2 text-sm leading-tight font-bold tracking-[-0.21px] text-muted-color hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
   >
-    LIMPAR FILTRO
+    CLEAR FILTERS
   </button>
 </div>

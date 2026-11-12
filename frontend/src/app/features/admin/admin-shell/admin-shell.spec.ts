@@ -4,11 +4,11 @@ import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { AdminShell } from './admin-shell';
 
-@Component({ template: '<p>Conteúdo administrativo</p>' })
+@Component({ template: '<p>Administrative content</p>' })
 class PageStub {}
 
 describe('AdminShell', () => {
-  it('mostra o menu e renderiza a página filha no outlet', async () => {
+  it('shows the menu and renders the child page in the outlet', async () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
@@ -23,8 +23,8 @@ describe('AdminShell', () => {
     const harness = await RouterTestingHarness.create('/admin/products');
     const element = harness.routeNativeElement;
 
-    expect(element?.querySelector('nav[aria-label="Administração"]')).not.toBeNull();
+    expect(element?.querySelector('nav[aria-label="Administration"]')).not.toBeNull();
     expect(element?.querySelector('router-outlet')).not.toBeNull();
-    expect(element?.textContent).toContain('Conteúdo administrativo');
+    expect(element?.textContent).toContain('Administrative content');
   });
 });

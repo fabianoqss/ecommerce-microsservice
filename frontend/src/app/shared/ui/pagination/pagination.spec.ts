@@ -10,36 +10,36 @@ describe('Pagination', () => {
     return { fixture, element: fixture.nativeElement as HTMLElement };
   }
 
-  it('identifica a página atual e desabilita a seta anterior na primeira página', async () => {
+  it('identifies the current page and disables the previous arrow on the first page', async () => {
     const { element } = await render();
-    expect(element.querySelector('nav')?.getAttribute('aria-label')).toBe('Paginação');
+    expect(element.querySelector('nav')?.getAttribute('aria-label')).toBe('Pagination');
     expect(element.querySelector('[aria-current="page"]')?.textContent?.trim()).toBe('1');
-    expect(
-      element.querySelector<HTMLButtonElement>('[aria-label="Página anterior"]')?.disabled,
-    ).toBe(true);
-    expect(
-      element.querySelector<HTMLButtonElement>('[aria-label="Próxima página"]')?.disabled,
-    ).toBe(false);
+    expect(element.querySelector<HTMLButtonElement>('[aria-label="Previous page"]')?.disabled).toBe(
+      true,
+    );
+    expect(element.querySelector<HTMLButtonElement>('[aria-label="Next page"]')?.disabled).toBe(
+      false,
+    );
   });
 
-  it('emite a página zero-based ao selecionar um número ou seta', async () => {
+  it('emits the zero-based page when selecting a number or arrow', async () => {
     const { fixture, element } = await render(1);
     const changed = vi.fn();
     fixture.componentInstance.pageChange.subscribe(changed);
-    element.querySelector<HTMLButtonElement>('[aria-label="Página 3"]')?.click();
+    element.querySelector<HTMLButtonElement>('[aria-label="Page 3"]')?.click();
     expect(changed).toHaveBeenLastCalledWith(2);
-    element.querySelector<HTMLButtonElement>('[aria-label="Página anterior"]')?.click();
+    element.querySelector<HTMLButtonElement>('[aria-label="Previous page"]')?.click();
     expect(changed).toHaveBeenLastCalledWith(0);
   });
 
-  it('desabilita a próxima seta na última página', async () => {
+  it('disables the next arrow on the last page', async () => {
     const { element } = await render(2);
-    expect(
-      element.querySelector<HTMLButtonElement>('[aria-label="Próxima página"]')?.disabled,
-    ).toBe(true);
+    expect(element.querySelector<HTMLButtonElement>('[aria-label="Next page"]')?.disabled).toBe(
+      true,
+    );
   });
 
-  it.each([0, 1])('esconde navegação com %s páginas', async (totalPages) => {
+  it.each([0, 1])('hides navigation with %s pages', async (totalPages) => {
     const { element } = await render(0, totalPages);
     expect(element.querySelector('nav')).toBeNull();
   });
