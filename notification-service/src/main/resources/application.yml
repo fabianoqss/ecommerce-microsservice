@@ -54,6 +54,9 @@ ecommerce:
       processed-ttl: ${NOTIFICATION_IDEMPOTENCY_PROCESSED_TTL:7d}
 
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:
