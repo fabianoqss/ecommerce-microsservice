@@ -39,7 +39,7 @@ class ReadImageTagTest(unittest.TestCase):
         return subprocess.run(['bash', '-c', self.functions + '\nread_image_tag "$1"',
                                'bash', str(self.env_file)], env=env, text=True, capture_output=True)
 
-    def test_le_apenas_tag_e_aceita_aspas_sem_executar_env(self):
+    def test_reads_only_tag_and_accepts_quotes_without_executing_env(self):
         marker = self.root / 'marcador'
         for quote in ('', "'", '"'):
             with self.subTest(aspas=quote):
@@ -49,7 +49,7 @@ class ReadImageTagTest(unittest.TestCase):
                 self.assertEqual(TAG + '\n', result.stdout)
                 self.assertFalse(marker.exists())
 
-    def test_ambiente_tem_precedencia_e_vazio_usa_arquivo(self):
+    def test_environment_takes_precedence_and_empty_uses_file(self):
         self.env_file.write_text(f'IMAGE_TAG={TAG}\n')
         for value, expected in ((OTHER_TAG, OTHER_TAG), (f"'{OTHER_TAG}'", OTHER_TAG),
                                 (f'"{OTHER_TAG}"', OTHER_TAG), ('', TAG)):
@@ -58,7 +58,7 @@ class ReadImageTagTest(unittest.TestCase):
                 self.assertEqual(0, result.returncode, result.stderr)
                 self.assertEqual(expected + '\n', result.stdout)
 
-    def test_rejeita_tag_invalida_sem_imprimir_valor(self):
+    def test_rejects_invalid_tag_without_printing_value(self):
         invalid_tags = ('abc', TAG.upper(), TAG[:-1], TAG + '0', 'g' * 40,
                         ' ' + TAG, TAG + ' ', TAG + '\r', TAG + '\n',
                         '\n' + TAG, f"'{TAG}\"", f'"{TAG}\n"')
@@ -71,7 +71,7 @@ class ReadImageTagTest(unittest.TestCase):
                 self.assertEqual('', result.stdout)
                 self.assertNotIn(value, result.stderr)
 
-    def test_rejeita_arquivo_invalido_preservando_conteudo(self):
+    def test_rejects_invalid_file_preserving_contents(self):
         for value in ('', TAG.upper(), TAG + '\r', f"'{TAG}\n'", f' {TAG}'):
             with self.subTest(valor=repr(value)):
                 original = f'IMAGE_TAG={value}\n'.encode()
@@ -81,15 +81,15 @@ class ReadImageTagTest(unittest.TestCase):
                 self.assertIn('IMAGE_TAG', result.stderr)
                 self.assertEqual(original, self.env_file.read_bytes())
 
-    def test_ausencia_orienta_primeira_geracao(self):
+    def test_missing_tag_provides_first_generation_guidance(self):
         result = self.read_tag()
         self.assertNotEqual(0, result.returncode)
         self.assertIn('IMAGE_TAG=<sha>', result.stderr)
-        self.assertIn('primeira geração', result.stderr)
+        self.assertIn('first generation', result.stderr)
         self.assertFalse(self.env_file.exists())
 
 
-@unittest.skipUnless(os.geteuid() == 0, 'A geração de produção exige root, sem bypass de EUID.')
+@unittest.skipUnless(os.geteuid() == 0, 'Production generation requires root, without an EUID bypass.')
 class GenerateProdEnvTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -164,7 +164,7 @@ if os.environ.get('TEST_COMPOSE_FAIL') == '1':
         content = self.env_file.read_text()
         self.assertEqual([f'IMAGE_TAG={expected}'],
                          [line for line in content.splitlines() if line.startswith('IMAGE_TAG=')])
-        self.assertLess(content.index(f'IMAGE_TAG={expected}\n'), content.index('# Segredos do OCI Vault'))
+        self.assertLess(content.index(f'IMAGE_TAG={expected}\n'), content.index('# OCI Vault secrets'))
         self.assertEqual(content, self.compose_env.read_text())
 
     def assert_private(self, path):
@@ -185,7 +185,7 @@ if os.environ.get('TEST_COMPOSE_FAIL') == '1':
         self.assertFalse(self.oci_calls.exists())
         self.assertFalse(self.compose_env.exists())
 
-    def test_preserva_tag_existente_configuracao_segredos_e_backup_privado(self):
+    def test_preserves_existing_tag_configuration_secrets_and_private_backup(self):
         original = f'IMAGE_TAG={TAG}\nANTIGO=preservar-no-backup\n'
         self.env_file.write_text(original)
         result = self.run_script()
@@ -202,25 +202,25 @@ if os.environ.get('TEST_COMPOSE_FAIL') == '1':
             self.assertIn(f"{name}='segredo-{name}'\n", content)
         self.assert_no_secrets(result)
 
-    def test_variavel_de_ambiente_tem_precedencia(self):
+    def test_environment_variable_takes_precedence(self):
         self.env_file.write_text('IMAGE_TAG=invalida\n')
         result = self.run_script(tag=OTHER_TAG, expected_tag=OTHER_TAG)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assert_tag(OTHER_TAG)
 
-    def test_primeira_geracao_usa_tag_do_ambiente(self):
+    def test_first_generation_uses_tag_from_environment(self):
         result = self.run_script(tag=TAG)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assert_tag(TAG)
         self.assertEqual([], list(self.root.glob('.env.bak-*')))
 
-    def test_ambiente_vazio_usa_tag_existente_sem_quebra_de_linha_final(self):
+    def test_empty_environment_uses_existing_tag_without_trailing_newline(self):
         self.env_file.write_text(f'IMAGE_TAG={TAG}')
         result = self.run_script(tag='')
         self.assertEqual(0, result.returncode, result.stderr)
         self.assert_tag(TAG)
 
-    def test_aceita_aspas_simetricas_nas_duas_origens(self):
+    def test_accepts_matching_quotes_from_both_sources(self):
         for source in ('arquivo', 'ambiente'):
             for quote in ("'", '"'):
                 with self.subTest(origem=source, aspas=quote):
@@ -229,7 +229,7 @@ if os.environ.get('TEST_COMPOSE_FAIL') == '1':
                     self.assertEqual(0, result.returncode, result.stderr)
                     self.assert_tag(TAG)
 
-    def test_recusa_tags_invalidas_sem_alterar_env_ou_consultar_vault(self):
+    def test_refuses_invalid_tags_without_changing_env_or_querying_vault(self):
         invalid_tags = (
             'abc', TAG.upper(), TAG[:-1], TAG + '0', 'g' * 40,
             ' ' + TAG, TAG + ' ', '\t' + TAG, TAG + '\r',
@@ -244,31 +244,31 @@ if os.environ.get('TEST_COMPOSE_FAIL') == '1':
                     result = self.run_script(tag=invalid if source == 'ambiente' else None)
                     self.assert_rejected(result, original)
 
-    def test_recusa_quebras_de_linha_no_ambiente(self):
+    def test_refuses_line_breaks_in_environment(self):
         original = f'IMAGE_TAG={TAG}\n'.encode()
         self.env_file.write_bytes(original)
         for invalid in (TAG + '\n', '\n' + TAG, TAG + '\nOUTRO=valor', TAG + '\r\n'):
             with self.subTest(valor=repr(invalid)):
                 self.assert_rejected(self.run_script(tag=invalid), original)
 
-    def test_ausencia_total_orienta_primeira_geracao_sem_criar_arquivos(self):
+    def test_missing_tag_everywhere_provides_first_generation_guidance_without_creating_files(self):
         for tag in (None, ''):
             with self.subTest(ambiente=tag):
                 result = self.run_script(tag=tag)
                 self.assertNotEqual(0, result.returncode)
                 self.assertIn('IMAGE_TAG=<sha>', result.stderr)
-                self.assertIn('ambiente', result.stderr)
-                self.assertIn('primeira geração', result.stderr)
+                self.assertIn('environment', result.stderr)
+                self.assertIn('first generation', result.stderr)
                 self.assertFalse(self.env_file.exists())
                 self.assertFalse(self.oci_calls.exists())
                 self.assertEqual([], list(self.root.glob('.env.*')))
 
-    def test_arquivo_existente_sem_tag_permanece_intacto(self):
+    def test_existing_file_without_tag_remains_intact(self):
         original = b'OUTRO=valor\n'
         self.env_file.write_bytes(original)
         self.assert_rejected(self.run_script(), original)
 
-    def test_nao_executa_conteudo_do_env_existente(self):
+    def test_does_not_execute_existing_env_contents(self):
         marker = self.root / 'marcador'
         self.env_file.write_text(f'IGNORADO=$(touch {marker})\nIMAGE_TAG={TAG}\n')
         result = self.run_script()
@@ -277,7 +277,7 @@ if os.environ.get('TEST_COMPOSE_FAIL') == '1':
         self.assert_tag(TAG)
         self.assert_no_secrets(result)
 
-    def test_falha_do_compose_preserva_env_sem_expor_segredos(self):
+    def test_compose_failure_preserves_env_without_exposing_secrets(self):
         original = f'IMAGE_TAG={TAG}\n'
         self.env_file.write_text(original)
         result = self.run_script(compose_fail=True)
@@ -289,7 +289,7 @@ if os.environ.get('TEST_COMPOSE_FAIL') == '1':
         self.assertEqual([], list(self.root.glob('.env.bak-*')))
         self.assert_no_secrets(result)
 
-    def test_gera_env_quando_docker_nao_esta_no_path(self):
+    def test_generates_env_when_docker_is_not_on_path(self):
         self.docker.unlink()
         result = self.run_script(tag=TAG)
         self.assertEqual(0, result.returncode, result.stderr)
@@ -297,14 +297,14 @@ if os.environ.get('TEST_COMPOSE_FAIL') == '1':
         self.assertFalse(self.compose_env.exists())
         self.assert_no_secrets(result)
 
-    def test_recusa_link_simbolico_sem_alterar_destino(self):
+    def test_refuses_symbolic_link_without_changing_target(self):
         target = self.root / 'destino'
         original = f'IMAGE_TAG={TAG}\n'
         target.write_text(original)
         self.env_file.symlink_to(target)
         result = self.run_script(tag=TAG)
         self.assertNotEqual(0, result.returncode)
-        self.assertIn('link simbólico', result.stderr)
+        self.assertIn('symbolic link', result.stderr)
         self.assertTrue(self.env_file.is_symlink())
         self.assertEqual(original, target.read_text())
         self.assertFalse(self.oci_calls.exists())

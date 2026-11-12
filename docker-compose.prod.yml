@@ -72,39 +72,39 @@ services:
 
   product-service:
     <<: *java-app
-    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-product-service:${IMAGE_TAG:?defina IMAGE_TAG no .env}
+    image: ${IMAGE_REGISTRY:?set IMAGE_REGISTRY in .env}/ecommerce-product-service:${IMAGE_TAG:?set IMAGE_TAG in .env}
 
   inventory-service:
     <<: *java-app
-    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-inventory-service:${IMAGE_TAG:?defina IMAGE_TAG no .env}
+    image: ${IMAGE_REGISTRY:?set IMAGE_REGISTRY in .env}/ecommerce-inventory-service:${IMAGE_TAG:?set IMAGE_TAG in .env}
     volumes: *oci-postgresql-ca
 
   notification-service:
     <<: *java-app
-    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-notification-service:${IMAGE_TAG:?defina IMAGE_TAG no .env}
+    image: ${IMAGE_REGISTRY:?set IMAGE_REGISTRY in .env}/ecommerce-notification-service:${IMAGE_TAG:?set IMAGE_TAG in .env}
     environment:
       <<: *java-app-env
       NOTIFICATION_CHANNEL: email
-      NOTIFICATION_MAIL_FROM: ${KC_SMTP_FROM:?defina KC_SMTP_FROM}
-      SPRING_MAIL_HOST: ${KC_SMTP_HOST:?defina KC_SMTP_HOST}
-      SPRING_MAIL_PORT: ${KC_SMTP_PORT:?defina KC_SMTP_PORT}
-      SPRING_MAIL_USERNAME: ${KC_SMTP_USER:?defina KC_SMTP_USER}
-      SPRING_MAIL_PASSWORD: ${KC_SMTP_PASSWORD:?defina KC_SMTP_PASSWORD}
+      NOTIFICATION_MAIL_FROM: ${KC_SMTP_FROM:?set KC_SMTP_FROM}
+      SPRING_MAIL_HOST: ${KC_SMTP_HOST:?set KC_SMTP_HOST}
+      SPRING_MAIL_PORT: ${KC_SMTP_PORT:?set KC_SMTP_PORT}
+      SPRING_MAIL_USERNAME: ${KC_SMTP_USER:?set KC_SMTP_USER}
+      SPRING_MAIL_PASSWORD: ${KC_SMTP_PASSWORD:?set KC_SMTP_PASSWORD}
       SPRING_MAIL_SMTP_AUTH: "true"
       SPRING_MAIL_STARTTLS: "true"
 
   order-service:
     <<: *java-app
-    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-order-service:${IMAGE_TAG:?defina IMAGE_TAG no .env}
+    image: ${IMAGE_REGISTRY:?set IMAGE_REGISTRY in .env}/ecommerce-order-service:${IMAGE_TAG:?set IMAGE_TAG in .env}
     volumes: *oci-postgresql-ca
 
   api-gateway:
     <<: *java-app
-    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-api-gateway:${IMAGE_TAG:?defina IMAGE_TAG no .env}
+    image: ${IMAGE_REGISTRY:?set IMAGE_REGISTRY in .env}/ecommerce-api-gateway:${IMAGE_TAG:?set IMAGE_TAG in .env}
 
   frontend:
     <<: *no-new-privileges
-    image: ${IMAGE_REGISTRY:?defina IMAGE_REGISTRY no .env}/ecommerce-frontend:${IMAGE_TAG:?defina IMAGE_TAG no .env}
+    image: ${IMAGE_REGISTRY:?set IMAGE_REGISTRY in .env}/ecommerce-frontend:${IMAGE_TAG:?set IMAGE_TAG in .env}
     build: !reset null
     pull_policy: missing
     mem_limit: 128m

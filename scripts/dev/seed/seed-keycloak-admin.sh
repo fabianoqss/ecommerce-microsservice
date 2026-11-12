@@ -2,9 +2,9 @@
 set -eu
 umask 077
 
-: "${KEYCLOAK_ADMIN_PASSWORD:?defina KEYCLOAK_ADMIN_PASSWORD}"
-: "${KC_ADMIN_USER_EMAIL:?defina KC_ADMIN_USER_EMAIL}"
-: "${KC_ADMIN_USER_PASSWORD:?defina KC_ADMIN_USER_PASSWORD}"
+: "${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD}"
+: "${KC_ADMIN_USER_EMAIL:?set KC_ADMIN_USER_EMAIL}"
+: "${KC_ADMIN_USER_PASSWORD:?set KC_ADMIN_USER_PASSWORD}"
 
 keycloak_url=${KEYCLOAK_URL:-http://keycloak:8080}
 admin_user=${KEYCLOAK_ADMIN_USER:-admin}
@@ -83,4 +83,4 @@ if ! printf '%s\n' "$roles" | grep -qx 'ADMIN'; then
     --rolename ADMIN
 fi
 
-echo "seed keycloak-admin: usuário $KC_ADMIN_USER_EMAIL configurado com role ADMIN no realm $realm"
+echo "seed keycloak-admin: user $KC_ADMIN_USER_EMAIL configured with the ADMIN role in realm $realm"

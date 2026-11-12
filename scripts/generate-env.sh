@@ -6,17 +6,17 @@ force=false
 case "${1:-}" in
   '') ;;
   --force) force=true ;;
-  *) echo 'Uso: ./scripts/generate-env.sh [--force]' >&2; exit 1 ;;
+  *) echo 'Usage: ./scripts/generate-env.sh [--force]' >&2; exit 1 ;;
 esac
-[[ $# -le 1 ]] || { echo 'Uso: ./scripts/generate-env.sh [--force]' >&2; exit 1; }
+[[ $# -le 1 ]] || { echo 'Usage: ./scripts/generate-env.sh [--force]' >&2; exit 1; }
 
 root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 env_file="$root_dir/.env"
 template="$root_dir/.env.example"
-[[ -f "$template" ]] || { echo '.env.example não encontrado.' >&2; exit 1; }
-[[ ! -L "$env_file" && ! -d "$env_file" ]] || { echo '.env deve ser um arquivo regular, sem link simbólico.' >&2; exit 1; }
+[[ -f "$template" ]] || { echo '.env.example not found.' >&2; exit 1; }
+[[ ! -L "$env_file" && ! -d "$env_file" ]] || { echo '.env must be a regular file, not a symbolic link.' >&2; exit 1; }
 if [[ -e "$env_file" && "$force" != true ]]; then
-  echo '.env já existe. Use --force para criar um backup e substituí-lo.' >&2
+  echo '.env already exists. Use --force to create a backup and replace it.' >&2
   exit 1
 fi
 
@@ -64,11 +64,11 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*=troque-politica- ]]; then
     secret=$(generate_policy_secret)
     [[ "$secret" =~ ^[A-Za-z0-9._-]{24}$ && "$secret" =~ [A-Z] && "$secret" =~ [a-z] && "$secret" =~ [0-9] && "$secret" =~ [._-] ]] \
-      || { echo 'Falha ao gerar segredo.' >&2; exit 1; }
+      || { echo 'Failed to generate secret.' >&2; exit 1; }
     line="${line%%=*}=$secret"
   elif [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*=troque- ]]; then
     secret=$(openssl rand -hex 24)
-    [[ "$secret" =~ ^[0-9a-f]{48}$ ]] || { echo 'Falha ao gerar segredo.' >&2; exit 1; }
+    [[ "$secret" =~ ^[0-9a-f]{48}$ ]] || { echo 'Failed to generate secret.' >&2; exit 1; }
     line="${line%%=*}=$secret"
   fi
   printf '%s\n' "$line" >> "$temp_file"
@@ -80,10 +80,10 @@ if [[ "$force" == true ]]; then
     backup_file=$(mktemp "$env_file.bak-$(date +%Y%m%dT%H%M%S)-XXXXXXXX")
     cp -- "$env_file" "$backup_file"
     chmod 600 "$backup_file"
-    echo "Backup criado: ${backup_file##*/}"
+    echo "Backup created: ${backup_file##*/}"
   fi
   mv -- "$temp_file" "$env_file"
 else
   ln -- "$temp_file" "$env_file"
 fi
-echo '.env criado com permissão 600. Nenhum segredo foi impresso.'
+echo '.env created with permissions 600. No secrets were printed.'

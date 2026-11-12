@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: SHA completo de um commit da main com imagens publicadas pelo CI
+        description: Full SHA of a main commit with images published by CI
         required: true
         type: string
 
@@ -40,24 +40,24 @@ jobs:
       OCI_CLI_VERSION: 3.94.2
       PUBLIC_URL: https://loja.fabianoquirinos.com.br
     steps:
-      - name: Validar SHA
+      - name: Validate SHA
         run: |
-          [[ $DEPLOY_SHA =~ ^[0-9a-f]{40}$ ]] || { echo "::error::SHA inválido"; exit 1; }
-          echo "Deploy de $DEPLOY_SHA"
+          [[ $DEPLOY_SHA =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid SHA"; exit 1; }
+          echo "Deploying $DEPLOY_SHA"
 
-      - name: Checkout da main
+      - name: Check out main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: main
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Confirmar que o commit está na main
+      - name: Confirm the commit is on main
         run: |
-          git cat-file -e "${DEPLOY_SHA}^{commit}" || { echo "::error::Commit inexistente"; exit 1; }
-          git merge-base --is-ancestor "$DEPLOY_SHA" origin/main || { echo "::error::Commit fora da main"; exit 1; }
+          git cat-file -e "${DEPLOY_SHA}^{commit}" || { echo "::error::Commit does not exist"; exit 1; }
+          git merge-base --is-ancestor "$DEPLOY_SHA" origin/main || { echo "::error::Commit is not on main"; exit 1; }
 
-      - name: Verificar proveniência das imagens
+      - name: Verify image provenance
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -68,13 +68,13 @@ jobs:
               --signer-workflow "$REPOSITORY/.github/workflows/ci.yml" \
               --source-ref refs/heads/main \
               --deny-self-hosted-runners >/dev/null
-            echo "Atestado válido: $service"
+            echo "Valid attestation: $service"
           done
 
-      - name: Instalar OCI CLI
+      - name: Install OCI CLI
         run: pipx install "oci-cli==$OCI_CLI_VERSION"
 
-      - name: Configurar credenciais da OCI
+      - name: Configure OCI credentials
         env:
           OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
           OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
@@ -91,7 +91,7 @@ jobs:
             > "$config_dir/config"
           echo "OCI_CLI_CONFIG_FILE=$config_dir/config" >> "$GITHUB_ENV"
 
-      - name: Executar release na VM via Run Command
+      - name: Run release on the VM via Run Command
         env:
           OCI_COMPARTMENT_OCID: ${{ vars.OCI_COMPARTMENT_OCID }}
           OCI_INSTANCE_OCID: ${{ vars.OCI_INSTANCE_OCID }}
@@ -106,7 +106,7 @@ jobs:
             --timeout-in-seconds 1500 \
             --display-name "deploy-${DEPLOY_SHA:0:12}" \
             --query data.id --raw-output)
-          echo "Comando: $command_id"
+          echo "Command: $command_id"
 
           deadline=$((SECONDS + 1800))
           state=''
@@ -122,19 +122,19 @@ jobs:
             sleep 15
           done
 
-          echo "::group::Saída do release.sh"
+          echo "::group::release.sh output"
           jq -r '.data.content.text // ""' <<< "$execution"
           echo "::endgroup::"
-          exit_code=$(jq -r '.data.content."exit-code" // "desconhecido"' <<< "$execution")
-          echo "Estado: ${state:-sem resposta}, código de saída: $exit_code"
-          [[ $state == SUCCEEDED && $exit_code == 0 ]] || { echo "::error::Deploy falhou na VM"; exit 1; }
+          exit_code=$(jq -r '.data.content."exit-code" // "unknown"' <<< "$execution")
+          echo "State: ${state:-no response}, exit code: $exit_code"
+          [[ $state == SUCCEEDED && $exit_code == 0 ]] || { echo "::error::Deployment failed on the VM"; exit 1; }
 
-      - name: Smoke test externo
+      - name: External smoke test
         run: |
           check() {
             local expected=$1 path=$2 status
             status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$PUBLIC_URL$path")
-            [[ $status == "$expected" ]] || { echo "::error::$path respondeu $status, esperado $expected"; return 1; }
+            [[ $status == "$expected" ]] || { echo "::error::$path returned $status, expected $expected"; return 1; }
             echo "$path -> $status"
           }
           check 200 /
@@ -143,6 +143,6 @@ jobs:
           check 401 /api/order
           check 403 /actuator/health
 
-      - name: Remover credenciais da OCI
+      - name: Remove OCI credentials
         if: always()
         run: rm -rf "$RUNNER_TEMP/oci"
