@@ -60,17 +60,17 @@ export class ProductList {
     ) {
       return problem.detail;
     }
-    return 'Não foi possível carregar os produtos. Tente novamente.';
+    return 'Unable to load products. Please try again.';
   });
   protected readonly announcement = computed(() => {
     if (this.products.isLoading()) {
-      return 'Carregando produtos.';
+      return 'Loading products.';
     }
     if (this.products.error()) {
       return this.errorMessage();
     }
     const total = this.productPage()?.totalElements ?? 0;
-    return total === 1 ? '1 produto encontrado.' : `${total} produtos encontrados.`;
+    return total === 1 ? '1 product found.' : `${total} products found.`;
   });
 
   constructor() {

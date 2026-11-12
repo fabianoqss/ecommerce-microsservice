@@ -19,14 +19,14 @@ export class CartLine {
   readonly remove = output<void>();
   protected readonly quantity = new FormControl<number | null>(1);
   protected readonly inputId = computed(() => 'quantity-' + this.line().productId);
-  protected readonly name = computed(() => this.line().product?.name ?? 'Produto indisponível');
+  protected readonly name = computed(() => this.line().product?.name ?? 'Product unavailable');
   protected readonly articleLabel = computed(
-    () => this.line().product?.name ?? `Produto indisponível (${this.line().productId})`,
+    () => this.line().product?.name ?? `Product unavailable (${this.line().productId})`,
   );
   protected readonly removeLabel = computed(() =>
     this.line().product?.name
-      ? 'Remover ' + this.line().product?.name
-      : 'Remover produto indisponível ' + this.line().productId,
+      ? 'Remove ' + this.line().product?.name
+      : 'Remove unavailable product ' + this.line().productId,
   );
   protected readonly maxQuantity = computed(() =>
     this.line().status === 'ok'

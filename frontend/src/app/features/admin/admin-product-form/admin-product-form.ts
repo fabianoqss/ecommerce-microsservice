@@ -77,7 +77,7 @@ export class AdminProductForm {
   protected readonly loadError = computed(() =>
     problemDetail(
       this.productResource?.error() ?? this.inventoryResource.error(),
-      'Não foi possível carregar o produto. Tente novamente.',
+      'Unable to load the product. Please try again.',
     ),
   );
   protected readonly form = new FormGroup({
@@ -90,17 +90,17 @@ export class AdminProductForm {
             value >= 0 &&
             value <= 2147483647
             ? null
-            : { validation: 'Informe um estoque inteiro entre 0 e 2.147.483.647.' };
+            : { validation: 'Enter a whole stock quantity between 0 and 2,147,483,647.' };
         },
       ],
     }),
     name: new FormControl('', {
       nonNullable: true,
-      validators: [trimmedLength(1, 255, 'Informe um nome com até 255 caracteres.')],
+      validators: [trimmedLength(1, 255, 'Enter a name with up to 255 characters.')],
     }),
     category: new FormControl('', {
       nonNullable: true,
-      validators: [trimmedLength(1, 100, 'Informe uma categoria com até 100 caracteres.')],
+      validators: [trimmedLength(1, 100, 'Enter a category with up to 100 characters.')],
     }),
     price: new FormControl('', {
       nonNullable: true,
@@ -111,7 +111,7 @@ export class AdminProductForm {
             ? null
             : {
                 validation:
-                  'Informe um preço positivo até 999.999.999.999,99. Use o formato 1.234,56, com até 2 casas decimais.',
+                  'Enter a positive price up to 999,999,999,999.99. Use the format 1,234.56 with up to 2 decimal places.',
               };
         },
       ],
@@ -122,7 +122,7 @@ export class AdminProductForm {
     }),
     description: new FormControl('', {
       nonNullable: true,
-      validators: [trimmedLength(10, 2000, 'Informe uma descrição entre 10 e 2000 caracteres.')],
+      validators: [trimmedLength(10, 2000, 'Enter a description between 10 and 2000 characters.')],
     }),
   });
   private readonly imageUrlEvents = toSignal(this.form.controls.imageUrl.events);
@@ -152,7 +152,7 @@ export class AdminProductForm {
           category: product.category,
           imageUrl: product.imageUrl ?? '',
           description: product.description,
-          price: new Intl.NumberFormat('pt-BR', {
+          price: new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           }).format(product.price),
@@ -234,9 +234,9 @@ export class AdminProductForm {
           return stock.pipe(
             catchError((error: unknown) => {
               this.saveError.set(
-                'O produto foi salvo, mas o estoque não foi salvo. ' +
-                  problemDetail(error, 'Não foi possível salvar o estoque.') +
-                  ' Tente salvar novamente para atualizar o produto e o estoque.',
+                'The product was saved, but stock was not saved. ' +
+                  problemDetail(error, 'Unable to save stock.') +
+                  ' Try saving again to update the product and stock.',
               );
               return EMPTY;
             }),
@@ -249,8 +249,8 @@ export class AdminProductForm {
         next: () => {
           this.messages.add({
             severity: 'success',
-            summary: 'Produto salvo',
-            detail: wasEditing ? 'Produto atualizado com sucesso.' : 'Produto criado com sucesso.',
+            summary: 'Product saved',
+            detail: wasEditing ? 'Product updated successfully.' : 'Product created successfully.',
           });
           void this.cancel();
         },
@@ -279,9 +279,7 @@ export class AdminProductForm {
             }
             if (!unmapped) return;
           }
-          this.saveError.set(
-            problemDetail(error, 'Não foi possível salvar o produto. Tente novamente.'),
-          );
+          this.saveError.set(problemDetail(error, 'Unable to save the product. Please try again.'));
         },
       });
   }

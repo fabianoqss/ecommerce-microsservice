@@ -7,7 +7,7 @@ import { loadCartView } from './cart-view';
 
 const product = {
   id: 'a',
-  name: 'Teclado',
+  name: 'Keyboard',
   description: '',
   price: 12.5,
   category: '',
@@ -40,7 +40,7 @@ describe('loadCartView', () => {
     http.expectOne('/api/inventory?skuCode=a').flush([{ skuCode: 'a', quantity, inStock }]);
   }
 
-  it('não consulta APIs para carrinho vazio e bloqueia checkout', () => {
+  it('does not query APIs for an empty cart and blocks checkout', () => {
     const view = create();
     TestBed.tick();
     http.expectNone(() => true);
@@ -50,7 +50,7 @@ describe('loadCartView', () => {
     expect(view.canCheckout()).toBe(false);
   });
 
-  it('combina produtos e estoque, soma linhas válidas e não consulta novamente ao mudar quantidades', async () => {
+  it('combines products and stock, totals valid lines and does not query again when quantities change', async () => {
     items.set([
       { productId: 'a', quantity: 2 },
       { productId: 'b', quantity: 3 },
@@ -97,7 +97,7 @@ describe('loadCartView', () => {
     return view;
   }
 
-  it('remove uma linha sem recarregar nem perder os dados da outra', async () => {
+  it('removes a line without reloading or losing the other line data', async () => {
     const view = await loadTwoProducts();
     items.set([{ productId: 'b', quantity: 3 }]);
     TestBed.tick();
@@ -116,7 +116,7 @@ describe('loadCartView', () => {
     http.expectNone(() => true);
   });
 
-  it('busca somente o produto e estoque novos sem ocultar linhas carregadas', async () => {
+  it('fetches only the new product and stock without hiding loaded lines', async () => {
     const view = await loadTwoProducts();
     items.update((current) => [...current, { productId: 'c', quantity: 1 }]);
     TestBed.tick();
@@ -135,7 +135,7 @@ describe('loadCartView', () => {
     expect(view.canCheckout()).toBe(true);
   });
 
-  it('reutiliza produto removido quando ele volta ao carrinho', async () => {
+  it('reuses a removed product when it returns to the cart', async () => {
     const view = await loadTwoProducts();
     items.set([{ productId: 'a', quantity: 2 }]);
     TestBed.tick();
@@ -146,7 +146,7 @@ describe('loadCartView', () => {
     http.expectNone(() => true);
   });
 
-  it('preserva linhas válidas se outro produto falha e repete somente o produto com erro', async () => {
+  it('preserves valid lines when another product fails and retries only the failed product', async () => {
     items.set([
       { productId: 'a', quantity: 2 },
       { productId: 'b', quantity: 3 },
@@ -156,7 +156,7 @@ describe('loadCartView', () => {
     http.expectOne('/api/product/a').flush(product);
     http
       .expectOne('/api/product/b')
-      .flush({ detail: 'Mouse indisponível.' }, { status: 503, statusText: 'Unavailable' });
+      .flush({ detail: 'Mouse unavailable.' }, { status: 503, statusText: 'Unavailable' });
     http.expectOne('/api/inventory?skuCode=a&skuCode=b').flush([
       { skuCode: 'a', quantity: 10, inStock: true },
       { skuCode: 'b', quantity: 10, inStock: true },
@@ -165,7 +165,7 @@ describe('loadCartView', () => {
     expect(view.lines()[0]).toMatchObject({ product, status: 'ok' });
     expect(view.lines()[1]).toMatchObject({ product: null, status: 'error' });
     expect(view.subtotal()).toBe(25);
-    expect(view.error()).toMatchObject({ error: { detail: 'Mouse indisponível.' } });
+    expect(view.error()).toMatchObject({ error: { detail: 'Mouse unavailable.' } });
     expect(view.canCheckout()).toBe(false);
     view.reload();
     TestBed.tick();
@@ -179,14 +179,14 @@ describe('loadCartView', () => {
     expect(view.canCheckout()).toBe(true);
   });
 
-  it('repete somente estoque com erro e preserva estoque e produtos bem-sucedidos', async () => {
+  it('retries only failed stock and preserves successful stock and products', async () => {
     const view = await loadTwoProducts();
     items.update((current) => [...current, { productId: 'c', quantity: 1 }]);
     TestBed.tick();
     http.expectOne('/api/product/c').flush({ ...product, id: 'c' });
     http
       .expectOne('/api/inventory?skuCode=c')
-      .flush({ detail: 'Estoque indisponível.' }, { status: 503, statusText: 'Unavailable' });
+      .flush({ detail: 'Stock unavailable.' }, { status: 503, statusText: 'Unavailable' });
     await stable();
     expect(view.lines().map((line) => line.status)).toEqual(['ok', 'ok', 'error']);
     expect(view.subtotal()).toBe(55);
@@ -209,7 +209,7 @@ describe('loadCartView', () => {
     [0, true, 'out-of-stock'],
     [1, true, 'insufficient-stock'],
   ] as const)(
-    'bloqueia estoque %s/%s com status %s sem somar a linha',
+    'blocks stock %s/%s with status %s without adding the line total',
     async (quantity, inStock, status) => {
       items.set([{ productId: 'a', quantity: 2 }]);
       const view = create();
@@ -223,7 +223,7 @@ describe('loadCartView', () => {
     },
   );
 
-  it('trata SKU omitido como sem estoque', async () => {
+  it('treats an omitted SKU as out of stock', async () => {
     items.set([{ productId: 'a', quantity: 1 }]);
     const view = create();
     TestBed.tick();
@@ -234,7 +234,7 @@ describe('loadCartView', () => {
     expect(view.canCheckout()).toBe(false);
   });
 
-  it('preserva produto 404 como removível sem transformar em erro global', async () => {
+  it('preserves a 404 product as removable without turning it into a global error', async () => {
     items.set([{ productId: 'a', quantity: 1 }]);
     const view = create();
     TestBed.tick();
@@ -248,18 +248,18 @@ describe('loadCartView', () => {
     expect(view.canCheckout()).toBe(false);
   });
 
-  it.each(['product', 'inventory'])('expõe falhas de %s e permite recarregar', async (failing) => {
+  it.each(['product', 'inventory'])('exposes %s failures and allows reloading', async (failing) => {
     items.set([{ productId: 'a', quantity: 1 }]);
     const view = create();
     TestBed.tick();
     const p = http.expectOne('/api/product/a');
     const i = http.expectOne('/api/inventory?skuCode=a');
     if (failing === 'product') {
-      p.flush({ detail: 'Produtos indisponíveis.' }, { status: 503, statusText: 'Unavailable' });
+      p.flush({ detail: 'Products unavailable.' }, { status: 503, statusText: 'Unavailable' });
       i.flush([{ skuCode: 'a', quantity: 10, inStock: true }]);
     } else {
       p.flush(product);
-      i.flush({ detail: 'Estoque indisponível.' }, { status: 503, statusText: 'Unavailable' });
+      i.flush({ detail: 'Stock unavailable.' }, { status: 503, statusText: 'Unavailable' });
     }
     await stable();
     expect(view.error()).toBeTruthy();
@@ -280,7 +280,7 @@ describe('loadCartView', () => {
     expect(view.canCheckout()).toBe(true);
   });
 
-  it('acompanha remoção e esvaziamento sem manter linhas ou totais antigos', async () => {
+  it('follows removal and clearing without keeping old lines or totals', async () => {
     items.set([{ productId: 'a', quantity: 1 }]);
     const view = create();
     TestBed.tick();

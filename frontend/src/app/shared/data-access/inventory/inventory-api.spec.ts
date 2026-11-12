@@ -14,18 +14,18 @@ describe('InventoryApi', () => {
   });
   afterEach(() => http.verify());
 
-  it('cria estoque com SKU e quantidade usando URL relativa', () => {
+  it('creates stock with SKU and quantity using a relative URL', () => {
     const result = vi.fn();
-    TestBed.inject(InventoryApi).create({ skuCode: 'produto-1', quantity: 0 }).subscribe(result);
+    TestBed.inject(InventoryApi).create({ skuCode: 'product-1', quantity: 0 }).subscribe(result);
     const request = http.expectOne('/api/inventory');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ skuCode: 'produto-1', quantity: 0 });
-    const response = { skuCode: 'produto-1', quantity: 0, inStock: false };
+    expect(request.request.body).toEqual({ skuCode: 'product-1', quantity: 0 });
+    const response = { skuCode: 'product-1', quantity: 0, inStock: false };
     request.flush(response, { status: 201, statusText: 'Created' });
     expect(result).toHaveBeenCalledExactlyOnceWith(response);
   });
 
-  it('atualiza estoque codificando o SKU e enviando apenas quantity', () => {
+  it('updates stock with an encoded SKU and sends only quantity', () => {
     const result = vi.fn();
     TestBed.inject(InventoryApi).update('a/b &', { quantity: 2147483647 }).subscribe(result);
     const request = http.expectOne('/api/inventory/a%2Fb%20%26');
@@ -36,17 +36,17 @@ describe('InventoryApi', () => {
     expect(result).toHaveBeenCalledExactlyOnceWith(response);
   });
 
-  it.each([400, 404, 409, 503])('propaga erro %s sem repetir a escrita', (status) => {
+  it.each([400, 404, 409, 503])('propagates error %s without repeating the write', (status) => {
     const error = vi.fn();
-    TestBed.inject(InventoryApi).update('produto-1', { quantity: 2 }).subscribe({ error });
+    TestBed.inject(InventoryApi).update('product-1', { quantity: 2 }).subscribe({ error });
     http
-      .expectOne('/api/inventory/produto-1')
-      .flush({ detail: 'Falha no estoque.' }, { status, statusText: 'Error' });
+      .expectOne('/api/inventory/product-1')
+      .flush({ detail: 'Stock update failed.' }, { status, statusText: 'Error' });
     expect(error).toHaveBeenCalledWith(expect.objectContaining({ status }));
     http.expectNone(() => true);
   });
 
-  it('consulta somente os SKUs solicitados com parâmetros repetidos e codificados', () => {
+  it('queries only requested SKUs with repeated encoded parameters', () => {
     const result = vi.fn();
     TestBed.inject(InventoryApi).getBySkus(['a', 'b/c &']).subscribe(result);
     const request = http.expectOne((request) => request.url === '/api/inventory');
@@ -57,7 +57,7 @@ describe('InventoryApi', () => {
     expect(result).toHaveBeenCalledExactlyOnceWith(response);
   });
 
-  it('busca estoque usando parâmetros repetidos e acompanha mudanças dos SKUs', async () => {
+  it('fetches stock using repeated parameters and follows SKU changes', async () => {
     const skus = signal(['a', 'b']);
     const resource = TestBed.runInInjectionContext(() => TestBed.inject(InventoryApi).bySkus(skus));
     TestBed.tick();
@@ -77,7 +77,7 @@ describe('InventoryApi', () => {
     changed.flush([]);
   });
 
-  it('não solicita estoque para lista vazia', () => {
+  it('does not request stock for an empty list', () => {
     const skus = signal<string[]>([]);
     TestBed.runInInjectionContext(() => TestBed.inject(InventoryApi).bySkus(skus));
     TestBed.tick();
@@ -90,7 +90,7 @@ describe('InventoryApi', () => {
     http.expectNone(() => true);
   });
 
-  it('não repete a consulta quando a lista muda de referência com os mesmos SKUs', () => {
+  it('does not repeat the query when the list reference changes with the same SKUs', () => {
     const skus = signal(['a', 'b']);
     TestBed.runInInjectionContext(() => TestBed.inject(InventoryApi).bySkus(skus));
     TestBed.tick();

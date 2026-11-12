@@ -7,5 +7,5 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
   templateUrl: './admin-menu.html',
 })
 export class AdminMenu {
-  protected readonly unavailableItems = ['Categorias', 'Usuários'];
+  protected readonly unavailableItems = ['Categories', 'Users'];
 }

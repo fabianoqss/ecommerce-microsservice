@@ -17,7 +17,7 @@ class Destination {}
 
 const product = {
   id: 'a',
-  name: 'Teclado',
+  name: 'Keyboard',
   description: '',
   price: 12.5,
   category: '',
@@ -64,7 +64,7 @@ describe('CartPage', () => {
     const harness = await RouterTestingHarness.create('/cart');
     TestBed.tick();
     const element = harness.routeNativeElement;
-    if (!element) throw new Error('Página ausente');
+    if (!element) throw new Error('Page missing');
     return { harness, element };
   }
 
@@ -75,32 +75,32 @@ describe('CartPage', () => {
 
   function checkout(element: HTMLElement) {
     const button = Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Continuar para o pedido'),
+      button.textContent?.includes('Checkout'),
     );
-    if (!button) throw new Error('Botão de checkout ausente');
+    if (!button) throw new Error('Checkout button missing');
     return button;
   }
 
-  it('mostra estado vazio com link para catálogo', async () => {
+  it('shows an empty state with a catalog link', async () => {
     const { element } = await render();
-    expect(element.textContent).toContain('Seu carrinho está vazio');
+    expect(element.textContent).toContain('Your cart is empty');
     expect(
       Array.from(element.querySelectorAll('a'))
-        .find((a) => a.textContent?.includes('Ver catálogo'))
+        .find((a) => a.textContent?.includes('Browse catalog'))
         ?.getAttribute('href'),
     ).toBe('/catalog');
     http.expectNone((r) => r.url.startsWith('/api/'));
-    expect(document.title).toBe('Carrinho | DS Catalog');
+    expect(document.title).toBe('Cart | DS Catalog');
   });
 
-  it('exige autenticação ao navegar diretamente para carrinho', async () => {
+  it('requires authentication when navigating directly to the cart', async () => {
     TestBed.inject(AuthService).clear();
     await RouterTestingHarness.create('/cart');
     expect(login).toHaveBeenCalledExactlyOnceWith('/oauth2/authorization/keycloak');
     http.expectNone((r) => r.url.startsWith('/api/'));
   });
 
-  it('mostra carregamento, duas linhas, subtotal e navega para checkout', async () => {
+  it('shows loading, two lines and subtotal and navigates to checkout', async () => {
     cart.add('a', 2);
     cart.add('b', 3);
     const { harness, element } = await render();
@@ -113,18 +113,18 @@ describe('CartPage', () => {
       { skuCode: 'b', quantity: 10, inStock: true },
     ]);
     await settle(harness);
-    expect(element.textContent).toContain('Teclado');
+    expect(element.textContent).toContain('Keyboard');
     expect(element.textContent).toContain('Mouse');
-    expect(element.textContent).toContain('R$ 25,00');
-    expect(element.textContent).toContain('R$ 30,00');
-    expect(element.querySelector('aside')?.textContent).toContain('R$ 55,00');
+    expect(element.textContent).toContain('R$25.00');
+    expect(element.textContent).toContain('R$30.00');
+    expect(element.querySelector('aside')?.textContent).toContain('R$55.00');
     expect(checkout(element).disabled).toBe(false);
     checkout(element).click();
     await settle(harness);
     expect(TestBed.inject(Router).url).toBe('/checkout');
   });
 
-  it('altera quantidade e remove pelo componente de apresentação', async () => {
+  it('changes quantity and removes through the presentation component', async () => {
     cart.add('a', 2);
     const { harness, element } = await render();
     http.expectOne('/api/product/a').flush(product);
@@ -135,27 +135,27 @@ describe('CartPage', () => {
     const setQuantity = vi.spyOn(cart, 'setQuantity');
     const remove = vi.spyOn(cart, 'remove');
     const input = element.querySelector('input');
-    if (!input) throw new Error('Quantidade ausente');
+    if (!input) throw new Error('Quantity missing');
     input.value = '3';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('blur'));
     await settle(harness);
     expect(setQuantity).toHaveBeenCalledWith('a', 3);
-    expect(element.querySelector('aside')?.textContent).toContain('R$ 37,50');
+    expect(element.querySelector('aside')?.textContent).toContain('R$37.50');
     http.expectNone((r) => r.url.startsWith('/api/'));
     Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Remover'))
+      .find((button) => button.textContent?.includes('Remove'))
       ?.click();
     await settle(harness);
     expect(remove).toHaveBeenCalledWith('a');
-    expect(element.textContent).toContain('Seu carrinho está vazio');
+    expect(element.textContent).toContain('Your cart is empty');
   });
 
   it.each([
-    ['Home', 1, 'R$ 12,50'],
-    ['End', 5, 'R$ 62,50'],
+    ['Home', 1, 'R$12.50'],
+    ['End', 5, 'R$62.50'],
   ] as const)(
-    'sincroniza quantidade e subtotal com a tecla %s',
+    'synchronizes quantity and subtotal with the %s key',
     async (key, quantity, subtotal) => {
       cart.add('a', 2);
       const { harness, element } = await render();
@@ -165,7 +165,7 @@ describe('CartPage', () => {
         .flush([{ skuCode: 'a', quantity: 5, inStock: true }]);
       await settle(harness);
       const input = element.querySelector('input');
-      if (!input) throw new Error('Quantidade ausente');
+      if (!input) throw new Error('Quantity missing');
       input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
       input.dispatchEvent(new Event('blur'));
       await settle(harness);
@@ -176,7 +176,7 @@ describe('CartPage', () => {
     },
   );
 
-  it('mantém a outra linha, seu foco e subtotal ao remover um de dois produtos sem requisições', async () => {
+  it('preserves the other line, its focus and subtotal when removing one of two products without requests', async () => {
     cart.add('a', 2);
     cart.add('b', 3);
     const { harness, element } = await render();
@@ -193,7 +193,7 @@ describe('CartPage', () => {
     input?.focus();
     expect(document.activeElement).toBe(input);
     Array.from(element.querySelectorAll('button'))
-      .find((button) => button.getAttribute('aria-label') === 'Remover Teclado')
+      .find((button) => button.getAttribute('aria-label') === 'Remove Keyboard')
       ?.click();
     TestBed.tick();
     harness.detectChanges();
@@ -202,11 +202,11 @@ describe('CartPage', () => {
     expect(input).toBeDefined();
     expect(element.querySelector('article[aria-label="Mouse"] input')).toBe(input);
     expect(document.activeElement).toBe(input);
-    expect(element.querySelector('aside')?.textContent).toContain('R$ 30,00');
+    expect(element.querySelector('aside')?.textContent).toContain('R$30.00');
     http.expectNone((request) => request.url.startsWith('/api/'));
   });
 
-  it('mostra linhas válidas, subtotal parcial e produto removível junto ao ProblemDetail', async () => {
+  it('shows valid lines, partial subtotal and a removable product alongside ProblemDetail', async () => {
     cart.add('a', 2);
     cart.add('b');
     const { harness, element } = await render();
@@ -214,7 +214,7 @@ describe('CartPage', () => {
     http
       .expectOne('/api/product/b')
       .flush(
-        { detail: 'Produto temporariamente indisponível.' },
+        { detail: 'Product temporarily unavailable.' },
         { status: 503, statusText: 'Unavailable' },
       );
     http.expectOne('/api/inventory?skuCode=a&skuCode=b').flush([
@@ -222,20 +222,20 @@ describe('CartPage', () => {
       { skuCode: 'b', quantity: 10, inStock: true },
     ]);
     await settle(harness);
-    expect(element.querySelector('article[aria-label="Teclado"]')?.textContent).toContain(
-      'R$ 25,00',
+    expect(element.querySelector('article[aria-label="Keyboard"]')?.textContent).toContain(
+      'R$25.00',
     );
-    expect(element.textContent).toContain('Não foi possível carregar este produto.');
-    expect(element.textContent).toContain('Produto temporariamente indisponível.');
-    expect(element.querySelector('aside')?.textContent).toContain('R$ 25,00');
+    expect(element.textContent).toContain('Unable to load this product.');
+    expect(element.textContent).toContain('Product temporarily unavailable.');
+    expect(element.querySelector('aside')?.textContent).toContain('R$25.00');
     expect(checkout(element).disabled).toBe(true);
     Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Tentar novamente'))
+      .find((button) => button.textContent?.includes('Try again'))
       ?.click();
     TestBed.tick();
     harness.detectChanges();
-    expect(element.textContent).not.toContain('Produto temporariamente indisponível.');
-    expect(element.querySelector('article[aria-label="Teclado"]')).not.toBeNull();
+    expect(element.textContent).not.toContain('Product temporarily unavailable.');
+    expect(element.querySelector('article[aria-label="Keyboard"]')).not.toBeNull();
     expect(element.querySelector('p-skeleton')).toBeNull();
     http.expectOne('/api/product/b').flush({ ...product, id: 'b', name: 'Mouse' });
     http.expectNone((request) => request.url.startsWith('/api/'));
@@ -244,7 +244,7 @@ describe('CartPage', () => {
   });
 
   it.each(['unavailable', 'out-of-stock', 'insufficient-stock'])(
-    'bloqueia checkout para %s',
+    'blocks checkout for %s',
     async (status) => {
       cart.add('a', 2);
       const { harness, element } = await render();
@@ -261,18 +261,18 @@ describe('CartPage', () => {
       await settle(harness);
       expect(element.textContent).toContain(
         status === 'unavailable'
-          ? 'Produto indisponível'
+          ? 'Product unavailable'
           : status === 'out-of-stock'
-            ? 'Sem estoque'
-            : 'Apenas 1 em estoque',
+            ? 'Out of stock'
+            : 'Only 1 in stock',
       );
       expect(checkout(element).disabled).toBe(true);
-      expect(element.querySelector('aside')?.textContent).toContain('R$ 0,00');
+      expect(element.querySelector('aside')?.textContent).toContain('R$0.00');
     },
   );
 
   it.each(['product', 'inventory'])(
-    'permite remover itens mesmo durante falha de %s',
+    'allows removing items even during a %s failure',
     async (failing) => {
       cart.add('a');
       const { harness, element } = await render();
@@ -280,44 +280,44 @@ describe('CartPage', () => {
       const inventoryRequest = http.expectOne('/api/inventory?skuCode=a');
       if (failing === 'product') {
         productRequest.flush(
-          { detail: 'Catálogo indisponível.' },
+          { detail: 'Catalog unavailable.' },
           { status: 503, statusText: 'Unavailable' },
         );
         inventoryRequest.flush([]);
       } else {
         productRequest.flush(product);
         inventoryRequest.flush(
-          { detail: 'Estoque indisponível.' },
+          { detail: 'Stock unavailable.' },
           { status: 503, statusText: 'Unavailable' },
         );
       }
       await settle(harness);
       expect(checkout(element).disabled).toBe(true);
       const remove = Array.from(element.querySelectorAll('button')).find((button) =>
-        button.textContent?.includes('Remover'),
+        button.textContent?.includes('Remove'),
       );
       expect(remove).toBeDefined();
       remove?.click();
       await settle(harness);
       expect(cart.items()).toEqual([]);
-      expect(element.textContent).toContain('Seu carrinho está vazio');
+      expect(element.textContent).toContain('Your cart is empty');
     },
   );
 
-  it('mostra ProblemDetail e tenta novamente após falha de produto', async () => {
+  it('shows ProblemDetail and retries after a product failure', async () => {
     cart.add('a');
     const { harness, element } = await render();
     http
       .expectOne('/api/product/a')
-      .flush({ detail: 'Catálogo indisponível.' }, { status: 503, statusText: 'Unavailable' });
+      .flush({ detail: 'Catalog unavailable.' }, { status: 503, statusText: 'Unavailable' });
     http
       .expectOne('/api/inventory?skuCode=a')
       .flush([{ skuCode: 'a', quantity: 10, inStock: true }]);
     await settle(harness);
-    expect(element.querySelector('p-message')?.textContent).toContain('Catálogo indisponível.');
+    expect(element.querySelector('p-message')?.textContent).toContain('Catalog unavailable.');
     expect(checkout(element).disabled).toBe(true);
     Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Tentar novamente'))
+      .find((button) => button.textContent?.includes('Try again'))
       ?.click();
     TestBed.tick();
     http.expectOne('/api/product/a').flush(product);

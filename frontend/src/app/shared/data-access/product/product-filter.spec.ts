@@ -1,7 +1,7 @@
 import { parseProductFilter } from './product-filter';
 
 describe('parseProductFilter', () => {
-  it('usa a primeira página e filtros vazios quando os parâmetros estão ausentes', () => {
+  it('uses the first page and empty filters when parameters are absent', () => {
     expect(parseProductFilter({})).toEqual({ page: 0, name: '', category: '' });
   });
 
@@ -17,7 +17,7 @@ describe('parseProductFilter', () => {
     '999999999999999999999',
     ' 2 ',
     '+2',
-  ])('normaliza a página inválida %s para a primeira', (page) => {
+  ])('normalizes invalid page %s to the first page', (page) => {
     expect(parseProductFilter({ page })).toEqual({ page: 0, name: '', category: '' });
   });
 
@@ -26,19 +26,19 @@ describe('parseProductFilter', () => {
     ['2', 1],
     ['0002', 1],
     ['2147483647', 2147483646],
-  ])('converte a página %s para o índice %s da API', (page, expected) => {
+  ])('converts page %s to API index %s', (page, expected) => {
     expect(parseProductFilter({ page: String(page) }).page).toBe(expected);
   });
 
-  it('ignora parâmetros repetidos', () => {
+  it('ignores repeated parameters', () => {
     expect(
       parseProductFilter({ page: ['1', '2'], name: ['A', 'B'], category: ['A', 'B'] }),
     ).toEqual({ page: 0, name: '', category: '' });
   });
 
-  it('ignora arrays mesmo quando contêm um único valor', () => {
+  it('ignores arrays even when they contain a single value', () => {
     expect(
-      parseProductFilter({ page: ['2'], name: ['Teclado'], category: ['Periféricos'] }),
+      parseProductFilter({ page: ['2'], name: ['Keyboard'], category: ['Peripherals'] }),
     ).toEqual({
       page: 0,
       name: '',
@@ -46,27 +46,27 @@ describe('parseProductFilter', () => {
     });
   });
 
-  it('apara nome e categoria preservando espaços internos', () => {
+  it('trims name and category while preserving internal spaces', () => {
     expect(
-      parseProductFilter({ name: '  Teclado mecânico  ', category: '  Áudio e vídeo  ' }),
+      parseProductFilter({ name: '  Mechanical keyboard  ', category: '  Audio and video  ' }),
     ).toEqual({
       page: 0,
-      name: 'Teclado mecânico',
-      category: 'Áudio e vídeo',
+      name: 'Mechanical keyboard',
+      category: 'Audio and video',
     });
   });
 
-  it('limita o nome a cem caracteres depois de aparar', () => {
+  it('limits the name to one hundred characters after trimming', () => {
     expect(parseProductFilter({ name: '  ' + 'a'.repeat(101) + '  ' }).name).toBe('a'.repeat(100));
   });
 
-  it('mantém categorias longas sem truncar', () => {
+  it('preserves long categories without truncation', () => {
     expect(parseProductFilter({ category: '  ' + 'a'.repeat(101) + '  ' }).category).toBe(
       'a'.repeat(101),
     );
   });
 
-  it('normaliza filtros com apenas espaços para vazio', () => {
+  it('normalizes whitespace-only filters to empty', () => {
     expect(parseProductFilter({ name: ' \t ', category: ' \n ' })).toEqual({
       page: 0,
       name: '',

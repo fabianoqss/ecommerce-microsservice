@@ -17,12 +17,12 @@ export class Header {
   protected readonly cart = inject(Cart);
   protected readonly cartLabel = computed(() => {
     const quantity = this.cart.totalQuantity();
-    return `Carrinho, ${quantity} ${quantity === 1 ? 'item' : 'itens'}`;
+    return `Cart, ${quantity} ${quantity === 1 ? 'item' : 'items'}`;
   });
   protected readonly menuOpen = signal(false);
   protected readonly navigationLinks = computed(() => [
     { path: '/', label: 'HOME' },
-    { path: '/catalog', label: 'CATÁLOGO' },
+    { path: '/catalog', label: 'CATALOG' },
     ...(this.auth.isAdmin() ? [{ path: '/admin', label: 'ADMIN' }] : []),
   ]);
   protected readonly firstName = computed(() => {

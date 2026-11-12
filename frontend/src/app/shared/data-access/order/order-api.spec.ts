@@ -5,11 +5,11 @@ import { TestBed } from '@angular/core/testing';
 import { OrderApi } from './order-api';
 
 const order = {
-  id: 'pedido-1',
+  id: 'order-1',
   status: 'PENDING',
   totalValue: 25,
   orderTime: '2026-11-08T10:30:00',
-  items: [{ productId: 'a', productName: 'Teclado', quantity: 2, priceAtPurchase: 12.5 }],
+  items: [{ productId: 'a', productName: 'Keyboard', quantity: 2, priceAtPurchase: 12.5 }],
 };
 
 describe('OrderApi', () => {
@@ -24,7 +24,7 @@ describe('OrderApi', () => {
 
   afterEach(() => http.verify());
 
-  it('cria pedido com itens e chave de idempotência e retorna o corpo do 201', () => {
+  it('creates an order with items and an idempotency key and returns the 201 body', () => {
     const result = vi.fn();
     TestBed.inject(OrderApi)
       .create({ items: [{ productId: 'a', quantity: 2 }] }, 'chave-1')
@@ -37,7 +37,7 @@ describe('OrderApi', () => {
     expect(result).toHaveBeenCalledExactlyOnceWith(order);
   });
 
-  it.each([200, 202, 204])('não considera HTTP %s como pedido criado', (status) => {
+  it.each([200, 202, 204])('does not treat HTTP %s as a created order', (status) => {
     const result = vi.fn();
     const error = vi.fn();
     TestBed.inject(OrderApi).create({ items: [] }, 'chave-1').subscribe({ next: result, error });
@@ -46,18 +46,18 @@ describe('OrderApi', () => {
     expect(error).toHaveBeenCalledOnce();
   });
 
-  it('propaga o ProblemDetail para o consumidor', () => {
+  it('propagates ProblemDetail to the consumer', () => {
     const error = vi.fn();
     TestBed.inject(OrderApi).create({ items: [] }, 'chave-1').subscribe({ error });
     http
       .expectOne('/api/order')
-      .flush({ detail: 'Estoque insuficiente.' }, { status: 409, statusText: 'Conflict' });
+      .flush({ detail: 'Insufficient stock.' }, { status: 409, statusText: 'Conflict' });
     expect(error).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 409, error: { detail: 'Estoque insuficiente.' } }),
+      expect.objectContaining({ status: 409, error: { detail: 'Insufficient stock.' } }),
     );
   });
 
-  it('busca pedido pelo id codificado e acompanha mudanças do id', async () => {
+  it('fetches an order by encoded ID and follows ID changes', async () => {
     const id = signal('a/b &');
     const resource = TestBed.runInInjectionContext(() => TestBed.inject(OrderApi).byId(id));
     TestBed.tick();
@@ -66,21 +66,21 @@ describe('OrderApi', () => {
     request.flush(order);
     await TestBed.inject(ApplicationRef).whenStable();
     expect(resource.value()).toEqual(order);
-    id.set('pedido-2');
+    id.set('order-2');
     TestBed.tick();
-    http.expectOne('/api/order/pedido-2').flush({ ...order, id: 'pedido-2' });
+    http.expectOne('/api/order/order-2').flush({ ...order, id: 'order-2' });
     await TestBed.inject(ApplicationRef).whenStable();
-    expect(resource.value()?.id).toBe('pedido-2');
+    expect(resource.value()?.id).toBe('order-2');
   });
 
-  it('não busca enquanto o id está vazio e descarta o pedido ao esvaziar o id', async () => {
+  it('does not fetch while the ID is empty and discards the order when the ID is cleared', async () => {
     const id = signal('');
     const resource = TestBed.runInInjectionContext(() => TestBed.inject(OrderApi).byId(id));
     TestBed.tick();
     http.expectNone((request) => request.url.startsWith('/api/order'));
-    id.set('pedido-1');
+    id.set('order-1');
     TestBed.tick();
-    http.expectOne('/api/order/pedido-1').flush(order);
+    http.expectOne('/api/order/order-1').flush(order);
     await TestBed.inject(ApplicationRef).whenStable();
     expect(resource.value()).toEqual(order);
     id.set('');

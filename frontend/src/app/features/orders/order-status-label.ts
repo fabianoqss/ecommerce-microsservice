@@ -1,12 +1,12 @@
 import { OrderStatus } from '../../shared/data-access/order/order';
 
 const labels: Record<OrderStatus, string> = {
-  PENDING: 'Processando',
-  CONFIRMED: 'Confirmado',
-  EXPIRED: 'Expirado',
-  RECONCILIATION_FAILED: 'Em análise',
-  CANCELLED: 'Cancelado',
-  COMPLETED: 'Concluído',
+  PENDING: 'Processing',
+  CONFIRMED: 'Confirmed',
+  EXPIRED: 'Expired',
+  RECONCILIATION_FAILED: 'Under review',
+  CANCELLED: 'Canceled',
+  COMPLETED: 'Completed',
 };
 
 export function orderStatusLabel(status: OrderStatus): string {

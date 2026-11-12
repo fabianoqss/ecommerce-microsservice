@@ -13,10 +13,10 @@ describe('ProductList', () => {
   const emptyPage = { content: [], page: 0, size: 8, totalElements: 0, totalPages: 0 };
   const product = {
     id: '1',
-    name: 'Teclado Mecânico TKL',
-    description: 'Teclado',
+    name: 'TKL Mechanical Keyboard',
+    description: 'Keyboard',
     price: 89.9,
-    category: 'Periféricos',
+    category: 'Peripherals',
     imageUrl: null,
     version: 0,
   };
@@ -42,7 +42,7 @@ describe('ProductList', () => {
     TestBed.tick();
     const element = harness.routeNativeElement;
     if (!element) {
-      throw new Error('A rota do catálogo não foi renderizada');
+      throw new Error('The catalog route was not rendered');
     }
     return { harness, element };
   }
@@ -58,18 +58,18 @@ describe('ProductList', () => {
     );
   }
 
-  it('mostra oito skeletons enquanto carrega', async () => {
+  it('shows eight skeletons while loading', async () => {
     const { harness, element } = await render();
     expect(element.querySelectorAll('p-skeleton')).toHaveLength(8);
-    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Catálogo de produtos');
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Product catalog');
     http.expectOne('/api/product/categories').flush([]);
     http.expectOne('/api/product?page=0&size=8').flush(emptyPage);
     await settle(harness);
   });
 
-  it('mostra produtos em lista e anuncia o total de resultados', async () => {
+  it('shows products in a list and announces the result count', async () => {
     const { harness, element } = await render();
-    http.expectOne('/api/product/categories').flush(['Periféricos']);
+    http.expectOne('/api/product/categories').flush(['Peripherals']);
     http.expectOne('/api/product?page=0&size=8').flush({
       ...emptyPage,
       content: [product],
@@ -80,34 +80,30 @@ describe('ProductList', () => {
     expect(element.querySelectorAll('ul li article')).toHaveLength(1);
     expect(element.textContent).toContain(product.name);
     expect(element.querySelector('a[href="/catalog/1"] article')).not.toBeNull();
-    expect(element.querySelector('[aria-live="polite"]')?.textContent).toContain(
-      '1 produto encontrado',
-    );
+    expect(element.querySelector('[aria-live="polite"]')?.textContent).toContain('1 product found');
     expect(element.querySelector('p-skeleton')).toBeNull();
-    expect(element.querySelector('nav[aria-label="Paginação"]')).toBeNull();
+    expect(element.querySelector('nav[aria-label="Pagination"]')).toBeNull();
   });
 
-  it('mantém o catálogo funcionando quando categorias falham', async () => {
+  it('keeps the catalog working when categories fail', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/product/categories').flush({}, { status: 404, statusText: 'Not Found' });
     http.expectOne('/api/product?page=0&size=8').flush(emptyPage);
     await settle(harness);
     expect(element.querySelector('select')?.disabled).toBe(true);
-    expect(element.textContent).toContain('Nenhum produto encontrado.');
+    expect(element.textContent).toContain('No products found.');
     expect(element.querySelector('input')?.disabled).toBe(false);
   });
 
-  it('limpa os filtros e a página pela ação do estado vazio', async () => {
-    const { harness, element } = await render(
-      '/catalog?page=3&name=Teclado&category=Perif%C3%A9ricos',
-    );
-    http.expectOne('/api/product/categories').flush(['Periféricos']);
+  it('clears filters and page using the empty state action', async () => {
+    const { harness, element } = await render('/catalog?page=3&name=Keyboard&category=Peripherals');
+    http.expectOne('/api/product/categories').flush(['Peripherals']);
     http
       .expectOne((req) => req.url === '/api/product' && req.params.get('page') === '2')
       .flush(emptyPage);
     await settle(harness);
     const clear = Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Limpar filtros'),
+      button.textContent?.includes('Clear filters'),
     );
     expect(clear).toBeDefined();
     const navigation = nextNavigation();
@@ -120,9 +116,9 @@ describe('ProductList', () => {
   });
 
   it.each([
-    [{ detail: 'Serviço de produtos indisponível.' }, 'Serviço de produtos indisponível.'],
-    [{}, 'Não foi possível carregar os produtos. Tente novamente.'],
-  ])('mostra erro e permite tentar novamente', async (problem, message) => {
+    [{ detail: 'Product service unavailable.' }, 'Product service unavailable.'],
+    [{}, 'Unable to load products. Please try again.'],
+  ])('shows an error and allows retrying', async (problem, message) => {
     const { harness, element } = await render();
     http.expectOne('/api/product/categories').flush([]);
     http
@@ -131,7 +127,7 @@ describe('ProductList', () => {
     await settle(harness);
     expect(element.querySelector('p-message')?.textContent).toContain(message);
     const retry = Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Tentar novamente'),
+      button.textContent?.includes('Try again'),
     );
     retry?.click();
     TestBed.tick();
@@ -144,7 +140,7 @@ describe('ProductList', () => {
   });
 
   it.each(['0', '-1', 'abc', '1.5', '999999999999999999999'])(
-    'normaliza página inválida %s para a primeira',
+    'normalizes invalid page %s to the first page',
     async (page) => {
       const { harness } = await render('/catalog?page=' + page);
       http.expectOne('/api/product/categories').flush([]);
@@ -153,59 +149,59 @@ describe('ProductList', () => {
     },
   );
 
-  it('aplica nome aparado na URL sem criar entrada no histórico e remove a página', async () => {
-    const { harness, element } = await render('/catalog?page=3&category=Perif%C3%A9ricos');
-    http.expectOne('/api/product/categories').flush(['Periféricos']);
+  it('applies a trimmed name to the URL without creating a history entry and removes the page', async () => {
+    const { harness, element } = await render('/catalog?page=3&category=Peripherals');
+    http.expectOne('/api/product/categories').flush(['Peripherals']);
     http.expectOne((req) => req.url === '/api/product').flush(emptyPage);
     await settle(harness);
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
     const field = element.querySelector('input');
     if (!field) {
-      throw new Error('Campo de nome ausente');
+      throw new Error('Name field missing');
     }
     const navigation = nextNavigation();
-    field.value = ' Teclado ';
+    field.value = ' Keyboard ';
     field.dispatchEvent(new Event('input'));
     await navigation;
     TestBed.tick();
     expect(navigate).toHaveBeenCalledWith([], expect.objectContaining({ replaceUrl: true }));
     expect(TestBed.inject(Router).parseUrl(TestBed.inject(Router).url).queryParams).toEqual({
-      name: 'Teclado',
-      category: 'Periféricos',
+      name: 'Keyboard',
+      category: 'Peripherals',
     });
     const request = http.expectOne((req) => req.url === '/api/product');
-    expect(request.request.params.get('name')).toBe('Teclado');
+    expect(request.request.params.get('name')).toBe('Keyboard');
     expect(request.request.params.get('page')).toBe('0');
     request.flush(emptyPage);
     await settle(harness);
   });
 
-  it('muda categoria preservando nome e remove a página', async () => {
-    const { harness, element } = await render('/catalog?page=3&name=Teclado');
-    http.expectOne('/api/product/categories').flush(['Periféricos']);
+  it('changes category while preserving the name and removes the page', async () => {
+    const { harness, element } = await render('/catalog?page=3&name=Keyboard');
+    http.expectOne('/api/product/categories').flush(['Peripherals']);
     http.expectOne((req) => req.url === '/api/product').flush(emptyPage);
     await settle(harness);
     const select = element.querySelector('select');
     if (!select) {
-      throw new Error('Seletor de categoria ausente');
+      throw new Error('Category selector missing');
     }
     const navigation = nextNavigation();
-    select.value = 'Periféricos';
+    select.value = 'Peripherals';
     select.dispatchEvent(new Event('change'));
     await navigation;
     TestBed.tick();
     expect(TestBed.inject(Router).parseUrl(TestBed.inject(Router).url).queryParams).toEqual({
-      name: 'Teclado',
-      category: 'Periféricos',
+      name: 'Keyboard',
+      category: 'Peripherals',
     });
     const request = http.expectOne((req) => req.url === '/api/product');
     expect(request.request.params.get('page')).toBe('0');
-    expect(request.request.params.get('category')).toBe('Periféricos');
+    expect(request.request.params.get('category')).toBe('Peripherals');
     request.flush(emptyPage);
     await settle(harness);
   });
 
-  it('atualiza a URL ao paginar e rola para o início da lista', async () => {
+  it('updates the URL on pagination and scrolls to the top of the list', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/product/categories').flush([]);
     http.expectOne('/api/product?page=0&size=8').flush({
@@ -217,12 +213,12 @@ describe('ProductList', () => {
     await settle(harness);
     const results = element.querySelector<HTMLElement>('[aria-busy]');
     if (!results) {
-      throw new Error('Região de resultados ausente');
+      throw new Error('Results region missing');
     }
     const scroll = vi.fn();
     results.scrollIntoView = scroll;
     const navigation = nextNavigation();
-    element.querySelector<HTMLButtonElement>('[aria-label="Página 2"]')?.click();
+    element.querySelector<HTMLButtonElement>('[aria-label="Page 2"]')?.click();
     await navigation;
     TestBed.tick();
     expect(TestBed.inject(Router).url).toBe('/catalog?page=2');
@@ -231,10 +227,10 @@ describe('ProductList', () => {
     expect(scroll).toHaveBeenCalledWith({ block: 'start' });
   });
 
-  it('descarta a rolagem pendente quando a paginação falha', async () => {
-    const { harness, element } = await render('/catalog?name=Teclado&category=Perif%C3%A9ricos');
-    http.expectOne('/api/product/categories').flush(['Periféricos', 'Monitores']);
-    http.expectOne('/api/product?page=0&size=8&name=Teclado&category=Perif%C3%A9ricos').flush({
+  it('discards pending scrolling when pagination fails', async () => {
+    const { harness, element } = await render('/catalog?name=Keyboard&category=Peripherals');
+    http.expectOne('/api/product/categories').flush(['Peripherals', 'Monitors']);
+    http.expectOne('/api/product?page=0&size=8&name=Keyboard&category=Peripherals').flush({
       ...emptyPage,
       content: [product],
       totalElements: 24,
@@ -242,18 +238,18 @@ describe('ProductList', () => {
     });
     await settle(harness);
     const results = element.querySelector<HTMLElement>('[aria-busy]');
-    if (!results) throw new Error('Região de resultados ausente');
+    if (!results) throw new Error('Results region missing');
     const scroll = vi.fn();
     results.scrollIntoView = scroll;
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
-    element.querySelector<HTMLButtonElement>('[aria-label="Página 2"]')?.click();
+    element.querySelector<HTMLButtonElement>('[aria-label="Page 2"]')?.click();
     await navigate.mock.results[0]?.value;
     TestBed.tick();
     http
-      .expectOne('/api/product?page=1&size=8&name=Teclado&category=Perif%C3%A9ricos')
-      .flush({ detail: 'Falha ao paginar.' }, { status: 503, statusText: 'Unavailable' });
+      .expectOne('/api/product?page=1&size=8&name=Keyboard&category=Peripherals')
+      .flush({ detail: 'Pagination failed.' }, { status: 503, statusText: 'Unavailable' });
     await settle(harness);
-    expect(element.querySelector('p-message')?.textContent).toContain('Falha ao paginar.');
+    expect(element.querySelector('p-message')?.textContent).toContain('Pagination failed.');
     expect(scroll).not.toHaveBeenCalled();
     await harness.navigateByUrl('/catalog?name=Monitor');
     TestBed.tick();
@@ -269,65 +265,60 @@ describe('ProductList', () => {
   });
 
   it.each([
-    ['nameChange', 'Monitor', 'name=Monitor&category=Perif%C3%A9ricos'],
-    ['categoryChange', 'Monitores', 'name=Teclado&category=Monitores'],
+    ['nameChange', 'Monitor', 'name=Monitor&category=Peripherals'],
+    ['categoryChange', 'Monitors', 'name=Keyboard&category=Monitors'],
     ['clear', undefined, ''],
-  ])(
-    'descarta a rolagem pendente ao receber %s durante a paginação',
-    async (event, value, query) => {
-      const { harness, element } = await render('/catalog?name=Teclado&category=Perif%C3%A9ricos');
-      http.expectOne('/api/product/categories').flush(['Periféricos', 'Monitores']);
-      http.expectOne('/api/product?page=0&size=8&name=Teclado&category=Perif%C3%A9ricos').flush({
-        ...emptyPage,
-        content: [product],
-        totalElements: 24,
-        totalPages: 3,
-      });
-      await settle(harness);
-      const results = element.querySelector<HTMLElement>('[aria-busy]');
-      if (!results) throw new Error('Região de resultados ausente');
-      const scroll = vi.fn();
-      results.scrollIntoView = scroll;
-      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
-      element.querySelector<HTMLButtonElement>('[aria-label="Página 2"]')?.click();
-      await navigate.mock.results[0]?.value;
-      TestBed.tick();
-      const pending = http.expectOne(
-        '/api/product?page=1&size=8&name=Teclado&category=Perif%C3%A9ricos',
-      );
-      const search = harness.routeDebugElement?.query(By.directive(ProductSearch));
-      if (!search) throw new Error('Busca de produtos ausente');
-      const filterNavigation = nextNavigation();
-      search.triggerEventHandler(event, value);
-      await filterNavigation;
-      TestBed.tick();
-      expect(pending.cancelled).toBe(true);
-      http.expectOne('/api/product?page=0&size=8' + (query ? '&' + query : '')).flush({
-        ...emptyPage,
-        content: [product],
-        totalElements: 1,
-        totalPages: 1,
-      });
-      await settle(harness);
-      expect(element.querySelectorAll('article').length).toBeGreaterThan(0);
-      expect(scroll).not.toHaveBeenCalled();
-    },
-  );
+  ])('discards pending scrolling on %s during pagination', async (event, value, query) => {
+    const { harness, element } = await render('/catalog?name=Keyboard&category=Peripherals');
+    http.expectOne('/api/product/categories').flush(['Peripherals', 'Monitors']);
+    http.expectOne('/api/product?page=0&size=8&name=Keyboard&category=Peripherals').flush({
+      ...emptyPage,
+      content: [product],
+      totalElements: 24,
+      totalPages: 3,
+    });
+    await settle(harness);
+    const results = element.querySelector<HTMLElement>('[aria-busy]');
+    if (!results) throw new Error('Results region missing');
+    const scroll = vi.fn();
+    results.scrollIntoView = scroll;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    element.querySelector<HTMLButtonElement>('[aria-label="Page 2"]')?.click();
+    await navigate.mock.results[0]?.value;
+    TestBed.tick();
+    const pending = http.expectOne('/api/product?page=1&size=8&name=Keyboard&category=Peripherals');
+    const search = harness.routeDebugElement?.query(By.directive(ProductSearch));
+    if (!search) throw new Error('Product search missing');
+    const filterNavigation = nextNavigation();
+    search.triggerEventHandler(event, value);
+    await filterNavigation;
+    TestBed.tick();
+    expect(pending.cancelled).toBe(true);
+    http.expectOne('/api/product?page=0&size=8' + (query ? '&' + query : '')).flush({
+      ...emptyPage,
+      content: [product],
+      totalElements: 1,
+      totalPages: 1,
+    });
+    await settle(harness);
+    expect(element.querySelectorAll('article').length).toBeGreaterThan(0);
+    expect(scroll).not.toHaveBeenCalled();
+  });
 
-  it('ignora parâmetros repetidos em vez de quebrar a página', async () => {
+  it('ignores repeated parameters without breaking the page', async () => {
     const { harness } = await render(
-      '/catalog?name=Teclado&name=Monitor&category=A&category=B&page=1&page=2',
+      '/catalog?name=Keyboard&name=Monitor&category=A&category=B&page=1&page=2',
     );
     http.expectOne('/api/product/categories').flush([]);
     http.expectOne('/api/product?page=0&size=8').flush(emptyPage);
     await settle(harness);
   });
 
-  it('recupera uma página acima do total preservando os filtros', async () => {
-    const { harness } = await render('/catalog?page=999&name=Teclado');
+  it('recovers a page beyond the total while preserving filters', async () => {
+    const { harness } = await render('/catalog?page=999&name=Keyboard');
     http.expectOne('/api/product/categories').flush([]);
     const navigation = nextNavigation();
-    http.expectOne('/api/product?page=998&size=8&name=Teclado').flush({
+    http.expectOne('/api/product?page=998&size=8&name=Keyboard').flush({
       ...emptyPage,
       page: 998,
       totalElements: 20,
@@ -337,8 +328,8 @@ describe('ProductList', () => {
     TestBed.tick();
     await navigation;
     TestBed.tick();
-    expect(TestBed.inject(Router).url).toBe('/catalog?page=3&name=Teclado');
-    http.expectOne('/api/product?page=2&size=8&name=Teclado').flush({
+    expect(TestBed.inject(Router).url).toBe('/catalog?page=3&name=Keyboard');
+    http.expectOne('/api/product?page=2&size=8&name=Keyboard').flush({
       ...emptyPage,
       page: 2,
       content: [product],
@@ -348,7 +339,7 @@ describe('ProductList', () => {
     await settle(harness);
   });
 
-  it('cancela o nome pendente ao limpar pelo estado vazio mesmo sem filtros na URL', async () => {
+  it('cancels the pending name when clearing the empty state even without URL filters', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/product/categories').flush([]);
     http.expectOne('/api/product?page=0&size=8').flush(emptyPage);
@@ -356,12 +347,12 @@ describe('ProductList', () => {
     vi.useFakeTimers();
     const field = element.querySelector('input');
     if (!field) {
-      throw new Error('Campo de nome ausente');
+      throw new Error('Name field missing');
     }
-    field.value = 'Teclado';
+    field.value = 'Keyboard';
     field.dispatchEvent(new Event('input'));
     Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.trim() === 'Limpar filtros')
+      .find((button) => button.textContent?.trim() === 'Clear filters')
       ?.click();
     await vi.advanceTimersByTimeAsync(300);
     expect(field.value).toBe('');

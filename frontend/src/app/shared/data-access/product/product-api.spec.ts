@@ -20,24 +20,24 @@ describe('ProductApi', () => {
 
   afterEach(() => http.verify());
 
-  it('envia página zero-based, oito itens e os filtros', async () => {
+  it('sends a zero-based page, eight items and filters', async () => {
     const result = TestBed.runInInjectionContext(() =>
-      api.list(() => ({ page: 2, name: ' Teclado ', category: ' Periféricos ' })),
+      api.list(() => ({ page: 2, name: ' Keyboard ', category: ' Peripherals ' })),
     );
     TestBed.tick();
     const request = http.expectOne((req) => req.url === '/api/product');
     expect(request.request.method).toBe('GET');
     expect(request.request.params.get('page')).toBe('2');
     expect(request.request.params.get('size')).toBe('8');
-    expect(request.request.params.get('name')).toBe('Teclado');
-    expect(request.request.params.get('category')).toBe('Periféricos');
+    expect(request.request.params.get('name')).toBe('Keyboard');
+    expect(request.request.params.get('category')).toBe('Peripherals');
     const response = { content: [], page: 2, size: 8, totalElements: 0, totalPages: 0 };
     request.flush(response);
     await TestBed.inject(ApplicationRef).whenStable();
     expect(result.value()).toEqual(response);
   });
 
-  it('permite solicitar quatro produtos sem alterar o tamanho padrão', async () => {
+  it('allows requesting four products without changing the default size', async () => {
     const result = TestBed.runInInjectionContext(() =>
       api.list(() => ({ page: 0, name: '', category: '' }), 4),
     );
@@ -48,7 +48,7 @@ describe('ProductApi', () => {
     expect(result.value()).toEqual(response);
   });
 
-  it('omite filtros vazios e refaz a requisição quando o filtro muda', () => {
+  it('omits empty filters and repeats the request when the filter changes', () => {
     const page = signal(0);
     TestBed.runInInjectionContext(() =>
       api.list(() => ({ page: page(), name: '  ', category: '' })),
@@ -69,7 +69,7 @@ describe('ProductApi', () => {
     });
   });
 
-  it('busca um produto pelo id com URL relativa e acompanha mudanças do id', async () => {
+  it('fetches a product by ID with a relative URL and follows ID changes', async () => {
     const id = signal('670000000000000000000001');
     const result = TestBed.runInInjectionContext(() => api.byId(id));
     TestBed.tick();
@@ -77,30 +77,30 @@ describe('ProductApi', () => {
     expect(request.request.method).toBe('GET');
     const product: Product = {
       id: id(),
-      name: 'Teclado Mecânico TKL',
-      description: 'Teclado compacto',
+      name: 'TKL Mechanical Keyboard',
+      description: 'Compact keyboard',
       price: 349.9,
-      category: 'Periféricos',
+      category: 'Peripherals',
       imageUrl: null,
       version: 0,
     };
     request.flush(product, { headers: { ETag: '"0"' } });
     await TestBed.inject(ApplicationRef).whenStable();
     expect(result.value()).toEqual(product);
-    id.set('outro-id');
+    id.set('another-id');
     TestBed.tick();
-    http.expectOne('/api/product/outro-id').flush({ ...product, id: 'outro-id' });
+    http.expectOne('/api/product/another-id').flush({ ...product, id: 'another-id' });
     await TestBed.inject(ApplicationRef).whenStable();
-    expect(result.value()?.id).toBe('outro-id');
+    expect(result.value()?.id).toBe('another-id');
   });
 
-  it('oferece leitura combinável por id com URL codificada', async () => {
+  it('provides composable reading by ID with an encoded URL', async () => {
     const result = firstValueFrom(api.getById('a/b &'));
     const request = http.expectOne('/api/product/a%2Fb%20%26');
     expect(request.request.method).toBe('GET');
     const product: Product = {
       id: 'a/b &',
-      name: 'Teclado',
+      name: 'Keyboard',
       price: 12.5,
       description: '',
       category: '',
@@ -111,11 +111,11 @@ describe('ProductApi', () => {
     expect(await result).toEqual(product);
   });
 
-  it('carrega categorias em um recurso independente', async () => {
+  it('loads categories in an independent resource', async () => {
     const result = TestBed.runInInjectionContext(() => api.categories());
     TestBed.tick();
-    http.expectOne('/api/product/categories').flush(['Acessórios', 'Periféricos']);
+    http.expectOne('/api/product/categories').flush(['Accessories', 'Peripherals']);
     await TestBed.inject(ApplicationRef).whenStable();
-    expect(result.value()).toEqual(['Acessórios', 'Periféricos']);
+    expect(result.value()).toEqual(['Accessories', 'Peripherals']);
   });
 });

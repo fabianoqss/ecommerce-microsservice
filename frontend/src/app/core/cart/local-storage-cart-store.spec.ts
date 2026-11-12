@@ -14,7 +14,7 @@ describe('LocalStorageCartStore', () => {
     localStorage.clear();
   });
 
-  it('persiste apenas ids e quantidades sob a chave da conta', () => {
+  it('persists only IDs and quantities under the account key', () => {
     store.save('ana', [{ productId: 'p1', quantity: 2 }]);
     expect(localStorage.getItem('cart:ana')).toBe('[{"productId":"p1","quantity":2}]');
     expect(store.load('ana')).toEqual([{ productId: 'p1', quantity: 2 }]);
@@ -22,14 +22,14 @@ describe('LocalStorageCartStore', () => {
   });
 
   it.each([null, 'abc', '"abc"', '{}', 'null', '42'])(
-    'ignora armazenamento ausente ou inválido: %s',
+    'ignores missing or invalid storage: %s',
     (value) => {
       if (value !== null) localStorage.setItem('cart:ana', value);
       expect(store.load('ana')).toEqual([]);
     },
   );
 
-  it('descarta entradas inválidas e duplicatas sem perder entradas válidas', () => {
+  it('discards invalid and duplicate entries without losing valid entries', () => {
     localStorage.setItem(
       'cart:ana',
       JSON.stringify([
@@ -43,7 +43,7 @@ describe('LocalStorageCartStore', () => {
         { productId: 'p1', quantity: 1.5 },
         { productId: 'p1', quantity: '2' },
         { productId: 'p1', quantity: 10001 },
-        { productId: 'p1', quantity: 2, price: 100, name: 'Privado' },
+        { productId: 'p1', quantity: 2, price: 100, name: 'Private' },
         { productId: 'p1', quantity: 3 },
         { productId: 'p2', quantity: 10000 },
       ]),
@@ -54,7 +54,7 @@ describe('LocalStorageCartStore', () => {
     ]);
   });
 
-  it('limita o carrinho a cinquenta produtos distintos', () => {
+  it('limits the cart to fifty distinct products', () => {
     localStorage.setItem(
       'cart:ana',
       JSON.stringify(
@@ -65,29 +65,29 @@ describe('LocalStorageCartStore', () => {
     expect(store.load('ana').at(-1)).toEqual({ productId: 'p49', quantity: 1 });
   });
 
-  it('não propaga erros de acesso, leitura ou escrita do storage', () => {
+  it('does not propagate storage access, read or write errors', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('Bloqueado');
+      throw new Error('Blocked');
     });
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('Sem espaço');
+      throw new Error('Out of space');
     });
     expect(store.load('ana')).toEqual([]);
     expect(() => store.save('ana', [{ productId: 'p1', quantity: 1 }])).not.toThrow();
     vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
-      throw new Error('Sem acesso');
+      throw new Error('Access denied');
     });
     expect(store.load('ana')).toEqual([]);
     expect(() => store.save('ana', [])).not.toThrow();
   });
 
-  it('emite a conta alterada em outra aba e ignora outras chaves e sessionStorage', () => {
+  it('emits the account changed in another tab and ignores other keys and sessionStorage', () => {
     const changed = vi.fn();
     const subscription = store.changes().subscribe(changed);
     window.dispatchEvent(
       new StorageEvent('storage', { key: 'cart:ana', storageArea: localStorage }),
     );
-    window.dispatchEvent(new StorageEvent('storage', { key: 'outro', storageArea: localStorage }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'other', storageArea: localStorage }));
     window.dispatchEvent(
       new StorageEvent('storage', { key: 'cart:bia', storageArea: sessionStorage }),
     );
@@ -99,7 +99,7 @@ describe('LocalStorageCartStore', () => {
     expect(changed).toHaveBeenCalledTimes(1);
   });
 
-  it('notifica contas carregadas quando outra aba limpa todo o storage', () => {
+  it('notifies loaded accounts when another tab clears all storage', () => {
     store.load('ana');
     const changed = vi.fn();
     const subscription = store.changes().subscribe(changed);

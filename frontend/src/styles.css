@@ -1,4 +1,4 @@
-/* Ordem das camadas: PrimeNG fica abaixo dos utilitários do Tailwind, que podem sobrescrevê-lo. */
+/* Layer order: PrimeNG sits below Tailwind utilities, which can override it. */
 @layer theme, base, primeng, components, utilities;
 
 @import 'tailwindcss';
@@ -32,5 +32,5 @@
   --font-sans: 'Open Sans', Arial, sans-serif;
 }
 
-/* O variant dark: do Tailwind usa a mesma classe do PrimeNG (darkModeSelector). */
+/* The Tailwind dark: variant uses the same class as PrimeNG (darkModeSelector). */
 @custom-variant dark (&:where(.p-dark, .p-dark *));
