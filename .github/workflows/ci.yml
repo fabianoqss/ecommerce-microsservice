@@ -189,6 +189,7 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          secrets: ${{ matrix.service == 'frontend' && format('primeui_license={0}', secrets.PRIMEUI_LICENSE) || '' }}
           provenance: mode=max
           sbom: true
 

@@ -112,6 +112,7 @@ export const appConfig: ApplicationConfig = {
           },
         },
       },
+      license: PRIMEUI_LICENSE,
     }),
   ],
 };
