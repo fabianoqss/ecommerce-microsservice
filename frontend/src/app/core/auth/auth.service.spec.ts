@@ -38,13 +38,13 @@ describe('AuthService', () => {
     vi.restoreAllMocks();
   });
 
-  it('começa sem usuário autenticado nem permissão de administrador', () => {
+  it('starts without an authenticated user or administrator permissions', () => {
     expect(auth.user()).toBeNull();
     expect(auth.isAuthenticated()).toBe(false);
     expect(auth.isAdmin()).toBe(false);
   });
 
-  it('carrega o usuário uma única vez, inclusive em chamadas concorrentes', async () => {
+  it('loads the user once, including concurrent calls', async () => {
     const first = auth.load();
     const second = auth.load();
     const request = http.expectOne('/bff/me');
@@ -60,10 +60,10 @@ describe('AuthService', () => {
   });
 
   it.each([401, 403, 500, 503])(
-    'resolve a inicialização sem sessão no erro HTTP %i',
+    'resolves initialization without a session on HTTP error %i',
     async (status) => {
       const pending = auth.load();
-      http.expectOne('/bff/me').flush({ status }, { status, statusText: 'Falha' });
+      http.expectOne('/bff/me').flush({ status }, { status, statusText: 'Failure' });
 
       await expect(pending).resolves.toBeUndefined();
       expect(auth.user()).toBeNull();
@@ -73,7 +73,7 @@ describe('AuthService', () => {
     },
   );
 
-  it('resolve a inicialização quando a rede falha', async () => {
+  it('resolves initialization when the network fails', async () => {
     const pending = auth.load();
     http.expectOne('/bff/me').error(new ProgressEvent('error'));
 
@@ -81,7 +81,7 @@ describe('AuthService', () => {
     expect(auth.user()).toBeNull();
   });
 
-  it('reconhece ADMIN e limpa todos os dados da sessão ao expirar', async () => {
+  it('recognizes ADMIN and clears all session data on expiration', async () => {
     const pending = auth.load();
     http.expectOne('/bff/me').flush({ ...customer, roles: ['CUSTOMER', 'ADMIN'] });
     await pending;
@@ -94,7 +94,7 @@ describe('AuthService', () => {
     expect(auth.isAdmin()).toBe(false);
   });
 
-  it('inicia o login por navegação completa e evita redirecionamentos duplicados', () => {
+  it('starts login with full navigation and prevents duplicate redirects', () => {
     auth.login();
     auth.login();
 
@@ -102,7 +102,7 @@ describe('AuthService', () => {
     http.expectNone('/oauth2/authorization/keycloak');
   });
 
-  it('faz logout por POST com cabeçalhos CSRF e XHR e navega para o Location devolvido', () => {
+  it('logs out via POST with CSRF and XHR headers and navigates to the returned Location', () => {
     document.cookie = 'XSRF-TOKEN=token-csrf; Path=/';
     auth.logout();
 
@@ -120,7 +120,7 @@ describe('AuthService', () => {
     expect(assign).toHaveBeenCalledExactlyOnceWith('http://keycloak/logout?id_token_hint=x');
   });
 
-  it('mantém o usuário e não navega quando o logout falha', async () => {
+  it('preserves the user and does not navigate when logout fails', async () => {
     const pending = auth.load();
     http.expectOne('/bff/me').flush(customer);
     await pending;

@@ -19,11 +19,11 @@ describe('ProductDetail', () => {
   let login: ReturnType<typeof vi.fn>;
   const product: Product = {
     id: '670000000000000000000001',
-    name: 'Teclado Mecânico TKL',
-    description: 'Teclado compacto.\nCom teclas iluminadas.',
+    name: 'TKL Mechanical Keyboard',
+    description: 'Compact keyboard.\nWith backlit keys.',
     price: 349.9,
-    category: 'Periféricos',
-    imageUrl: '/images/teclado.png',
+    category: 'Peripherals',
+    imageUrl: '/images/keyboard.png',
     version: 0,
   };
   const url = '/catalog/' + product.id;
@@ -39,7 +39,7 @@ describe('ProductDetail', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(
-          [{ path: 'catalog', title: 'Catálogo | DS Catalog', children: catalogRoutes }],
+          [{ path: 'catalog', title: 'Catalog | DS Catalog', children: catalogRoutes }],
           withComponentInputBinding(),
         ),
       ],
@@ -67,7 +67,7 @@ describe('ProductDetail', () => {
     }
     const element = harness.routeNativeElement;
     if (!element) {
-      throw new Error('A rota do produto não foi renderizada');
+      throw new Error('The product route was not rendered');
     }
     return { harness, element };
   }
@@ -85,26 +85,26 @@ describe('ProductDetail', () => {
     harness.detectChanges();
   }
 
-  it('mostra skeleton de imagem, nome, preço e descrição enquanto carrega', async () => {
+  it('shows image, name, price and description skeletons while loading', async () => {
     const { harness, element } = await render();
     expect(element.querySelectorAll('p-skeleton')).toHaveLength(4);
     expect(element.querySelector('[aria-busy]')?.getAttribute('aria-busy')).toBe('true');
-    expect(element.querySelector('[role="status"]')?.textContent).toContain('Carregando produto.');
-    expect(TestBed.inject(Title).getTitle()).toBe('Produto | DS Catalog');
+    expect(element.querySelector('[role="status"]')?.textContent).toContain('Loading product.');
+    expect(TestBed.inject(Title).getTitle()).toBe('Product | DS Catalog');
     http.expectOne('/api/product/' + product.id).flush(product);
     await settle(harness);
     expect(element.querySelector('p-skeleton')).toBeNull();
     expect(element.querySelector('[aria-busy]')?.getAttribute('aria-busy')).toBe('false');
   });
 
-  it('mostra nome, preço, descrição como texto e imagem acessível e atualiza o título', async () => {
+  it('shows name, price, plain text description and accessible image and updates the title', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/product/' + product.id).flush(product);
     await settle(harness);
     expect(element.querySelector('h1')?.textContent?.trim()).toBe(product.name);
     expect(element.querySelector('[data-testid="price-integer"]')?.textContent).toBe('349');
-    expect(element.querySelector('[data-testid="price-decimal"]')?.textContent).toBe(',90');
-    expect(element.querySelector('h2')?.textContent?.trim()).toBe('Descrição do produto');
+    expect(element.querySelector('[data-testid="price-decimal"]')?.textContent).toBe('.90');
+    expect(element.querySelector('h2')?.textContent?.trim()).toBe('Product description');
     expect(element.querySelector('.whitespace-pre-line')?.textContent?.trim()).toBe(
       product.description,
     );
@@ -116,26 +116,26 @@ describe('ProductDetail', () => {
     expect(TestBed.inject(Title).getTitle()).toBe(product.name + ' | DS Catalog');
   });
 
-  it('mostra produto não encontrado para 404 e oferece retorno ao catálogo', async () => {
-    const { harness, element } = await render('/catalog/id-invalido');
+  it('shows product not found on 404 and offers a return to the catalog', async () => {
+    const { harness, element } = await render('/catalog/invalid-id');
     http
-      .expectOne('/api/product/id-invalido')
-      .flush({ status: 404, title: 'Não encontrado' }, { status: 404, statusText: 'Not Found' });
+      .expectOne('/api/product/invalid-id')
+      .flush({ status: 404, title: 'Not found' }, { status: 404, statusText: 'Not Found' });
     await settle(harness);
-    expect(element.textContent).toContain('Produto não encontrado.');
+    expect(element.textContent).toContain('Product not found.');
     const back = Array.from(element.querySelectorAll('a')).find((link) =>
-      link.textContent?.includes('Voltar ao catálogo'),
+      link.textContent?.includes('Back to catalog'),
     );
     expect(back?.getAttribute('href')).toBe('/catalog');
     expect(element.querySelector('p-message')).toBeNull();
-    expect(TestBed.inject(Title).getTitle()).toBe('Produto | DS Catalog');
+    expect(TestBed.inject(Title).getTitle()).toBe('Product | DS Catalog');
   });
 
   it.each([
-    [{ detail: 'Serviço indisponível.' }, 'Serviço indisponível.'],
-    [{}, 'Não foi possível carregar o produto. Tente novamente.'],
-    [{ detail: '  ' }, 'Não foi possível carregar o produto. Tente novamente.'],
-  ])('mostra erro e permite tentar novamente', async (problem, message) => {
+    [{ detail: 'Service unavailable.' }, 'Service unavailable.'],
+    [{}, 'Unable to load the product. Please try again.'],
+    [{ detail: '  ' }, 'Unable to load the product. Please try again.'],
+  ])('shows an error and allows retrying', async (problem, message) => {
     const { harness, element } = await render();
     http
       .expectOne('/api/product/' + product.id)
@@ -151,7 +151,7 @@ describe('ProductDetail', () => {
     expect(element.querySelector('h1')?.textContent).toContain(product.name);
   });
 
-  it('mostra placeholder quando não há imagem', async () => {
+  it('shows a placeholder when there is no image', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/product/' + product.id).flush({ ...product, imageUrl: null });
     await settle(harness);
@@ -159,41 +159,45 @@ describe('ProductDetail', () => {
     expect(element.querySelector('.pi-image')).not.toBeNull();
   });
 
-  it('mostra mensagem quando não há descrição e não interpreta HTML', async () => {
+  it('shows a message when there is no description and does not interpret HTML', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/product/' + product.id).flush({ ...product, description: '' });
     await settle(harness);
-    expect(element.textContent).toContain('Este produto ainda não tem descrição.');
-    await harness.navigateByUrl('/catalog/outro-id');
+    expect(element.textContent).toContain('This product has no description yet.');
+    await harness.navigateByUrl('/catalog/another-id');
     TestBed.tick();
-    http.expectOne('/api/product/outro-id').flush({ ...product, description: '<b>Descrição</b>' });
+    http
+      .expectOne('/api/product/another-id')
+      .flush({ ...product, description: '<b>Description</b>' });
     await settle(harness);
-    expect(element.textContent).toContain('<b>Descrição</b>');
+    expect(element.textContent).toContain('<b>Description</b>');
     expect(element.querySelector('b')).toBeNull();
   });
 
-  it('acompanha o id da rota e redefine o título enquanto carrega outro produto', async () => {
+  it('follows the route ID and resets the title while loading another product', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/product/' + product.id).flush(product);
     await settle(harness);
-    await harness.navigateByUrl('/catalog/outro-id');
+    await harness.navigateByUrl('/catalog/another-id');
     TestBed.tick();
-    expect(TestBed.inject(Title).getTitle()).toBe('Produto | DS Catalog');
+    expect(TestBed.inject(Title).getTitle()).toBe('Product | DS Catalog');
     expect(element.querySelector('h1')).toBeNull();
-    http.expectOne('/api/product/outro-id').flush({ ...product, id: 'outro-id', name: 'Monitor' });
+    http
+      .expectOne('/api/product/another-id')
+      .flush({ ...product, id: 'another-id', name: 'Monitor' });
     await settle(harness);
     expect(element.querySelector('h1')?.textContent).toContain('Monitor');
     expect(TestBed.inject(Title).getTitle()).toBe('Monitor | DS Catalog');
   });
 
-  it.each(['', '?page=2&name=Teclado&category=Perif%C3%A9ricos'])(
-    'VOLTAR navega ao catálogo com os query params de origem: %s',
+  it.each(['', '?page=2&name=Keyboard&category=Peripherals'])(
+    'BACK navigates to the catalog with the original query parameters: %s',
     async (query) => {
       const { harness, element } = await render(url + query);
       http.expectOne('/api/product/' + product.id).flush(product);
       await settle(harness);
       const back = Array.from(element.querySelectorAll('a')).find(
-        (link) => link.textContent?.trim() === 'VOLTAR',
+        (link) => link.textContent?.trim() === 'BACK',
       );
       expect(back?.getAttribute('href')).toBe('/catalog' + query);
       const navigation = firstValueFrom(
@@ -206,10 +210,10 @@ describe('ProductDetail', () => {
       http.expectOne('/api/product/categories').flush([]);
       const request = http.expectOne((request) => request.url === '/api/product');
       expect(request.request.params.get('page')).toBe(query ? '1' : '0');
-      expect(request.request.params.get('name')).toBe(query ? 'Teclado' : null);
+      expect(request.request.params.get('name')).toBe(query ? 'Keyboard' : null);
       request.flush({ content: [], page: query ? 1 : 0, size: 8, totalElements: 0, totalPages: 0 });
       await settle(harness);
-      expect(TestBed.inject(Title).getTitle()).toBe('Catálogo | DS Catalog');
+      expect(TestBed.inject(Title).getTitle()).toBe('Catalog | DS Catalog');
     },
   );
   async function authenticate() {
@@ -222,13 +226,13 @@ describe('ProductDetail', () => {
 
   function addButton(element: HTMLElement) {
     const button = Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Adicionar ao carrinho'),
+      button.textContent?.includes('Add to cart'),
     );
     expect(button).toBeDefined();
     return button;
   }
 
-  it('inicia login quando visitante tenta adicionar ao carrinho', async () => {
+  it('starts login when a visitor tries to add to cart', async () => {
     const { harness, element } = await render();
     http.expectOne('/api/product/' + product.id).flush(product);
     await settle(harness);
@@ -237,7 +241,7 @@ describe('ProductDetail', () => {
     expect(TestBed.inject(Cart).items()).toEqual([]);
   });
 
-  it('adiciona produto e notifica o usuário sem sair da página', async () => {
+  it('adds a product and notifies the user without leaving the page', async () => {
     await authenticate();
     const messages = vi.spyOn(TestBed.inject(MessageService), 'add');
     const { harness, element } = await render();
@@ -248,15 +252,15 @@ describe('ProductDetail', () => {
     expect(add).toHaveBeenCalledExactlyOnceWith(product.id);
     expect(TestBed.inject(Cart).totalQuantity()).toBe(1);
     expect(messages).toHaveBeenCalledWith(
-      expect.objectContaining({ severity: 'success', detail: 'Produto adicionado ao carrinho' }),
+      expect.objectContaining({ severity: 'success', detail: 'Product added to cart' }),
     );
     expect(TestBed.inject(Router).url).toBe(url);
   });
 
   it.each([
-    ['limit-products', 'O carrinho pode ter no máximo 50 produtos diferentes.'],
-    ['limit-quantity', 'Você pode adicionar no máximo 10000 unidades de cada produto.'],
-  ] as const)('informa o motivo quando o limite é atingido: %s', async (result, detail) => {
+    ['limit-products', 'Your cart can contain up to 50 different products.'],
+    ['limit-quantity', 'You can add up to 10,000 units of each product.'],
+  ] as const)('explains when the limit is reached: %s', async (result, detail) => {
     await authenticate();
     const messages = vi.spyOn(TestBed.inject(MessageService), 'add');
     vi.spyOn(TestBed.inject(Cart), 'add').mockReturnValue(result);
@@ -267,26 +271,26 @@ describe('ProductDetail', () => {
     expect(messages).toHaveBeenCalledWith(expect.objectContaining({ severity: 'error', detail }));
   });
 
-  it('desabilita a adição até o estoque carregar e mostra Sem estoque quando indisponível', async () => {
+  it('disables adding until stock loads and shows Out of stock when unavailable', async () => {
     const { harness, element } = await render(url, false);
     http.expectOne('/api/product/' + product.id).flush(product);
     await vi.waitFor(() => {
       harness.detectChanges();
       expect(element.querySelector('h1')).not.toBeNull();
     });
-    expect(element.textContent).toContain('Consultando estoque');
+    expect(element.textContent).toContain('Checking stock');
     expect(element.querySelector('button')?.disabled).toBe(true);
     http
       .expectOne('/api/inventory?skuCode=' + product.id)
       .flush([{ skuCode: product.id, quantity: 0, inStock: false }]);
     await settle(harness);
     const button = Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Sem estoque'),
+      button.textContent?.includes('Out of stock'),
     );
     expect(button?.disabled).toBe(true);
   });
 
-  it('mostra ProblemDetail de estoque, bloqueia adição e permite tentar novamente', async () => {
+  it('shows stock ProblemDetail, blocks adding and allows retrying', async () => {
     const { harness, element } = await render(url, false);
     http.expectOne('/api/product/' + product.id).flush(product);
     await vi.waitFor(() => {
@@ -295,12 +299,12 @@ describe('ProductDetail', () => {
     });
     http
       .expectOne('/api/inventory?skuCode=' + product.id)
-      .flush({ detail: 'Estoque indisponível.' }, { status: 503, statusText: 'Unavailable' });
+      .flush({ detail: 'Stock unavailable.' }, { status: 503, statusText: 'Unavailable' });
     await settle(harness);
-    expect(element.querySelector('p-message')?.textContent).toContain('Estoque indisponível.');
+    expect(element.querySelector('p-message')?.textContent).toContain('Stock unavailable.');
     expect(addButton(element)?.disabled).toBe(true);
     Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Consultar estoque novamente'))
+      .find((button) => button.textContent?.includes('Check stock again'))
       ?.click();
     TestBed.tick();
     http
@@ -310,7 +314,7 @@ describe('ProductDetail', () => {
     expect(addButton(element)?.disabled).toBe(false);
   });
 
-  it('trata estoque ausente como indisponível sem permitir adicionar', async () => {
+  it('treats missing stock as unavailable without allowing additions', async () => {
     const { harness, element } = await render(url, false);
     http.expectOne('/api/product/' + product.id).flush(product);
     await vi.waitFor(() => {
@@ -319,15 +323,15 @@ describe('ProductDetail', () => {
     });
     http.expectOne('/api/inventory?skuCode=' + product.id).flush([]);
     await settle(harness);
-    expect(element.textContent).not.toContain('Não foi possível consultar o estoque');
+    expect(element.textContent).not.toContain('Unable to check stock');
     expect(element.querySelector('p-message')).toBeNull();
     const button = Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Sem estoque'),
+      button.textContent?.includes('Out of stock'),
     );
     expect(button?.disabled).toBe(true);
   });
 
-  it('não adiciona além do estoque disponível e informa a quantidade', async () => {
+  it('does not add beyond available stock and reports the quantity', async () => {
     await authenticate();
     const messages = vi.spyOn(TestBed.inject(MessageService), 'add');
     const { harness, element } = await render(url, false);
@@ -347,7 +351,7 @@ describe('ProductDetail', () => {
     expect(messages).toHaveBeenLastCalledWith(
       expect.objectContaining({
         severity: 'error',
-        detail: 'Apenas 2 em estoque. Você já tem 2 no carrinho.',
+        detail: 'Only 2 in stock. You already have 2 in your cart.',
       }),
     );
   });

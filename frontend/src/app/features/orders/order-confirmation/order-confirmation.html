@@ -5,9 +5,9 @@
 >
   @if (orderResource.isLoading()) {
     <h1 id="confirmation-heading" class="mb-8 text-[28px] font-bold tracking-[-0.54px] lg:text-4xl">
-      Confirmação do pedido
+      Order confirmation
     </h1>
-    <p role="status" class="sr-only">Carregando pedido.</p>
+    <p role="status" class="sr-only">Loading order.</p>
     <div aria-hidden="true" class="flex flex-col gap-6">
       <p-skeleton width="60%" height="28px" />
       <p-skeleton width="100%" height="160px" />
@@ -15,27 +15,27 @@
     </div>
   } @else if (notFound()) {
     <h1 id="confirmation-heading" class="text-[28px] font-bold tracking-[-0.54px] lg:text-4xl">
-      Pedido não encontrado.
+      Order not found.
     </h1>
   } @else if (orderResource.error()) {
     <h1 id="confirmation-heading" class="mb-8 text-[28px] font-bold tracking-[-0.54px] lg:text-4xl">
-      Confirmação do pedido
+      Order confirmation
     </h1>
     <div class="flex flex-col items-start gap-5">
       <p-message severity="error">{{ errorMessage() }}</p-message>
-      <p-button label="Tentar novamente" (onClick)="orderResource.reload()" />
+      <p-button label="Try again" (onClick)="orderResource.reload()" />
     </div>
   } @else if (order(); as order) {
     <h1 id="confirmation-heading" class="mb-8 text-[28px] font-bold tracking-[-0.54px] lg:text-4xl">
-      Pedido realizado!
+      Order confirmed!
     </h1>
     <dl class="mb-8 flex flex-col gap-5">
       <div>
-        <dt class="text-muted-color">Número do pedido</dt>
+        <dt class="text-muted-color">Order number</dt>
         <dd class="font-bold wrap-anywhere">{{ order.id }}</dd>
       </div>
       <div>
-        <dt class="text-muted-color">Data do pedido</dt>
+        <dt class="text-muted-color">Order date</dt>
         <dd>
           <time [attr.datetime]="order.orderTime">{{ formattedOrderTime() }}</time>
         </dd>
@@ -46,21 +46,21 @@
       </div>
     </dl>
     @if (order.status === 'PENDING') {
-      <p role="status" class="mb-6 text-muted-color">Estamos confirmando a reserva do estoque.</p>
+      <p role="status" class="mb-6 text-muted-color">We are confirming your stock reservation.</p>
     }
     <div class="grid grid-cols-1 items-start gap-[30px] lg:grid-cols-[minmax(0,1fr)_320px]">
       <ul
-        aria-label="Produtos no pedido"
+        aria-label="Products in your order"
         class="min-w-0 divide-y divide-surface-200 dark:divide-surface-700"
       >
         @for (line of lines(); track line.productId) {
           <li class="flex flex-col gap-4 py-6">
             <h2 class="text-xl font-bold wrap-anywhere">{{ line.productName }}</h2>
             <p class="text-muted-color">
-              Preço unitário:
-              <span>R$ {{ line.unitPrice.integer }}{{ line.unitPrice.decimal }}</span>
+              Unit price:
+              <span>R${{ line.unitPrice.integer }}{{ line.unitPrice.decimal }}</span>
             </p>
-            <p>Quantidade: {{ line.quantity }}</p>
+            <p>Quantity: {{ line.quantity }}</p>
           </li>
         }
       </ul>
@@ -68,11 +68,11 @@
         aria-labelledby="summary-heading"
         class="flex min-w-0 flex-col gap-6 rounded-[20px] border border-surface-200 p-5 dark:border-surface-700"
       >
-        <h2 id="summary-heading" class="text-2xl font-bold">Resumo do pedido</h2>
+        <h2 id="summary-heading" class="text-2xl font-bold">Order summary</h2>
         <div class="flex flex-wrap items-baseline justify-between gap-2">
           <span>Total</span>
           <span class="text-2xl font-bold text-primary"
-            >R$ {{ total().integer }}{{ total().decimal }}</span
+            >R${{ total().integer }}{{ total().decimal }}</span
           >
         </div>
       </aside>
@@ -81,6 +81,6 @@
   <a
     routerLink="/catalog"
     class="mt-8 inline-flex min-h-11 items-center rounded-sm font-bold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-    >Continuar comprando</a
+    >Continue shopping</a
   >
 </section>

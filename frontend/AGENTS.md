@@ -1,56 +1,56 @@
 # AGENTS.md — ecommerce-web
 
-Instruções para qualquer agente de IA (ou pessoa) que trabalhe neste repositório. Leia tudo antes de alterar código.
+Instructions for any AI agent (or person) working in this repository. Read everything before changing code.
 
-## Regra principal
+## Main rule
 
-**Use sempre as melhores práticas consagradas no mercado** para código, pastas e organização: as do guia de estilo oficial do Angular (angular.dev/style-guide), da documentação do PrimeNG e do Tailwind, e de TypeScript estrito. Prefira a solução correta e robusta ao atalho. Isso vale para nomes, estrutura de pastas, separação de responsabilidades, segurança, acessibilidade, testes e performance.
+**Always use established industry best practices** for code, folders and organization: the official Angular style guide (angular.dev/style-guide), the PrimeNG and Tailwind documentation, and strict TypeScript. Prefer the correct, robust solution over a shortcut. This applies to naming, folder structure, separation of responsibilities, security, accessibility, testing and performance.
 
-Se algo existente no projeto fugir desses padrões, **aponte o problema, explique o porquê e proponha a correção**. Não copie um padrão ruim só porque ele já está no código.
+If anything in the project falls short of these standards, **point out the problem, explain why and propose a correction**. Do not copy a poor pattern just because it already exists in the code.
 
-Escreva respostas, comentários e mensagens de commit em português do Brasil.
+Write responses, comments and commit messages in English.
 
 ## Stack
 
-| Área                | Escolha                                       | Observação                                     |
-| ------------------- | --------------------------------------------- | ---------------------------------------------- |
-| Framework           | Angular 22, componentes standalone, signals   | Sem zone.js (zoneless); `OnPush` já é o padrão |
-| Componentes visuais | PrimeNG 22 com tema Aura (`@primeuix/themes`) | Única biblioteca de componentes                |
-| Layout              | Tailwind CSS 4 + `tailwindcss-primeui`        | Só classes utilitárias no HTML                 |
-| Ícones              | PrimeIcons (`pi pi-*`)                        |                                                |
-| Formulários         | Reactive Forms tipados                        |                                                |
-| Testes unitários    | Vitest (`ng test`)                            |                                                |
-| Testes E2E          | Playwright (pasta `tests/`)                   | Backend sempre mockado                         |
-| Lint e formatação   | angular-eslint + Prettier                     |                                                |
+| Area                | Choice                                          | Notes                                          |
+| ------------------- | ----------------------------------------------- | ---------------------------------------------- |
+| Framework           | Angular 22, standalone components, signals      | No zone.js (zoneless); `OnPush` is the default |
+| Visual components   | PrimeNG 22 with Aura theme (`@primeuix/themes`) | The only component library                     |
+| Layout              | Tailwind CSS 4 + `tailwindcss-primeui`          | Only utility classes in HTML                   |
+| Icons               | PrimeIcons (`pi pi-*`)                          |                                                |
+| Forms               | Typed Reactive Forms                            |                                                |
+| Unit tests          | Vitest (`ng test`)                              |                                                |
+| E2E tests           | Playwright (`tests/` folder)                    | Always mock the backend                        |
+| Lint and formatting | angular-eslint + Prettier                       |                                                |
 
-**Não instale** sem pedir antes: outra biblioteca de componentes (`@angular/material` etc.), Sass, bibliotecas de estado (`@ngrx/*`) ou qualquer dependência nova. Toda dependência nova precisa de justificativa.
+**Do not install** without asking first: another component library (`@angular/material`, etc.), Sass, state management libraries (`@ngrx/*`) or any new dependency. Every new dependency needs justification.
 
-**Proibido** (quebra a arquitetura de segurança): `keycloak-js`, `keycloak-angular`, `angular-oauth2-oidc`, `angular-auth-oidc-client`, `jwt-decode`, `ngx-cookie-service` e qualquer código que guarde token em `localStorage`, `sessionStorage` ou cookie.
+**Prohibited** (breaks the security architecture): `keycloak-js`, `keycloak-angular`, `angular-oauth2-oidc`, `angular-auth-oidc-client`, `jwt-decode`, `ngx-cookie-service` and any code that stores tokens in `localStorage`, `sessionStorage` or cookies.
 
-## Estilização
+## Styling
 
-- **Não escreva CSS à mão.** Use componentes do PrimeNG e classes do Tailwind (`flex`, `grid`, `gap-4`, `p-4`, `bg-surface-0`, `text-primary`...).
-- Componentes não têm arquivo `.css` (o `angular.json` já gera sem). Crie um apenas quando não houver alternativa, e explique o motivo.
-- Identidade visual (cores, fontes, arredondamento) muda **somente** pelo preset do tema: `definePreset(Aura, {...})` em `src/app/app.config.ts`. Nunca sobrescreva classes `.p-*` do PrimeNG.
-- Use as cores do tema via `tailwindcss-primeui` (`bg-primary`, `text-primary-contrast`, `bg-surface-100`...) em vez de cores fixas (`bg-green-500`), para o tema e o modo escuro funcionarem.
-- Modo escuro: classe `.p-dark` no `<html>` (já ligada ao `dark:` do Tailwind em `src/styles.css`). Não altere a ordem de `@layer` em `src/styles.css`.
-- Layout responsivo (mobile first) e acessível: HTML semântico, `alt` em imagens, `label` em campos, foco visível, navegação por teclado.
+- **Do not write CSS by hand.** Use PrimeNG components and Tailwind classes (`flex`, `grid`, `gap-4`, `p-4`, `bg-surface-0`, `text-primary`...).
+- Components do not have a `.css` file (`angular.json` already configures generation without one). Create one only when there is no alternative, and explain why.
+- Visual identity (colors, fonts, corner rounding) changes **only** through the theme preset: `definePreset(Aura, {...})` in `src/app/app.config.ts`. Never override PrimeNG `.p-*` classes.
+- Use theme colors through `tailwindcss-primeui` (`bg-primary`, `text-primary-contrast`, `bg-surface-100`...) instead of fixed colors (`bg-green-500`), so the theme and dark mode work.
+- Dark mode: the `.p-dark` class on `<html>` (already connected to Tailwind's `dark:` variant in `src/styles.css`). Do not change the `@layer` order in `src/styles.css`.
+- Responsive (mobile first) and accessible layout: semantic HTML, image `alt` text, field `label`s, visible focus and keyboard navigation.
 
-## Organização de pastas
+## Folder organization
 
-Organize **por funcionalidade (feature)**, não por tipo de arquivo:
+Organize **by feature**, not by file type:
 
 ```text
 src/app/
-├── core/                    # Singletons da aplicação, carregados uma vez
-│   ├── auth/                # AuthService, authGuard, adminGuard, modelo do usuário
-│   ├── http/                # Interceptors (ex.: unauthorizedInterceptor), tratamento de ProblemDetail
-│   └── layout/              # Shell da aplicação: header, footer, menu
-├── shared/                  # Reutilizável e sem regra de negócio: componentes de UI, pipes, diretivas, utils
+├── core/                    # Application singletons, loaded once
+│   ├── auth/                # AuthService, authGuard, adminGuard, user model
+│   ├── http/                # Interceptors (e.g. unauthorizedInterceptor), ProblemDetail handling
+│   └── layout/              # Application shell: header, footer, menu
+├── shared/                  # Reusable, without business rules: UI components, pipes, directives, utilities
 ├── features/
-│   ├── catalog/             # Ex.: listagem e detalhe de produtos
-│   │   ├── data-access/     # Services HTTP e modelos (interfaces) da feature
-│   │   ├── product-list/    # Uma pasta por componente/página
+│   ├── catalog/             # E.g. product listing and details
+│   │   ├── data-access/     # Feature HTTP services and models (interfaces)
+│   │   ├── product-list/    # One folder per component/page
 │   │   ├── product-detail/
 │   │   └── catalog.routes.ts
 │   ├── cart/
@@ -61,32 +61,32 @@ src/app/
 └── app.ts / app.html
 ```
 
-Regras:
+Rules:
 
-- Uma feature não importa arquivos de dentro de outra feature. O que for compartilhado vai para `shared/` ou `core/`.
-- `shared/` não depende de `features/`. `core/` não depende de `features/`.
-- Nomes de arquivo em `kebab-case`, seguindo o guia de estilo atual do Angular: `product-list.ts` com a classe `ProductList`, sem o sufixo `.component` (o mesmo padrão que o CLI gera).
-- Um conceito por arquivo; arquivos pequenos e focados.
-- Gere arquivos com o CLI (`ng generate component|service|guard|interceptor ...`) para manter as convenções.
+- A feature must not import files from inside another feature. Shared code belongs in `shared/` or `core/`.
+- `shared/` must not depend on `features/`. `core/` must not depend on `features/`.
+- Use `kebab-case` filenames, following the current Angular style guide: `product-list.ts` with class `ProductList`, without the `.component` suffix (the same convention generated by the CLI).
+- One concept per file; keep files small and focused.
+- Generate files with the CLI (`ng generate component|service|guard|interceptor ...`) to maintain conventions.
 
-## Código
+## Code
 
-- Componentes: `input()`, `output()`, `model()`, `computed()` e `signal()`; `inject()` em vez de injeção pelo construtor.
-- Templates com o controle de fluxo nativo (`@if`, `@for` com `track`, `@switch`), nunca `*ngIf`/`*ngFor`.
-- Componentes de página (smart) buscam dados via services; componentes de apresentação (dumb) só recebem `input()` e emitem `output()`.
-- Chamadas HTTP ficam em services de `data-access/`, nunca direto no componente. Tipe as respostas com interfaces.
-- Para dados do servidor em componentes, prefira `httpResource()`/`resource()` ou `toSignal()`; evite `subscribe` manual (se usar, encerre com `takeUntilDestroyed()`).
-- Todas as rotas de feature com lazy loading (`loadComponent` / `loadChildren`). Isso também mantém o bundle inicial dentro do limite de 500 kB do `angular.json`.
-- TypeScript estrito: sem `any` (use `unknown` e estreite o tipo), sem `@ts-ignore`, sem `!` para silenciar o compilador.
-- Segurança: nunca use `bypassSecurityTrust*` nem `[innerHTML]` com dados do usuário; nunca coloque segredo no código do frontend (tudo nele é público).
-- Trate estados de carregamento, vazio e erro em toda tela que busca dados. Mostre erros com o `Toast`/`Message` do PrimeNG usando o `detail` do ProblemDetail.
+- Components: `input()`, `output()`, `model()`, `computed()` and `signal()`; use `inject()` instead of constructor injection.
+- Templates use native control flow (`@if`, `@for` with `track`, `@switch`), never `*ngIf`/`*ngFor`.
+- Page (smart) components fetch data through services; presentation (dumb) components only receive `input()` and emit `output()`.
+- HTTP calls belong in `data-access/` services, never directly in components. Type responses with interfaces.
+- For server data in components, prefer `httpResource()`/`resource()` or `toSignal()`; avoid manual `subscribe` (if used, terminate with `takeUntilDestroyed()`).
+- All feature routes use lazy loading (`loadComponent` / `loadChildren`). This also keeps the initial bundle within the 500 kB limit in `angular.json`.
+- Strict TypeScript: no `any` (use `unknown` and narrow the type), no `@ts-ignore`, no `!` to silence the compiler.
+- Security: never use `bypassSecurityTrust*` or `[innerHTML]` with user data; never put secrets in frontend code (everything in it is public).
+- Handle loading, empty and error states on every screen that fetches data. Show errors using PrimeNG `Toast`/`Message` with the ProblemDetail `detail`.
 
-## Contrato com o backend (padrão BFF)
+## Backend contract (BFF pattern)
 
-O backend usa o padrão BFF: o api-gateway (`http://localhost:8080`) faz o login OIDC com o Keycloak e guarda os tokens na sessão do servidor. **O frontend nunca vê tokens**; o navegador só tem o cookie de sessão `HttpOnly`.
+The backend uses the BFF pattern: the api-gateway (`http://localhost:8080`) handles OIDC login with Keycloak and stores tokens in the server session. **The frontend never sees tokens**; the browser only has the `HttpOnly` session cookie.
 
-1. **Proxy de desenvolvimento:** `proxy.conf.json`, referenciado em `angular.json` (`serve.options.proxyConfig`), apontando para `http://localhost:8080` com `"changeOrigin": false` nos prefixos `/api`, `/bff`, `/oauth2`, `/login/oauth2` e `/logout`. **Não crie rotas Angular começando com esses prefixos.** Use `/login/oauth2` (e não `/login`) para não capturar uma rota `/login` do Angular.
-2. **URLs relativas sempre:** `/api/product`, nunca `http://localhost:8080/api/product`. O `HttpClient` só envia o header CSRF para URLs relativas.
+1. **Development proxy:** `proxy.conf.json`, referenced in `angular.json` (`serve.options.proxyConfig`), points to `http://localhost:8080` with `"changeOrigin": false` for the `/api`, `/bff`, `/oauth2`, `/login/oauth2` and `/logout` prefixes. **Do not create Angular routes starting with these prefixes.** Use `/login/oauth2` (rather than `/login`) to avoid capturing an Angular `/login` route.
+2. **Always use relative URLs:** `/api/product`, never `http://localhost:8080/api/product`. `HttpClient` only sends the CSRF header for relative URLs.
 3. **`app.config.ts`:**
    ```ts
    provideHttpClient(
@@ -96,43 +96,43 @@ O backend usa o padrão BFF: o api-gateway (`http://localhost:8080`) faz o login
    ```
 4. **Endpoints:**
 
-   | Ação           | Como                                                                                                                                  |
-   | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-   | Usuário logado | `GET /bff/me` → `200 { sub, name, email, roles: string[] }` ou `401` se não logado                                                    |
-   | Login          | `window.location.href = '/oauth2/authorization/keycloak'` (navegação completa, não `HttpClient`; volta para `http://localhost:4200/`) |
-   | Logout         | Submeter um `<form method="POST" action="/logout">` com o campo hidden `_csrf` = valor do cookie `XSRF-TOKEN` (navegação completa)    |
-   | Produtos       | `GET /api/product` e `GET /api/product/{id}` públicos; `POST/PUT/DELETE /api/product` só `ADMIN`                                      |
-   | Estoque        | `GET /api/inventory?skuCode=...` público                                                                                              |
-   | Pedidos        | `GET/POST /api/order[/{id}]` com usuário logado (`CUSTOMER` vê só os próprios pedidos)                                                |
+   | Action         | How                                                                                                                                 |
+   | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+   | Logged-in user | `GET /bff/me` → `200 { sub, name, email, roles: string[] }` or `401` when not logged in                                             |
+   | Login          | `window.location.href = '/oauth2/authorization/keycloak'` (full navigation, not `HttpClient`; returns to `http://localhost:4200/`)  |
+   | Logout         | Submit a `<form method="POST" action="/logout">` with hidden field `_csrf` = the value of the `XSRF-TOKEN` cookie (full navigation) |
+   | Products       | `GET /api/product` and `GET /api/product/{id}` are public; `POST/PUT/DELETE /api/product` require `ADMIN`                           |
+   | Inventory      | `GET /api/inventory?skuCode=...` is public                                                                                          |
+   | Orders         | `GET/POST /api/order[/{id}]` require a logged-in user (`CUSTOMER` sees only their own orders)                                       |
 
-5. **`AuthService`** (`core/auth/`) com um signal do usuário carregado de `GET /bff/me`. `authGuard` funcional: se `401`, manda para o login. `adminGuard`: verifica `roles.includes('ADMIN')`. Os guards protegem a navegação, mas a segurança real é do backend.
-6. **`unauthorizedInterceptor`:** resposta `401` em `/api/**` limpa o usuário e manda para o login (a sessão expirou).
-7. **Erros** vêm como ProblemDetail (RFC 9457): `{ status, title, detail, errors? }`.
+5. **`AuthService`** (`core/auth/`) has a user signal loaded from `GET /bff/me`. Functional `authGuard`: on `401`, redirect to login. `adminGuard`: checks `roles.includes('ADMIN')`. Guards protect navigation, but actual security is enforced by the backend.
+6. **`unauthorizedInterceptor`:** a `401` response on `/api/**` clears the user and redirects to login (the session has expired).
+7. **Errors** use ProblemDetail (RFC 9457): `{ status, title, detail, errors? }`.
 
-Os endpoints `/bff/*`, o login e o logout ainda estão sendo implementados no backend. Até lá, desenvolva com dados mockados e teste com mocks.
+The `/bff/*` endpoints, login and logout are still being implemented in the backend. Until then, develop with mocked data and test with mocks.
 
-## Testes
+## Tests
 
-- Todo componente, service, guard e interceptor novo vem com teste unitário (`*.spec.ts` ao lado do arquivo).
-- Teste comportamento (o que o usuário vê e o que é chamado), não detalhes de implementação.
-- HTTP em teste unitário: `provideHttpClientTesting()` + `HttpTestingController`.
-- E2E (Playwright, pasta `tests/`): mocke o backend com `page.route('/api/**', ...)` e `page.route('/bff/me', ...)`; nunca dependa do backend real nem de sites externos. Prefira seletores por papel e texto (`getByRole`, `getByLabel`).
+- Every new component, service, guard and interceptor comes with a unit test (`*.spec.ts` alongside the file).
+- Test behavior (what the user sees and what gets called), not implementation details.
+- HTTP in unit tests: `provideHttpClientTesting()` + `HttpTestingController`.
+- E2E (Playwright, `tests/` folder): mock the backend with `page.route('/api/**', ...)` and `page.route('/bff/me', ...)`; never depend on the real backend or external sites. Prefer role and text selectors (`getByRole`, `getByLabel`).
 
-## Antes de dizer que terminou
+## Before saying the work is done
 
-Rode e garanta que tudo passa, sem erros nem warnings novos:
+Run and ensure everything passes, without errors or new warnings:
 
 ```bash
 npm run lint
 npm run build
 npm test -- --watch=false
-npx playwright test        # quando houver testes E2E
+npx playwright test        # when E2E tests exist
 npx prettier --check .
 ```
 
-Se algo falhar, corrija ou diga claramente o que falhou. Não declare a tarefa concluída sem rodar esses comandos.
+If anything fails, fix it or clearly report what failed. Do not declare the task complete without running these commands.
 
 ## Git
 
-- Commits pequenos, em português, no padrão Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`).
-- Não faça commit de `dist/`, `.angular/`, `node_modules/`, relatórios do Playwright ou arquivos `.env`.
+- Small commits, in English, following Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`).
+- Do not commit `dist/`, `.angular/`, `node_modules/`, Playwright reports or `.env` files.

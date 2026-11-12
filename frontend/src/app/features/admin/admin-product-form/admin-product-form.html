@@ -3,14 +3,10 @@
   aria-labelledby="product-heading"
 >
   <h1 id="product-heading" class="text-2xl leading-[29px] font-bold tracking-[-0.36px]">
-    DADOS DO PRODUTO
+    PRODUCT DETAILS
   </h1>
   @if (loading()) {
-    <div
-      class="mt-[47px] grid gap-8 md:grid-cols-2"
-      aria-label="Carregando produto"
-      aria-busy="true"
-    >
+    <div class="mt-[47px] grid gap-8 md:grid-cols-2" aria-label="Loading product" aria-busy="true">
       <div class="grid content-start gap-8" aria-hidden="true">
         @for (item of [0, 1, 2]; track item) {
           <p-skeleton height="50px" />
@@ -20,12 +16,12 @@
     </div>
   } @else if (notFound()) {
     <div class="mt-10 flex flex-col items-start gap-5">
-      <p-message severity="error">Produto não encontrado.</p-message>
+      <p-message severity="error">Product not found.</p-message>
       <a
         routerLink="/admin/products"
         queryParamsHandling="preserve"
         class="text-primary underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-        >Voltar para a lista</a
+        >Back to list</a
       >
     </div>
   } @else if (productResource?.error() || inventoryResource.error()) {
@@ -36,7 +32,7 @@
         (click)="reload()"
         class="rounded-[10px] bg-primary px-5 py-3 font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
       >
-        Tentar novamente
+        Try again
       </button>
     </div>
   } @else {
@@ -50,14 +46,14 @@
         [disabled]="saving()"
         class="grid min-w-0 gap-8 md:grid-cols-[minmax(0,454fr)_minmax(0,475fr)]"
       >
-        <legend class="sr-only">Dados do produto</legend>
+        <legend class="sr-only">Product details</legend>
         <div class="grid min-w-0 content-start gap-8">
           <div>
-            <label for="name" class="sr-only">Nome do Produto</label>
+            <label for="name" class="sr-only">Product name</label>
             <input
               id="name"
               formControlName="name"
-              placeholder="Nome do Produto"
+              placeholder="Product name"
               autocomplete="off"
               [attr.aria-invalid]="!!fieldError('name')"
               [attr.aria-describedby]="fieldError('name') ? 'name-error' : null"
@@ -68,11 +64,11 @@
             }
           </div>
           <div>
-            <label for="category" class="sr-only">Categorias</label>
+            <label for="category" class="sr-only">Categories</label>
             <input
               id="category"
               formControlName="category"
-              placeholder="Categorias"
+              placeholder="Categories"
               list="product-categories"
               autocomplete="off"
               [attr.aria-invalid]="!!fieldError('category')"
@@ -91,13 +87,13 @@
             }
           </div>
           <div>
-            <label for="price" class="sr-only">Preço</label>
+            <label for="price" class="sr-only">Price</label>
             <input
               id="price"
               type="text"
               inputmode="decimal"
               formControlName="price"
-              placeholder="Preço"
+              placeholder="Price"
               autocomplete="off"
               [attr.aria-invalid]="!!fieldError('price')"
               [attr.aria-describedby]="fieldError('price') ? 'price-error' : null"
@@ -110,13 +106,13 @@
             }
           </div>
           <div>
-            <label for="imageUrl" class="sr-only">URL da imagem</label>
+            <label for="imageUrl" class="sr-only">Image URL</label>
             <input
               id="imageUrl"
               type="text"
               inputmode="url"
               formControlName="imageUrl"
-              placeholder="URL da imagem (opcional)"
+              placeholder="Image URL (optional)"
               autocomplete="off"
               [attr.aria-invalid]="!!fieldError('imageUrl')"
               [attr.aria-describedby]="
@@ -136,12 +132,12 @@
             @if (imagePreviewUrl(); as url) {
               @if (imagePreviewFailed()) {
                 <p id="imageUrl-hint" class="mt-2 text-sm text-muted-color" aria-live="polite">
-                  Não foi possível carregar a imagem
+                  Unable to load the image
                 </p>
               } @else {
                 <img
                   [src]="url"
-                  alt="Pré-visualização da imagem do produto"
+                  alt="Product image preview"
                   loading="lazy"
                   referrerpolicy="no-referrer"
                   (error)="imagePreviewFailed.set(true)"
@@ -151,7 +147,7 @@
             }
           </div>
           <div>
-            <label for="quantity" class="mb-2 block text-sm font-bold">Estoque</label>
+            <label for="quantity" class="mb-2 block text-sm font-bold">Stock</label>
             <input
               id="quantity"
               type="number"
@@ -161,7 +157,7 @@
               step="1"
               required
               formControlName="quantity"
-              placeholder="Estoque"
+              placeholder="Stock"
               [attr.aria-invalid]="!!fieldError('quantity')"
               [attr.aria-describedby]="fieldError('quantity') ? 'quantity-error' : null"
               class="h-[50px] w-full min-w-0 rounded-[10px] border border-surface-200 bg-transparent px-5 text-lg tracking-[-0.27px] placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -174,11 +170,11 @@
           </div>
         </div>
         <div class="min-w-0">
-          <label for="description" class="sr-only">Descrição</label>
+          <label for="description" class="sr-only">Description</label>
           <textarea
             id="description"
             formControlName="description"
-            placeholder="Descrição"
+            placeholder="Description"
             [attr.aria-invalid]="!!fieldError('description')"
             [attr.aria-describedby]="fieldError('description') ? 'description-error' : null"
             class="block h-[200px] w-full min-w-0 resize-y rounded-[10px] border border-surface-200 bg-transparent px-5 py-3 text-lg tracking-[-0.27px] placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:h-[447px]"
@@ -196,15 +192,15 @@
       @if (conflict()) {
         <div class="mt-5 flex flex-col items-start gap-4">
           <p-message severity="warn"
-            >Outra pessoa alterou este produto. Seus dados foram mantidos. Recarregue os dados antes
-            de salvar novamente; isso substituirá os campos pelos valores atuais.</p-message
+            >Someone else changed this product. Your input has been preserved. Reload the details
+            before saving again; this will replace the fields with the current values.</p-message
           >
           <button
             type="button"
             (click)="reload()"
             class="rounded-[10px] bg-primary px-5 py-3 font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
-            Recarregar dados
+            Reload details
           </button>
         </div>
       }
@@ -217,14 +213,14 @@
           [disabled]="saving()"
           class="h-[60px] w-full rounded-[10px] border border-[#DF5753] bg-transparent text-base font-bold tracking-[-0.24px] text-[#DF5753] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary disabled:opacity-50 md:w-[273px]"
         >
-          CANCELAR
+          CANCEL
         </button>
         <button
           type="submit"
           [disabled]="saving() || conflict()"
           class="h-[60px] w-full rounded-[10px] bg-primary text-base font-bold tracking-[-0.24px] text-white hover:bg-primary-emphasis focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary disabled:opacity-50 md:w-[273px]"
         >
-          {{ saving() ? 'SALVANDO...' : 'SALVAR' }}
+          {{ saving() ? 'SAVING...' : 'SAVE' }}
         </button>
       </div>
     </form>

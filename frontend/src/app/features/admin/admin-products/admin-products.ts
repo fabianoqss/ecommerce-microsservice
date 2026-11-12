@@ -86,7 +86,7 @@ export class AdminProducts {
       : undefined,
   );
   protected readonly stockError = computed(() =>
-    problemDetail(this.inventory.error(), 'Não foi possível carregar o estoque. Tente novamente.'),
+    problemDetail(this.inventory.error(), 'Unable to load stock. Please try again.'),
   );
   protected readonly productPage = linkedSignal<
     Page<Product> | undefined,
@@ -102,17 +102,17 @@ export class AdminProducts {
   protected readonly initialLoading = computed(() => !this.initialLoadFinished());
   protected readonly hasFilters = computed(() => !!(this.filter().name || this.filter().category));
   protected readonly errorMessage = computed(() =>
-    problemDetail(this.products.error(), 'Não foi possível carregar os produtos. Tente novamente.'),
+    problemDetail(this.products.error(), 'Unable to load products. Please try again.'),
   );
   protected readonly announcement = computed(() => {
     if (this.products.isLoading()) {
-      return 'Carregando produtos.';
+      return 'Loading products.';
     }
     if (this.products.error()) {
       return this.errorMessage();
     }
     const total = this.productPage()?.totalElements ?? 0;
-    return total === 1 ? '1 produto encontrado.' : `${total} produtos encontrados.`;
+    return total === 1 ? '1 product found.' : `${total} products found.`;
   });
 
   constructor() {
@@ -154,10 +154,10 @@ export class AdminProducts {
     this.confirming.set(true);
     let accepted = false;
     this.confirmation.confirm({
-      header: 'Excluir produto',
-      message: `Excluir "${product.name}"? Esta ação não pode ser desfeita.`,
-      acceptLabel: 'Excluir',
-      rejectLabel: 'Cancelar',
+      header: 'Delete product',
+      message: `Delete "${product.name}"? This action cannot be undone.`,
+      acceptLabel: 'Delete',
+      rejectLabel: 'Cancel',
       defaultFocus: 'reject',
       acceptButtonProps: { severity: 'danger' },
       rejectButtonProps: { severity: 'secondary', outlined: true },
@@ -177,21 +177,21 @@ export class AdminProducts {
               this.products.reload();
               this.messages.add({
                 severity: 'success',
-                summary: 'Produto excluído',
-                detail: 'Produto excluído com sucesso.',
+                summary: 'Product deleted',
+                detail: 'Product deleted successfully.',
               });
             },
             error: (error: unknown) => {
               const status = error instanceof HttpErrorResponse ? error.status : undefined;
               const detail =
                 status === 412
-                  ? 'O produto foi alterado por outra pessoa e não foi excluído. A lista será atualizada; confira os dados antes de tentar novamente.'
+                  ? 'Someone else changed this product, so it was not deleted. The list will refresh; review the details before trying again.'
                   : status === 404
-                    ? 'O produto não existe mais. A lista será atualizada.'
-                    : problemDetail(error, 'Não foi possível excluir o produto. Tente novamente.');
+                    ? 'This product no longer exists. The list will refresh.'
+                    : problemDetail(error, 'Unable to delete the product. Please try again.');
               this.messages.add({
                 severity: status === 412 || status === 404 ? 'warn' : 'error',
-                summary: 'Exclusão não realizada',
+                summary: 'Product not deleted',
                 detail,
               });
               if (status === 412 || status === 404) this.products.reload();

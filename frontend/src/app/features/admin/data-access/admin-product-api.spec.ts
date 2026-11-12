@@ -7,10 +7,10 @@ describe('AdminProductApi', () => {
   let http: HttpTestingController;
   let api: AdminProductApi;
   const body: AdminProductRequest = {
-    name: 'Teclado',
-    description: 'Teclado mecânico',
+    name: 'Keyboard',
+    description: 'Mechanical keyboard',
     price: 1234.56,
-    category: 'Periféricos',
+    category: 'Peripherals',
     imageUrl: null,
   };
   beforeEach(() => {
@@ -22,7 +22,7 @@ describe('AdminProductApi', () => {
   });
   afterEach(() => http.verify());
 
-  it('cria por POST com imagem nula e devolve o produto', () => {
+  it('creates via POST with a null image and returns the product', () => {
     const next = vi.fn();
     api.create(body).subscribe(next);
     const req = http.expectOne('/api/product');
@@ -34,7 +34,7 @@ describe('AdminProductApi', () => {
     expect(next).toHaveBeenCalledWith(product);
   });
 
-  it('atualiza por PUT com ETag forte entre aspas e preserva o corpo', () => {
+  it('updates via PUT with a quoted strong ETag and preserves the body', () => {
     const request = { ...body, imageUrl: 'https://example.com/image.png' };
     api.update('a/b', 3, request).subscribe();
     const req = http.expectOne('/api/product/a%2Fb');
@@ -44,7 +44,7 @@ describe('AdminProductApi', () => {
     req.flush({ ...request, id: 'a/b', version: 4 });
   });
 
-  it('exclui por DELETE com ETag forte e sem corpo', () => {
+  it('deletes via DELETE with a strong ETag and no body', () => {
     api.remove('1', 0).subscribe();
     const req = http.expectOne('/api/product/1');
     expect(req.request.method).toBe('DELETE');

@@ -11,7 +11,7 @@ describe('httpsUrlValidator', () => {
     'https://example.com/image%20name.png',
     'https://example.com/@image.png?email=a@b.com#@image',
     'https://example.com/' + 'a'.repeat(2028),
-  ])('aceita a URL opcional aparada %s', (value) => {
+  ])('accepts the trimmed optional URL %s', (value) => {
     expect(httpsUrlValidator(new FormControl(value, { nonNullable: true }))).toBeNull();
   });
 
@@ -42,16 +42,16 @@ describe('httpsUrlValidator', () => {
     'https:\\\\example.com\\image.png',
     'https:///example.com/image.png',
     'https://example.com\\image.png',
-  ])('rejeita URL inválida %s', (value) => {
+  ])('rejects invalid URL %s', (value) => {
     expect(httpsUrlValidator(new FormControl(value, { nonNullable: true }))).toEqual({
-      validation: 'Informe uma URL https válida',
+      validation: 'Enter a valid HTTPS URL',
     });
   });
 
-  it('rejeita mais de 2048 caracteres após aparar espaços', () => {
+  it('rejects more than 2048 characters after trimming spaces', () => {
     const value = ' https://example.com/' + 'a'.repeat(2029) + ' ';
     expect(httpsUrlValidator(new FormControl(value, { nonNullable: true }))).toEqual({
-      validation: 'A URL deve ter no máximo 2048 caracteres',
+      validation: 'The URL must be at most 2048 characters',
     });
   });
 });

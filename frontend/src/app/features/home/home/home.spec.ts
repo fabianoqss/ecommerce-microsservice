@@ -14,24 +14,24 @@ describe('Home', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('mostra o título principal da página', async () => {
+  it('shows the main page title', async () => {
     const element = await render();
 
     const heading = element.querySelector('h1');
     const accessibleText = heading?.textContent?.replace(/\s+/g, ' ').trim();
-    expect(accessibleText).toBe('Conheça o melhor catálogo de produtos');
+    expect(accessibleText).toBe('Explore our product catalog');
   });
 
-  it('leva o usuário ao catálogo pelo botão de busca', async () => {
+  it('takes the user to the catalog through the search button', async () => {
     const element = await render();
 
     const link = Array.from(element.querySelectorAll('a')).find((a) =>
-      a.textContent?.includes('INICIE AGORA A SUA BUSCA'),
+      a.textContent?.includes('START SHOPPING'),
     );
     expect(link?.getAttribute('href')).toBe('/catalog');
   });
 
-  it('esconde a ilustração decorativa dos leitores de tela', async () => {
+  it('hides the decorative illustration from screen readers', async () => {
     const element = await render();
 
     const images = Array.from(element.querySelectorAll('img'));

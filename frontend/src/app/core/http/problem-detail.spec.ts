@@ -1,27 +1,27 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { problemDetail, problemFields } from './problem-detail';
 
-describe('ProblemDetail administrativo', () => {
-  it('extrai detail e o mapa fields do contrato real', () => {
+describe('Administrative ProblemDetail', () => {
+  it('extracts detail and the fields map from the actual contract', () => {
     const error = new HttpErrorResponse({
       status: 400,
-      error: { detail: 'Revise os campos.', fields: { name: 'Nome inválido.' } },
+      error: { detail: 'Review the fields.', fields: { name: 'Invalid name.' } },
     });
-    expect(problemDetail(error, 'Falha.')).toBe('Revise os campos.');
-    expect(problemFields(error)).toEqual({ name: 'Nome inválido.' });
+    expect(problemDetail(error, 'Failure.')).toBe('Review the fields.');
+    expect(problemFields(error)).toEqual({ name: 'Invalid name.' });
   });
 
-  it.each([null, 'Erro', {}, { detail: ' ' }, { detail: 12 }, { fields: [] }, { fields: null }])(
-    'usa fallback para resposta inesperada %s',
+  it.each([null, 'Error', {}, { detail: ' ' }, { detail: 12 }, { fields: [] }, { fields: null }])(
+    'uses fallback for unexpected response %s',
     (body) => {
       const error = new HttpErrorResponse({ status: 503, error: body });
-      expect(problemDetail(error, 'Falha.')).toBe('Falha.');
+      expect(problemDetail(error, 'Failure.')).toBe('Failure.');
       expect(problemFields(error)).toEqual({});
     },
   );
 
-  it('trata falha fora do HttpClient sem expor objetos', () => {
-    expect(problemDetail(new Error('Interno'), 'Falha.')).toBe('Falha.');
-    expect(problemFields(new Error('Interno'))).toEqual({});
+  it('handles failures outside HttpClient without exposing objects', () => {
+    expect(problemDetail(new Error('Internal'), 'Failure.')).toBe('Failure.');
+    expect(problemFields(new Error('Internal'))).toEqual({});
   });
 });

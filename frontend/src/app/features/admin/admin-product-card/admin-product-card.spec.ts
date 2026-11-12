@@ -5,10 +5,10 @@ import { AdminProductCard } from './admin-product-card';
 describe('AdminProductCard', () => {
   const product: Product = {
     id: '1',
-    name: 'Teclado Mecânico TKL',
-    description: 'Teclado compacto',
+    name: 'TKL Mechanical Keyboard',
+    description: 'Compact keyboard',
     price: 2779,
-    category: 'Periféricos',
+    category: 'Peripherals',
     imageUrl: null,
     version: 0,
   };
@@ -25,28 +25,28 @@ describe('AdminProductCard', () => {
     return { fixture, element: fixture.nativeElement as HTMLElement };
   }
 
-  it('mostra nome, preço formatado acessível e exatamente uma categoria', async () => {
+  it('shows the name, accessible formatted price and exactly one category', async () => {
     const { element } = await render();
     expect(element.querySelector('h2')?.textContent?.trim()).toBe(product.name);
-    expect(element.querySelector('[data-testid="price-integer"]')?.textContent).toBe('2.779');
-    expect(element.querySelector('[data-testid="price-decimal"]')?.textContent).toBe(',00');
-    expect(element.querySelector('.sr-only')?.textContent).toBe('R$ 2.779,00');
+    expect(element.querySelector('[data-testid="price-integer"]')?.textContent).toBe('2,779');
+    expect(element.querySelector('[data-testid="price-decimal"]')?.textContent).toBe('.00');
+    expect(element.querySelector('.sr-only')?.textContent).toBe('R$2,779.00');
     expect(element.querySelectorAll('[data-testid="category"]')).toHaveLength(1);
     expect(element.querySelector('[data-testid="category"]')?.textContent?.trim()).toBe(
       product.category,
     );
   });
 
-  it('usa o placeholder do catálogo quando não há imagem', async () => {
+  it('uses the catalog placeholder when there is no image', async () => {
     const { element } = await render();
     expect(element.querySelector('img')).toBeNull();
     expect(element.querySelector('.pi-image')?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('mostra imagem com nome acessível e carregamento adiado', async () => {
-    const { element } = await render('/images/teclado.png');
+  it('shows an image with an accessible name and lazy loading', async () => {
+    const { element } = await render('/images/keyboard.png');
     const image = element.querySelector('img');
-    expect(image?.getAttribute('src')).toBe('/images/teclado.png');
+    expect(image?.getAttribute('src')).toBe('/images/keyboard.png');
     expect(image?.alt).toBe(product.name);
     expect(image?.getAttribute('loading')).toBe('lazy');
     expect(image?.width).toBe(103);
@@ -54,7 +54,7 @@ describe('AdminProductCard', () => {
     expect(element.querySelector('.pi-image')).toBeNull();
   });
 
-  it('emite o produto ao editar e excluir com botões acessíveis', async () => {
+  it('emits the product on edit and delete using accessible buttons', async () => {
     const { fixture, element } = await render();
     const edit = vi.fn();
     const remove = vi.fn();
@@ -63,23 +63,23 @@ describe('AdminProductCard', () => {
     const buttons = element.querySelectorAll('button');
     expect(buttons).toHaveLength(2);
     expect(buttons[0]?.type).toBe('button');
-    expect(buttons[0]?.getAttribute('aria-label')).toBe('Editar ' + product.name);
+    expect(buttons[0]?.getAttribute('aria-label')).toBe('Edit ' + product.name);
     expect(buttons[1]?.type).toBe('button');
-    expect(buttons[1]?.getAttribute('aria-label')).toBe('Excluir ' + product.name);
+    expect(buttons[1]?.getAttribute('aria-label')).toBe('Delete ' + product.name);
     buttons[0]?.click();
     buttons[1]?.click();
     expect(edit).toHaveBeenCalledExactlyOnceWith(product);
     expect(remove).toHaveBeenCalledExactlyOnceWith(product);
   });
-  it.each([0, 12])('mostra o estoque informado %s', async (quantity) => {
+  it.each([0, 12])('shows the provided stock quantity %s', async (quantity) => {
     const { fixture, element } = await render();
     fixture.componentRef.setInput('quantity', quantity);
     fixture.detectChanges();
-    expect(element.textContent).toContain('Estoque: ' + quantity);
+    expect(element.textContent).toContain('Stock: ' + quantity);
   });
 
-  it('não apresenta estoque desconhecido como zero', async () => {
+  it('does not show unknown stock as zero', async () => {
     const { element } = await render();
-    expect(element.textContent).not.toContain('Estoque: 0');
+    expect(element.textContent).not.toContain('Stock: 0');
   });
 });
