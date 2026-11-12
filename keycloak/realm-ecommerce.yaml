@@ -14,9 +14,9 @@ verifyEmail: true
 resetPasswordAllowed: true
 rememberMe: true
 
-internationalizationEnabled: true
-supportedLocales: [pt-BR, en]
-defaultLocale: pt-BR
+internationalizationEnabled: false
+supportedLocales: [en]
+defaultLocale: en
 
 passwordPolicy: >-
   length(12) and notEmail and notUsername and specialChars(1) and upperCase(1)
@@ -58,7 +58,7 @@ roles:
     - name: CUSTOMER
       description: Cliente da loja
     - name: ADMIN
-      description: Administrador da loja (atribuído manualmente, nunca por padrão)
+      description: Store administrator (assigned manually, never by default)
     - name: default-roles-ecommerce
       composite: true
       composites:
@@ -129,7 +129,7 @@ clients:
           introspection.token.claim: "false"
 
   - clientId: order-service
-    name: order-service (serviço a serviço)
+    name: order-service (service to service)
     enabled: true
     protocol: openid-connect
     publicClient: false

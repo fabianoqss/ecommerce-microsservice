@@ -109,6 +109,8 @@
 
 .pf-v5-c-login__main-header {
   border-top: 0;
+  grid-template-columns: 1fr;
+  justify-items: center;
 }
 
 [data-page-id="login-login-reset-password"] #kc-page-title {
