@@ -4,7 +4,7 @@ E-commerce with an Angular frontend, Spring Boot backend, Spring Cloud, OIDC ide
 
 The main flow includes atomic inventory operations, order cancellation, Outbox, DLQ, and order owner authorization. The gateway provides browser login as a BFF and API access with Bearer tokens.
 
-Live demo: https://loja.fabianoquirinos.com.br
+This project ran in production on Oracle Cloud (OCI) in November 2026, with a custom domain, TLS, transactional email, and CI/CD with manual approval. The environment was shut down when the cloud credits ended; the GIF and screenshots below were captured from it. The [deployment runbook](#deploy-on-oci) documents how to bring it back.
 
 ![Purchase flow: catalog, product, cart, checkout and order confirmation](.github/assets/purchase-flow.gif)
 
