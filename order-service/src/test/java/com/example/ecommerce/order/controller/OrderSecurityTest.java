@@ -25,6 +25,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -101,8 +102,23 @@ class OrderSecurityTest {
     }
 
     @Test
-    void createOrderUsesTokenSubjectAsUserId() throws Exception {
-        when(orderService.createOrder(any(), any(), any(UUID.class)))
+    void createOrderUsesTokenSubjectAsUserIdAndEmailClaimAsCustomerEmail() throws Exception {
+        when(orderService.createOrder(any(), any(), any(UUID.class), any()))
+                .thenReturn(new CreateOrderResult(null, false));
+
+        mvc.perform(post("/api/order")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .with(jwt().jwt(j -> j.subject("4622f3de-user-sub").claim("email", "customer@example.com"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+                        .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
+                .andExpect(status().isCreated());
+
+        verify(orderService).createOrder(any(), eq("4622f3de-user-sub"), any(UUID.class), eq("customer@example.com"));
+    }
+
+    @Test
+    void createOrderWithoutEmailClaimPassesNullCustomerEmail() throws Exception {
+        when(orderService.createOrder(any(), any(), any(UUID.class), any()))
                 .thenReturn(new CreateOrderResult(null, false));
 
         mvc.perform(post("/api/order")
@@ -112,7 +128,7 @@ class OrderSecurityTest {
                         .contentType(MediaType.APPLICATION_JSON).content(ORDER_BODY))
                 .andExpect(status().isCreated());
 
-        verify(orderService).createOrder(any(), eq("4622f3de-user-sub"), any(UUID.class));
+        verify(orderService).createOrder(any(), eq("4622f3de-user-sub"), any(UUID.class), isNull());
     }
 
     @Test
@@ -142,7 +158,7 @@ class OrderSecurityTest {
 
     @Test
     void createAccepts50ItemsAtQuantityLimit() throws Exception {
-        when(orderService.createOrder(any(), any(), any(UUID.class)))
+        when(orderService.createOrder(any(), any(), any(UUID.class), any()))
                 .thenReturn(new CreateOrderResult(null, false));
 
         String items = String.join(",", java.util.Collections.nCopies(50, "{\"productId\":\"p1\",\"quantity\":10000}"));
@@ -152,7 +168,7 @@ class OrderSecurityTest {
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[" + items + "]}"))
                 .andExpect(status().isCreated());
-        verify(orderService).createOrder(any(), any(), any(UUID.class));
+        verify(orderService).createOrder(any(), any(), any(UUID.class), any());
     }
 
     @ParameterizedTest
@@ -180,7 +196,7 @@ class OrderSecurityTest {
 
     @Test
     void invalidProductDataReturnsBadGatewayProblemDetail() throws Exception {
-        when(orderService.createOrder(any(), any(), any(UUID.class))).thenThrow(new InvalidProductDataException("p1"));
+        when(orderService.createOrder(any(), any(), any(UUID.class), any())).thenThrow(new InvalidProductDataException("p1"));
 
         mvc.perform(post("/api/order")
                         .header("Idempotency-Key", UUID.randomUUID().toString())

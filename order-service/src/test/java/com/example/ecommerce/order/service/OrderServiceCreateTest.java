@@ -73,6 +73,8 @@ import static org.mockito.Mockito.when;
 class OrderServiceCreateTest {
 
     private static final UUID IDEMPOTENCY_KEY = UUID.fromString("a4ee662f-e404-4cf5-afc0-d837d0beaf82");
+
+    private static final String CUSTOMER_EMAIL = "customer.com";
     private static final UUID ORDER_ID = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b");
     private static final OrderRequestDTO ORDER = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 1)));
 
@@ -117,7 +119,7 @@ class OrderServiceCreateTest {
     void nullPriceFailsBeforeReserve() {
         when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", null));
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(InvalidProductDataException.class)
                 .hasMessageContaining("product-service").hasMessageContaining("p1");
 
@@ -132,7 +134,7 @@ class OrderServiceCreateTest {
     void invalidNameFailsBeforeReserve(String name) {
         when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", name, BigDecimal.TEN));
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(InvalidProductDataException.class)
                 .hasMessageContaining("product-service").hasMessageContaining("p1");
 
@@ -147,7 +149,7 @@ class OrderServiceCreateTest {
         when(productClient.getProductById("p2")).thenReturn(new ProductDTO("p2", "Mouse", null));
         var request = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 1), new OrderItemRequestDTO("p2", 2)));
 
-        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(InvalidProductDataException.class)
                 .hasMessageContaining("product-service").hasMessageContaining("p2");
 
@@ -161,7 +163,7 @@ class OrderServiceCreateTest {
         when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Notebook", new BigDecimal("500000.01")));
         var request = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 2)));
 
-        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(OrderTotalLimitExceededException.class)
                 .hasMessageContaining("1000000.00");
 
@@ -179,7 +181,7 @@ class OrderServiceCreateTest {
         when(orderRepository.saveAndFlush(any())).thenThrow(stop);
         var request = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 2)));
 
-        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY)).isSameAs(stop);
+        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL)).isSameAs(stop);
 
         verify(orderRepository).saveAndFlush(argThat(order ->
                 order.getTotalValue().compareTo(new BigDecimal("1000000.00")) == 0));
@@ -194,7 +196,7 @@ class OrderServiceCreateTest {
         var failure = new DataIntegrityViolationException("Falha no flush do PENDING");
         when(orderRepository.saveAndFlush(any())).thenThrow(failure);
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY)).isSameAs(failure);
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL)).isSameAs(failure);
 
         var calls = inOrder(transactionManager, orderRepository);
         calls.verify(transactionManager).getTransaction(any());
@@ -225,7 +227,7 @@ class OrderServiceCreateTest {
             return order;
         });
 
-        var response = orderService.createOrder(duplicatedItems(), "owner-sub", IDEMPOTENCY_KEY).orderResponseDTO();
+        var response = orderService.createOrder(duplicatedItems(), "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL).orderResponseDTO();
 
         var calls = inOrder(productClient, transactionManager, orderRepository, inventoryClient, outboxEventRepository);
         calls.verify(transactionManager).getTransaction(any());
@@ -279,7 +281,7 @@ class OrderServiceCreateTest {
             return null;
         }).when(inventoryClient).reserve(eq(ORDER_ID), any());
 
-        var response = orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY).orderResponseDTO();
+        var response = orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL).orderResponseDTO();
 
         assertThat(response.status()).isEqualTo("CONFIRMED");
         verify(inventoryClient, times(3)).reserve(eq(ORDER_ID), any());
@@ -300,7 +302,7 @@ class OrderServiceCreateTest {
             throw new ObjectOptimisticLockingFailureException(Order.class, ORDER_ID);
         });
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(OrderReservationException.class);
 
         verifyNoInteractions(outboxEventRepository);
@@ -338,7 +340,7 @@ class OrderServiceCreateTest {
             return persisted;
         });
 
-        var response = orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY).orderResponseDTO();
+        var response = orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL).orderResponseDTO();
 
         assertThat(confirmationCommitted).isTrue();
         assertThat(response.id()).isEqualTo(ORDER_ID);
@@ -354,7 +356,7 @@ class OrderServiceCreateTest {
         var request = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", Integer.MAX_VALUE), new OrderItemRequestDTO("p1", 1)));
 
-        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY)).isInstanceOf(ArithmeticException.class);
+        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL)).isInstanceOf(ArithmeticException.class);
 
         verifyNoInteractions(productClient, inventoryClient, orderRepository, outboxEventRepository, transactionManager);
     }

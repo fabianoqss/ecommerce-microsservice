@@ -174,7 +174,7 @@ class OutboxTracingIntegrationTest {
     void persistedLegacyEventWithoutContextStillDispatches() throws Exception {
         UUID eventId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
-        var payload = new OrderEventDTO(eventId, 2, orderId, "customer", "CONFIRMED",
+        var payload = new OrderEventDTO(eventId, 2, orderId, "customer", "customer@example.com", "CONFIRMED",
                 BigDecimal.TEN, LocalDateTime.now(), null, null);
         OutboxEvent stored = repository.saveAndFlush(OutboxEvent.pending(eventId, orderId,
                 "ORDER_CREATED", objectMapper.writeValueAsString(payload)));

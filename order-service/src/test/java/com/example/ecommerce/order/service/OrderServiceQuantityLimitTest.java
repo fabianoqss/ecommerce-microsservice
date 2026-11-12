@@ -53,6 +53,8 @@ class OrderServiceQuantityLimitTest {
 
     private static final UUID IDEMPOTENCY_KEY = UUID.fromString("a4ee662f-e404-4cf5-afc0-d837d0beaf82");
 
+    private static final String CUSTOMER_EMAIL = "customer.com";
+
     @Mock
     private ProductClient productClient;
 
@@ -89,7 +91,7 @@ class OrderServiceQuantityLimitTest {
         var request = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", 6000), new OrderItemRequestDTO("p1", 4000)));
 
-        var result = orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY);
+        var result = orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
 
         assertThat(result.orderResponseDTO().status()).isEqualTo("CONFIRMED");
         assertThat(result.orderResponseDTO().totalValue()).isEqualByComparingTo("10000");
@@ -102,7 +104,7 @@ class OrderServiceQuantityLimitTest {
         var request = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", 6000), new OrderItemRequestDTO("p1", 4001)));
 
-        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(OrderQuantityLimitExceededException.class)
                 .hasMessageContaining("limite de 10000").hasMessageContaining("p1");
 
@@ -118,7 +120,7 @@ class OrderServiceQuantityLimitTest {
         var request = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", 10000), new OrderItemRequestDTO("p2", 10000)));
 
-        var result = orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY);
+        var result = orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
 
         assertThat(result.orderResponseDTO().status()).isEqualTo("CONFIRMED");
         verify(inventoryClient).reserve(any(UUID.class), eq(new InventoryReserveRequestDTO(List.of(
@@ -143,7 +145,7 @@ class OrderServiceQuantityLimitTest {
         var request = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", 6), new OrderItemRequestDTO("p1", 5)));
 
-        assertThatThrownBy(() -> service.createOrder(request, "owner-sub", IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> service.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(OrderQuantityLimitExceededException.class)
                 .hasMessageContaining("limite de 10");
 
@@ -158,7 +160,7 @@ class OrderServiceQuantityLimitTest {
         var request = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", 6), new OrderItemRequestDTO("p1", 4)));
 
-        var result = service.createOrder(request, "owner-sub", IDEMPOTENCY_KEY);
+        var result = service.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
 
         assertThat(result.orderResponseDTO().status()).isEqualTo("CONFIRMED");
         verify(inventoryClient).reserve(any(UUID.class), eq(new InventoryReserveRequestDTO(
@@ -172,7 +174,7 @@ class OrderServiceQuantityLimitTest {
                 .thenReturn(Optional.of(existing));
         var equivalent = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 10000)));
 
-        var result = withQuantityLimit(10).createOrder(equivalent, "owner-sub", IDEMPOTENCY_KEY);
+        var result = withQuantityLimit(10).createOrder(equivalent, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
 
         assertThat(result.replayed()).isTrue();
         assertThat(result.orderResponseDTO().id()).isEqualTo(existing.getId());
@@ -190,7 +192,7 @@ class OrderServiceQuantityLimitTest {
         var different = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", 6000), new OrderItemRequestDTO("p1", 4001)));
 
-        assertThatThrownBy(() -> withQuantityLimit(10).createOrder(different, "owner-sub", IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> withQuantityLimit(10).createOrder(different, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(IdempotencyKeyReuseException.class);
 
         verify(orderRepository, times(2)).saveAndFlush(any());
@@ -202,7 +204,7 @@ class OrderServiceQuantityLimitTest {
         stubSuccessfulCreation("p1");
         var request = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", 6000), new OrderItemRequestDTO("p1", 4000)));
-        orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY);
+        orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
         var captor = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository, times(2)).saveAndFlush(captor.capture());
         return captor.getValue();

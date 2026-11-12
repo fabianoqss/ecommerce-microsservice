@@ -67,6 +67,9 @@ public class Order {
 
     private String userID;
 
+    @Column(name = "customer_email", length = 255)
+    private String customerEmail;
+
     private BigDecimal totalValue;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
