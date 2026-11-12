@@ -63,20 +63,20 @@ class OrderCancelTest {
     void pendingExpiredOrConfirmedOrderIsCancelledWithAudit(OrderStatus initialStatus) {
         Order order = order(initialStatus);
 
-        assertThat(order.cancel("actor-sub", "Comprei errado", NOW)).isTrue();
+        assertThat(order.cancel("actor-sub", "Ordered by mistake", NOW)).isTrue();
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(order.getCancelledBy()).isEqualTo("actor-sub");
         assertThat(order.getCancelledAt()).isEqualTo(NOW);
-        assertThat(order.getCancellationReason()).isEqualTo("Comprei errado");
+        assertThat(order.getCancellationReason()).isEqualTo("Ordered by mistake");
     }
 
     @Test
     void cancellingAnAlreadyCancelledOrderIsANoOp() {
         Order order = order(OrderStatus.CONFIRMED);
-        order.cancel("first-sub", "primeiro", NOW);
+        order.cancel("first-sub", "first", NOW);
 
-        assertThat(order.cancel("second-sub", "segundo", NOW.plusMinutes(1))).isFalse();
+        assertThat(order.cancel("second-sub", "second", NOW.plusMinutes(1))).isFalse();
 
         assertThat(order.getCancelledBy()).isEqualTo("first-sub");
         assertThat(order.getCancelledAt()).isEqualTo(NOW);

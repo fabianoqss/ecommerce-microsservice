@@ -10,8 +10,8 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "ecommerce.order.checkout")
 public record OrderCheckoutProperties(
         @DefaultValue("10000")
-        @Min(value = 1, message = "O limite de quantidade por produto deve ser maior que zero")
-        @Max(value = 10000, message = "O limite de quantidade por produto deve ser menor ou igual a 10000")
+        @Min(value = 1, message = "Quantity limit per product must be greater than zero")
+        @Max(value = 10000, message = "Quantity limit per product must be less than or equal to 10000")
         int maxQuantityPerProduct
 ) {
 }

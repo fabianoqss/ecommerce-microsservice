@@ -23,10 +23,10 @@ public class IdempotencyRetryConfiguration implements InitializingBean {
         var retry = switch (listener.getType()) {
             case SIMPLE -> listener.getSimple().getRetry();
             case DIRECT -> listener.getDirect().getRetry();
-            case STREAM -> throw new IllegalStateException("Idempotência exige um listener AMQP com retry");
+            case STREAM -> throw new IllegalStateException("Idempotency requires an AMQP listener with retry");
         };
         Assert.state(retry.isEnabled() && retry.isStateless(),
-                "Idempotência exige retry stateless habilitado no listener RabbitMQ");
+                "Idempotency requires stateless retry to be enabled on the RabbitMQ listener");
         var backoff = RetryPolicy.builder()
                 .maxRetries(retry.getMaxRetries())
                 .delay(retry.getInitialInterval())
@@ -40,7 +40,7 @@ public class IdempotencyRetryConfiguration implements InitializingBean {
             retryWindow = retryWindow.plusMillis(interval);
         }
         Assert.state(idempotencyProperties.processingTtl().compareTo(retryWindow) < 0,
-                "processing-ttl deve ser menor que a janela total de retry do listener RabbitMQ: processing-ttl="
+                "processing-ttl must be shorter than the total retry window of the RabbitMQ listener: processing-ttl="
                         + idempotencyProperties.processingTtl() + ", retry-window=" + retryWindow);
     }
 }

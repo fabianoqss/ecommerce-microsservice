@@ -26,11 +26,11 @@ class ProductSearchIntegrationTest extends MongoContainerTest {
     void seed() {
         repository.deleteAll();
         repository.saveAll(List.of(
-                product("p1", "Teclado Mecânico TKL", "Periféricos"),
-                product("p2", "Mouse Gamer Sem Fio", "Periféricos"),
-                product("p3", "Livro: Código Limpo", "Livros"),
-                product("p4", "Livro: Arquitetura Limpa", "Livros"),
-                product("p5", "Fone Bluetooth In-Ear", "Áudio")));
+                product("p1", "TKL Mechanical Keyboard", "Peripherals"),
+                product("p2", "Wireless Gaming Mouse", "Peripherals"),
+                product("p3", "Book: Clean Code", "Books"),
+                product("p4", "Book: Clean Architecture", "Books"),
+                product("p5", "Bluetooth Earbuds", "Audio")));
     }
 
     @Test
@@ -43,22 +43,22 @@ class ProductSearchIntegrationTest extends MongoContainerTest {
 
     @Test
     void nameMatchesAnyPartIgnoringCase() {
-        var page = repository.search("TECL", null, FIRST_PAGE);
+        var page = repository.search("KEYB", null, FIRST_PAGE);
 
         assertThat(page.getContent()).extracting(Product::getId).containsExactly("p1");
     }
 
     @Test
     void categoryMatchesExactly() {
-        var page = repository.search(null, "Livros", FIRST_PAGE);
+        var page = repository.search(null, "Books", FIRST_PAGE);
 
         assertThat(page.getContent()).extracting(Product::getId).containsExactly("p3", "p4");
-        assertThat(repository.search(null, "Livro", FIRST_PAGE).getContent()).isEmpty();
+        assertThat(repository.search(null, "Book", FIRST_PAGE).getContent()).isEmpty();
     }
 
     @Test
     void combinesNameAndCategory() {
-        var page = repository.search("limpa", "Livros", FIRST_PAGE);
+        var page = repository.search("architecture", "Books", FIRST_PAGE);
 
         assertThat(page.getContent()).extracting(Product::getId).containsExactly("p4");
     }
@@ -67,7 +67,7 @@ class ProductSearchIntegrationTest extends MongoContainerTest {
     void treatsRegexCharactersAsLiteralText() {
         assertThat(repository.search(".*", null, FIRST_PAGE).getContent()).isEmpty();
         assertThat(repository.search("(a+)+$", null, FIRST_PAGE).getContent()).isEmpty();
-        assertThat(repository.search("Livro:", null, FIRST_PAGE).getContent()).hasSize(2);
+        assertThat(repository.search("Book:", null, FIRST_PAGE).getContent()).hasSize(2);
     }
 
     @Test
@@ -81,7 +81,7 @@ class ProductSearchIntegrationTest extends MongoContainerTest {
 
     @Test
     void categoriesAreDistinctAndSortedForPortuguese() {
-        assertThat(repository.findCategories()).containsExactly("Áudio", "Livros", "Periféricos");
+        assertThat(repository.findCategories()).containsExactly("Audio", "Books", "Peripherals");
     }
 
     private static Product product(String id, String name, String category) {

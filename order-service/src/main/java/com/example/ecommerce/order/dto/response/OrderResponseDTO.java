@@ -7,17 +7,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-@Schema(name = "OrderResponseDTO", description = "Dados de resposta de um pedido")
+@Schema(name = "OrderResponseDTO", description = "Order response data")
 public record OrderResponseDTO (
-        @Schema(description = "ID do pedido gerado pelo banco", example = "01929b2e-7c3a-7d4f-9b1e-2f6a8c4d5e10", accessMode = Schema.AccessMode.READ_ONLY)
+        @Schema(description = "Database-generated order ID", example = "01929b2e-7c3a-7d4f-9b1e-2f6a8c4d5e10", accessMode = Schema.AccessMode.READ_ONLY)
         UUID id,
-        @Schema(description = "Status do pedido", example = "PLACED")
+        @Schema(description = "Order status", example = "PLACED")
         String status,
-        @Schema(description = "Valor total do pedido", example = "699.80")
+        @Schema(description = "Order total", example = "699.80")
         BigDecimal totalValue,
-        @Schema(description = "Data e hora da criação do pedido", example = "2026-03-26T14:30:00")
+        @Schema(description = "Order creation date and time", example = "2026-03-26T14:30:00")
         LocalDateTime orderTime,
-        @Schema(description = "Itens do pedido")
+        @Schema(description = "Order items")
         List<OrderItemResponseDTO> items
 ) {
 }

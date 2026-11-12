@@ -64,20 +64,20 @@ public class SessionTokenRelayFilter extends OncePerRequestFilter {
         } catch (OAuth2AuthorizationException ex) {
             String errorCode = ex.getError().getErrorCode();
             if (OAuth2ErrorCodes.INVALID_GRANT.equals(errorCode) || OAuth2ErrorCodes.INVALID_TOKEN.equals(errorCode)) {
-                log.info("Sessão expirada ao renovar o token: {}", errorCode);
+                log.info("Session expired while refreshing the token: {}", errorCode);
                 expireSession(request, response);
             } else {
-                log.warn("Serviço de identidade indisponível ao renovar o token: {}", errorCode);
+                log.warn("Identity service unavailable while refreshing the token: {}", errorCode);
                 identityProviderUnavailable(response);
             }
             return;
         } catch (RestClientException ex) {
-            log.warn("Serviço de identidade indisponível ao renovar o token: {}", ex.getClass().getSimpleName());
+            log.warn("Identity service unavailable while refreshing the token: {}", ex.getClass().getSimpleName());
             identityProviderUnavailable(response);
             return;
         }
         if (client == null) {
-            log.info("Sessão sem cliente OAuth2 autorizado");
+            log.info("Session has no authorized OAuth2 client");
             expireSession(request, response);
             return;
         }
@@ -112,7 +112,7 @@ public class SessionTokenRelayFilter extends OncePerRequestFilter {
         response.setHeader(HttpHeaders.RETRY_AFTER, "5");
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         var problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
-                "Serviço de identidade temporariamente indisponível; tente novamente em instantes");
+                "Identity service temporarily unavailable; please try again shortly");
         jsonMapper.writeValue(response.getOutputStream(), problem);
     }
 }

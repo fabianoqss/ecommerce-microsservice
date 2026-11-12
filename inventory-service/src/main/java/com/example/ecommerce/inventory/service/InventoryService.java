@@ -106,7 +106,7 @@ public class InventoryService {
                 int updated = inventoryRepository.decrement(skuCode, qty);
                 if (updated == 0) {
                     recordReservationMetric("insufficient");
-                    log.warn("Estoque insuficiente ou SKU inexistente ao reservar: reservationId={}, skuCode={}, quantity={}",
+                    log.warn("Insufficient stock or nonexistent SKU while reserving: reservationId={}, skuCode={}, quantity={}",
                             reservationId, skuCode, qty);
                     throw new InsufficientStockException(skuCode);
                 }
@@ -117,7 +117,7 @@ public class InventoryService {
                     .map(e -> new InventoryItemDTO(e.getKey(), e.getValue()))
                     .toList();
             recordReservationMetric("created");
-            log.info("Reserva criada: reservationId={}, skus={}", reservationId, itemDtos.size());
+            log.info("Reservation created: reservationId={}, skus={}", reservationId, itemDtos.size());
             return new ReservationResult(
                     new ReservationResponseDTO(reservationId, ReservationStatus.RESERVED, itemDtos, now, now),
                     true
@@ -129,7 +129,7 @@ public class InventoryService {
 
         if (existing.getStatus() == ReservationStatus.RELEASED) {
             recordReservationMetric("gone");
-            log.warn("Tentativa de reservar sobre reserva já liberada/lápide: reservationId={}", reservationId);
+            log.warn("Attempt to reserve an already released reservation or tombstone: reservationId={}", reservationId);
             throw new ReservationGoneException(reservationId);
         }
 
@@ -142,7 +142,7 @@ public class InventoryService {
 
         if (!existingNormalized.equals(normalizedItems)) {
             recordReservationMetric("conflict");
-            log.warn("Conflito de itens em reserva existente: reservationId={}", reservationId);
+            log.warn("Item conflict in existing reservation: reservationId={}", reservationId);
             throw new ReservationConflictException(reservationId);
         }
 
@@ -150,7 +150,7 @@ public class InventoryService {
                 .map(i -> new InventoryItemDTO(i.getId().getSkuCode(), i.getQuantity()))
                 .toList();
         recordReservationMetric("replayed");
-        log.info("Replay idempotente de reserva: reservationId={}", reservationId);
+        log.info("Idempotent reservation replay: reservationId={}", reservationId);
         return new ReservationResult(
                 new ReservationResponseDTO(
                         existing.getId(),
@@ -171,7 +171,7 @@ public class InventoryService {
                 reservationId, ReservationStatus.RELEASED.name(), now);
         if (inserted == 1) {
             recordReleaseMetric("tombstone");
-            log.info("Lápide (tombstone) de reserva criada: reservationId={}", reservationId);
+            log.info("Reservation tombstone created: reservationId={}", reservationId);
             return "tombstone";
         }
 
@@ -183,13 +183,13 @@ public class InventoryService {
                 inventoryRepository.increment(item.getId().getSkuCode(), item.getQuantity());
             }
             recordReleaseMetric("released");
-            log.info("Reserva liberada e estoque incrementado: reservationId={}, skus={}",
+            log.info("Reservation released and stock increased: reservationId={}, skus={}",
                     reservationId, items.size());
             return "released";
         }
 
         recordReleaseMetric("noop");
-        log.info("Liberação idempotente ignorada (noop, já RELEASED): reservationId={}", reservationId);
+        log.info("Idempotent release skipped (noop, already RELEASED): reservationId={}", reservationId);
         return "noop";
     }
 
@@ -204,12 +204,12 @@ public class InventoryService {
             for (Map.Entry<String, Integer> entry : normalizedItems.entrySet()) {
                 inventoryRepository.increment(entry.getKey(), entry.getValue());
             }
-            log.info("Estoque devolvido para pedido LEGACY cancelado: orderId={}, skus={}",
+            log.info("Stock returned for cancelled LEGACY order: orderId={}, skus={}",
                     orderId, normalizedItems.size());
             return "released";
         }
 
-        log.info("Cancelamento LEGACY duplicado ignorado (noop, lápide já existe): orderId={}", orderId);
+        log.info("Duplicate LEGACY cancellation skipped (noop, tombstone already exists): orderId={}", orderId);
         return "noop";
     }
 

@@ -57,7 +57,7 @@ class FeignClientAuthenticationTest {
         contextRunner.run(context -> {
             var product = context.getBean(ProductClient.class).getProductById("p1");
 
-            assertThat(product.name()).isEqualTo("Teclado");
+            assertThat(product.name()).isEqualTo("Keyboard");
             assertThat(context.getBean(RecordingClient.class).requests).singleElement().satisfies(request -> {
                 assertThat(request.url()).isEqualTo("http://product.test/api/product/p1");
                 assertThat(request.headers()).doesNotContainKey("Authorization");
@@ -145,7 +145,7 @@ class FeignClientAuthenticationTest {
             if (request.httpMethod() == Request.HttpMethod.GET) {
                 return Response.builder().request(request).status(200)
                         .headers(Map.of("Content-Type", List.of("application/json")))
-                        .body("{\"id\":\"p1\",\"name\":\"Teclado\",\"price\":10.00}", StandardCharsets.UTF_8).build();
+                        .body("{\"id\":\"p1\",\"name\":\"Keyboard\",\"price\":10.00}", StandardCharsets.UTF_8).build();
             }
             if (request.httpMethod() == Request.HttpMethod.PUT) {
                 return Response.builder().request(request).status(201).headers(Map.of()).build();

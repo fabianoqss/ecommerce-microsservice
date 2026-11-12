@@ -20,16 +20,16 @@ public class NotificationService {
     private final MeterRegistry meterRegistry;
 
     public void handleOrderCreated(OrderEventDTO event) {
-        handle(event, "created", "Notificação de pedido criada");
+        handle(event, "created", "Order creation notification");
     }
 
     public void handleOrderCancelled(OrderEventDTO event) {
-        handle(event, "cancelled", "Notificação de pedido cancelado");
+        handle(event, "cancelled", "Order cancellation notification");
     }
 
     private void handle(OrderEventDTO event, String eventType, String notification) {
         if (event.eventId() == null) {
-            log.warn("Evento legado sem eventId recebido; será processado sem garantia de idempotência: orderId={}", event.orderId());
+            log.warn("Legacy event received without eventId; it will be processed without an idempotency guarantee: orderId={}", event.orderId());
             notificationSender.send(event, notification);
             processed(eventType);
             return;
@@ -37,13 +37,13 @@ public class NotificationService {
 
         var acquisition = processedEventStore.tryAcquire(event.eventId());
         if (acquisition.status() == AcquireStatus.ALREADY_PROCESSED) {
-            log.info("Evento duplicado ignorado: eventId={}, orderId={}", event.eventId(), event.orderId());
+            log.info("Duplicate event ignored: eventId={}, orderId={}", event.eventId(), event.orderId());
             meterRegistry.counter("ecommerce.notification.events.duplicates", "event_type", eventType).increment();
             return;
         }
 
         if (acquisition.status() == AcquireStatus.IN_PROGRESS) {
-            log.warn("Reentrega de evento em processamento rejeitada para nova tentativa: eventId={}, orderId={}, event_type={}",
+            log.warn("Redelivery of an event being processed rejected for retry: eventId={}, orderId={}, event_type={}",
                     event.eventId(), event.orderId(), eventType);
             meterRegistry.counter("ecommerce.notification.events.in_progress", "event_type", eventType).increment();
             throw new EventInProgressException(event.eventId());
@@ -61,7 +61,7 @@ public class NotificationService {
         }
 
         if (!processedEventStore.markProcessed(event.eventId(), acquisition.ownerToken())) {
-            log.warn("Notificação enviada, mas o lease foi assumido por outro consumidor; pode haver envio duplicado: eventId={}, orderId={}, event_type={}",
+            log.warn("Notification sent, but the lease was acquired by another consumer; duplicate delivery is possible: eventId={}, orderId={}, event_type={}",
                     event.eventId(), event.orderId(), eventType);
             meterRegistry.counter("ecommerce.notification.events.lease_lost", "event_type", eventType).increment();
         }

@@ -15,7 +15,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface HttpsUrl {
 
-    String message() default "A URL da imagem deve ser uma URL https absoluta";
+    String message() default "Image URL must be an absolute HTTPS URL";
 
     Class<?>[] groups() default {};
 

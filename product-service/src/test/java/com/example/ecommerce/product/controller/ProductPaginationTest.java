@@ -62,7 +62,7 @@ class ProductPaginationTest {
     void requestedPageMapsProductsAndPreservesTotals() throws Exception {
         var product = new Product();
         product.setId("p1");
-        product.setName("Teclado");
+        product.setName("Keyboard");
         product.setPrice(new BigDecimal("10.00"));
         var pageable = PageRequest.of(1, 20, Sort.by("id"));
         when(repository.search(any(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(product), pageable, 45));
@@ -70,7 +70,7 @@ class ProductPaginationTest {
         mvc.perform(get("/api/product").param("page", "1").param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value("p1"))
-                .andExpect(jsonPath("$.content[0].name").value("Teclado"))
+                .andExpect(jsonPath("$.content[0].name").value("Keyboard"))
                 .andExpect(jsonPath("$.content[0].price").value(10.00))
                 .andExpect(jsonPath("$.page").value(1))
                 .andExpect(jsonPath("$.size").value(20))
@@ -96,11 +96,11 @@ class ProductPaginationTest {
         when(repository.search(any(), any(), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         mvc.perform(get("/api/product")
-                        .param("name", "tecl")
-                        .param("category", "Periféricos")
+                        .param("name", "keyb")
+                        .param("category", "Peripherals")
                         .param("size", "8"))
                 .andExpect(status().isOk());
-        verify(repository).search(eq("tecl"), eq("Periféricos"), eq(pageable));
+        verify(repository).search(eq("keyb"), eq("Peripherals"), eq(pageable));
     }
 
     @Test
@@ -111,12 +111,12 @@ class ProductPaginationTest {
 
     @Test
     void listsCategoriesPublicly() throws Exception {
-        when(repository.findCategories()).thenReturn(List.of("Acessórios", "Áudio", "Livros"));
+        when(repository.findCategories()).thenReturn(List.of("Accessories", "Audio", "Books"));
 
         mvc.perform(get("/api/product/categories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0]").value("Acessórios"))
-                .andExpect(jsonPath("$[1]").value("Áudio"))
-                .andExpect(jsonPath("$[2]").value("Livros"));
+                .andExpect(jsonPath("$[0]").value("Accessories"))
+                .andExpect(jsonPath("$[1]").value("Audio"))
+                .andExpect(jsonPath("$[2]").value("Books"));
     }
 }

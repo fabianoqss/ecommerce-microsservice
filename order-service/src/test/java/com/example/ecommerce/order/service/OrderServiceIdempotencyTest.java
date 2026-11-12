@@ -151,7 +151,7 @@ class OrderServiceIdempotencyTest {
     void persistenceRaceReplaysConfirmedOrderFoundBySecondLookupWithoutReservingInventory() {
         when(orderRepository.findByUserIDAndIdempotencyKey(USER_ID, IDEMPOTENCY_KEY))
                 .thenReturn(Optional.empty(), Optional.of(existingOrder(OrderStatus.CONFIRMED)));
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         when(orderRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("Duplicate key"));
 
         var result = orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
@@ -170,7 +170,7 @@ class OrderServiceIdempotencyTest {
     void persistenceFailureWithoutReplayRethrowsSameException() {
         when(orderRepository.findByUserIDAndIdempotencyKey(USER_ID, IDEMPOTENCY_KEY))
                 .thenReturn(Optional.empty(), Optional.empty());
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         var failure = new DataIntegrityViolationException("Pending order persistence failed");
         when(orderRepository.saveAndFlush(any())).thenThrow(failure);
 
@@ -222,7 +222,7 @@ class OrderServiceIdempotencyTest {
     }
 
     private void stubSuccessfulCreation() {
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         when(productClient.getProductById("p2")).thenReturn(new ProductDTO("p2", "Mouse", BigDecimal.ONE));
         when(orderRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
@@ -236,7 +236,7 @@ class OrderServiceIdempotencyTest {
     private static Order existingOrder(OrderStatus status) {
         OrderItem item = new OrderItem();
         item.setProductId("p1");
-        item.setProductName("Teclado");
+        item.setProductName("Keyboard");
         item.setQuantity(1);
         item.setPrice(BigDecimal.TEN);
         Order order = new Order();

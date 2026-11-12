@@ -116,7 +116,7 @@ class OrderCancellationIntegrationTest {
                 {"access_token":"svc-token","token_type":"Bearer","expires_in":300}
                 """)));
         WIREMOCK.stubFor(WireMock.get("/api/product/p1").willReturn(okJson("""
-                {"id":"p1","name":"Teclado","price":10.00}
+                {"id":"p1","name":"Keyboard","price":10.00}
                 """)));
         WIREMOCK.stubFor(WireMock.put(urlPathMatching("/api/inventory/reservations/.*"))
                 .willReturn(aResponse().withStatus(201)));
@@ -128,14 +128,14 @@ class OrderCancellationIntegrationTest {
         WIREMOCK.resetRequests();
 
         mvc.perform(post("/api/order/{id}/cancel", orderId).with(user("owner-sub"))
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Comprei errado\"}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Ordered by mistake\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
         Order cancelled = orderRepository.findById(orderId).orElseThrow();
         assertThat(cancelled.getStatus()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(cancelled.getCancelledBy()).isEqualTo("owner-sub");
-        assertThat(cancelled.getCancellationReason()).isEqualTo("Comprei errado");
+        assertThat(cancelled.getCancellationReason()).isEqualTo("Ordered by mistake");
         assertThat(cancelled.getCancelledAt()).isNotNull();
 
         WIREMOCK.verify(0, anyRequestedFor(urlMatching("/api/inventory/.*")));
@@ -194,7 +194,7 @@ class OrderCancellationIntegrationTest {
 
         OrderItem item2 = new OrderItem();
         item2.setProductId("p1");
-        item2.setProductName("Teclado");
+        item2.setProductName("Keyboard");
         item2.setQuantity(2);
         item2.setPrice(new BigDecimal("10.00"));
 

@@ -60,7 +60,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<ProblemDetail> handleConcurrentModification(OptimisticLockingFailureException ex) {
-        return problem(HttpStatus.CONFLICT, "O pedido foi alterado por outra operação; consulte e tente novamente");
+        return problem(HttpStatus.CONFLICT, "The order was modified by another operation; check its status and try again");
     }
 
     @ExceptionHandler(InsufficientStockException.class)
@@ -101,7 +101,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<String> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .toList();
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Payload inválido");
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid payload");
         problemDetail.setProperty("errors", errors);
         return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
     }
@@ -113,7 +113,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .flatMap(result -> result.getResolvableErrors().stream()
                         .map(err -> result.getMethodParameter().getParameterName() + ": " + err.getDefaultMessage()))
                 .toList();
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Parâmetros inválidos");
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid parameters");
         problemDetail.setProperty("errors", errors);
         return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
     }
@@ -123,7 +123,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             TypeMismatchException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         if (ex instanceof MethodArgumentTypeMismatchException mismatch) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                    HttpStatus.BAD_REQUEST, "Parâmetro inválido: " + mismatch.getName());
+                    HttpStatus.BAD_REQUEST, "Invalid parameter: " + mismatch.getName());
             return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
         }
         return super.handleTypeMismatch(ex, headers, status, request);
@@ -132,22 +132,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<ProblemDetail> handleFeign(FeignException ex) {
         if (ex.status() == HttpStatus.NOT_FOUND.value()) {
-            return problem(HttpStatus.NOT_FOUND, "Recurso não encontrado em serviço dependente");
+            return problem(HttpStatus.NOT_FOUND, "Resource not found in a dependent service");
         }
-        log.error("Falha ao comunicar com serviço dependente", ex);
-        return problem(HttpStatus.BAD_GATEWAY, "Falha ao comunicar com serviço dependente");
+        log.error("Failed to communicate with a dependent service", ex);
+        return problem(HttpStatus.BAD_GATEWAY, "Failed to communicate with a dependent service");
     }
 
     @ExceptionHandler(OAuth2AuthorizationException.class)
     public ResponseEntity<ProblemDetail> handleServiceTokenFailure(OAuth2AuthorizationException ex) {
-        log.error("Não foi possível obter o token de serviço no provedor de identidade: {}", ex.getError().getErrorCode());
-        return problem(HttpStatus.SERVICE_UNAVAILABLE, "Serviço de autenticação indisponível");
+        log.error("Could not obtain the service token from the identity provider: {}", ex.getError().getErrorCode());
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "Authentication service unavailable");
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
-        log.error("Erro interno inesperado", ex);
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno inesperado");
+        log.error("Unexpected internal error", ex);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected internal error");
     }
 
     @Override

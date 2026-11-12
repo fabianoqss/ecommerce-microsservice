@@ -50,34 +50,34 @@ class ProductOptimisticLockingIntegrationTest extends MongoContainerTest {
 
     @Test
     void insertStartsAtVersionZeroAndEachUpdateIncrementsIt() {
-        ProductResponseDTO created = productService.insert(request("Teclado"));
+        ProductResponseDTO created = productService.insert(request("Keyboard"));
         assertThat(created.version()).isZero();
 
-        ProductResponseDTO updated = productService.update(created.id(), 0L, request("Teclado TKL"));
+        ProductResponseDTO updated = productService.update(created.id(), 0L, request("Keyboard TKL"));
 
         assertThat(updated.version()).isEqualTo(1L);
-        assertThat(updated.name()).isEqualTo("Teclado TKL");
+        assertThat(updated.name()).isEqualTo("Keyboard TKL");
     }
 
     @Test
     void updateWithStaleVersionIsRejectedAndKeepsTheWinningWrite() {
-        ProductResponseDTO created = productService.insert(request("Teclado"));
-        productService.update(created.id(), 0L, request("Edição do admin A"));
+        ProductResponseDTO created = productService.insert(request("Keyboard"));
+        productService.update(created.id(), 0L, request("Admin A's edit"));
         double before = conflicts("update");
 
-        assertThatThrownBy(() -> productService.update(created.id(), 0L, request("Edição do admin B")))
+        assertThatThrownBy(() -> productService.update(created.id(), 0L, request("Admin B's edit")))
                 .isInstanceOf(ProductVersionConflictException.class);
 
         Product stored = repository.findById(created.id()).orElseThrow();
-        assertThat(stored.getName()).isEqualTo("Edição do admin A");
+        assertThat(stored.getName()).isEqualTo("Admin A's edit");
         assertThat(stored.getVersion()).isEqualTo(1L);
         assertThat(conflicts("update")).isEqualTo(before + 1);
     }
 
     @Test
     void deleteWithStaleVersionIsRejectedAndKeepsTheDocument() {
-        ProductResponseDTO created = productService.insert(request("Teclado"));
-        productService.update(created.id(), 0L, request("Teclado TKL"));
+        ProductResponseDTO created = productService.insert(request("Keyboard"));
+        productService.update(created.id(), 0L, request("Keyboard TKL"));
         double before = conflicts("delete");
 
         assertThatThrownBy(() -> productService.delete(created.id(), 0L))
@@ -92,7 +92,7 @@ class ProductOptimisticLockingIntegrationTest extends MongoContainerTest {
 
     @Test
     void databaseRejectsSaveOfAnEntityLoadedBeforeAConcurrentWrite() {
-        ProductResponseDTO created = productService.insert(request("Teclado"));
+        ProductResponseDTO created = productService.insert(request("Keyboard"));
         Product readByA = repository.findById(created.id()).orElseThrow();
         Product readByB = repository.findById(created.id()).orElseThrow();
         Product readByC = repository.findById(created.id()).orElseThrow();
@@ -111,15 +111,15 @@ class ProductOptimisticLockingIntegrationTest extends MongoContainerTest {
     void backfillMakesLegacyDocumentsWithoutVersionUpdatable() {
         String legacyId = new ObjectId().toHexString();
         mongoTemplate.getCollection("products").insertOne(new Document("_id", new ObjectId(legacyId))
-                .append("name", "Legado")
-                .append("description", "Documento criado antes do versionamento")
+                .append("name", "Legacy")
+                .append("description", "Document created before versioning")
                 .append("price", new Decimal128(new BigDecimal("10.00")))
-                .append("category", "Livros"));
+                .append("category", "Books"));
 
         backfill.run(null);
 
         assertThat(productService.findByID(legacyId).version()).isZero();
-        ProductResponseDTO updated = productService.update(legacyId, 0L, request("Legado atualizado"));
+        ProductResponseDTO updated = productService.update(legacyId, 0L, request("Legacy updated"));
         assertThat(updated.version()).isEqualTo(1L);
         assertThat(repository.count()).isEqualTo(1);
     }
@@ -130,6 +130,6 @@ class ProductOptimisticLockingIntegrationTest extends MongoContainerTest {
     }
 
     private static ProductRequestDTO request(String name) {
-        return new ProductRequestDTO(name, "Descrição do produto", new BigDecimal("349.90"), "Periféricos", null);
+        return new ProductRequestDTO(name, "Product description", new BigDecimal("349.90"), "Peripherals", null);
     }
 }

@@ -7,16 +7,16 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 
-@Schema(name = "OrderItemRequestDTO", description = "Item de um pedido")
+@Schema(name = "OrderItemRequestDTO", description = "Order item")
 public record OrderItemRequestDTO(
-        @Schema(description = "ID do produto (MongoDB)", example = "664f1b2e3a4b5c6d7e8f9a0b")
-        @NotBlank(message = "productId é obrigatório")
-        @Pattern(regexp = "^[A-Za-z0-9_-]{1,64}$", message = "productId deve ter de 1 a 64 letras, números, _ ou -")
+        @Schema(description = "Product ID (MongoDB)", example = "664f1b2e3a4b5c6d7e8f9a0b")
+        @NotBlank(message = "productId is required")
+        @Pattern(regexp = "^[A-Za-z0-9_-]{1,64}$", message = "productId must contain 1 to 64 letters, digits, _ or -")
         String productId,
-        @Schema(description = "Quantidade do produto", example = "2")
-        @NotNull(message = "quantity é obrigatório")
-        @Positive(message = "quantity deve ser maior que zero")
-        @Max(value = 10000, message = "quantity deve ser menor ou igual a 10000")
+        @Schema(description = "Product quantity", example = "2")
+        @NotNull(message = "quantity is required")
+        @Positive(message = "quantity must be greater than zero")
+        @Max(value = 10000, message = "quantity must be less than or equal to 10000")
         Integer quantity
 ) {
 }

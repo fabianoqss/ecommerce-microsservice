@@ -44,7 +44,7 @@ public class OrderController {
     private OrderService orderService;
 
     @Operation(
-            description = "Get orders paginated, newest first (usuário comum vê só os próprios; admin vê todos)",
+            description = "Get orders paginated, newest first (regular users see only their own orders; admins see all orders)",
             summary = "List orders",
             responses = {
                     @ApiResponse(description = "Ok", responseCode = "200"),
@@ -60,7 +60,7 @@ public class OrderController {
     }
 
     @Operation(
-            description = "Get order by id (apenas o dono do pedido ou um admin; pedido de outro usuário responde 404)",
+            description = "Get order by id (order owner or admin only; another user's order returns 404)",
             summary = "Get order by id",
             responses = {
                     @ApiResponse(description = "Ok", responseCode = "200"),
@@ -73,14 +73,14 @@ public class OrderController {
     }
 
     @Operation(
-            description = "Cancel an order (dono ou admin) e enfileira a devolução assíncrona do estoque. "
-                    + "Repetir em um pedido já cancelado responde 200 sem efeito.",
+            description = "Cancel an order (owner or admin) and queue an asynchronous stock return. "
+                    + "Repeating the request for an already cancelled order returns 200 with no effect.",
             summary = "Cancel an order",
             responses = {
                     @ApiResponse(description = "Ok", responseCode = "200"),
                     @ApiResponse(description = "Bad Request", responseCode = "400"),
                     @ApiResponse(description = "Not Found", responseCode = "404"),
-                    @ApiResponse(description = "Conflict - status não permite cancelar ou alteração concorrente", responseCode = "409")
+                    @ApiResponse(description = "Conflict - status does not allow cancellation or concurrent modification", responseCode = "409")
             }
     )
     @PostMapping("/{id}/cancel")
@@ -92,20 +92,20 @@ public class OrderController {
     }
 
     @Operation(
-            description = "Create a new order for the authenticated user. Repetir a requisição com o mesmo "
-                    + "Idempotency-Key devolve o pedido já criado, sem nova reserva de estoque.",
+            description = "Create a new order for the authenticated user. Repeating the request with the same "
+                    + "Idempotency-Key returns the existing order without reserving stock again.",
             summary = "Create a new order",
             responses = {
-                    @ApiResponse(description = "Created (ou replay de um pedido já criado com a mesma chave)", responseCode = "201"),
-                    @ApiResponse(description = "Bad Request - payload inválido ou Idempotency-Key ausente/inválido", responseCode = "400"),
-                    @ApiResponse(description = "Conflict - pedido com esta chave ainda em processamento ou sem estoque", responseCode = "409"),
-                    @ApiResponse(description = "Unprocessable Content - chave reutilizada com outro conteúdo", responseCode = "422")
+                    @ApiResponse(description = "Created (or replay of an order already created with the same key)", responseCode = "201"),
+                    @ApiResponse(description = "Bad Request - invalid payload or missing/invalid Idempotency-Key", responseCode = "400"),
+                    @ApiResponse(description = "Conflict - order with this key is still being processed or stock is insufficient", responseCode = "409"),
+                    @ApiResponse(description = "Unprocessable Content - key reused with different contents", responseCode = "422")
             }
     )
     @PostMapping
     public ResponseEntity<OrderResponseDTO> createOrder(
             @Parameter(in = ParameterIn.HEADER, name = "Idempotency-Key", required = true,
-                    description = "UUID gerado pelo cliente por tentativa de checkout e reenviado nas retentativas")
+                    description = "Client-generated UUID for each checkout attempt, resent on retries")
             @RequestHeader("Idempotency-Key") UUID idempotencyKey,
             @Valid @RequestBody OrderRequestDTO request,
             Authentication authentication,

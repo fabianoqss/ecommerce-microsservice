@@ -31,7 +31,7 @@ public class ProductVersionBackfill implements ApplicationRunner {
                 new Update().set("version", 0L),
                 Product.class);
         if (result.getModifiedCount() > 0) {
-            log.info("Backfill de versão aplicado em {} produtos", result.getModifiedCount());
+            log.info("Version backfill applied to {} products", result.getModifiedCount());
         }
     }
 }

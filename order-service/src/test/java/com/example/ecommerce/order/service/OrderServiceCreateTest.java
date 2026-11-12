@@ -117,7 +117,7 @@ class OrderServiceCreateTest {
 
     @Test
     void nullPriceFailsBeforeReserve() {
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", null));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", null));
 
         assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(InvalidProductDataException.class)
@@ -145,7 +145,7 @@ class OrderServiceCreateTest {
 
     @Test
     void invalidLaterProductFailsBeforeReserve() {
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         when(productClient.getProductById("p2")).thenReturn(new ProductDTO("p2", "Mouse", null));
         var request = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 1), new OrderItemRequestDTO("p2", 2)));
 
@@ -177,7 +177,7 @@ class OrderServiceCreateTest {
     void totalExactlyAtLimitIsPersisted() {
         when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Notebook", new BigDecimal("500000.00")));
         when(transactionManager.getTransaction(any())).thenAnswer(inv -> new SimpleTransactionStatus());
-        var stop = new IllegalStateException("interrompe o fluxo após persistir");
+        var stop = new IllegalStateException("stop the flow after persistence");
         when(orderRepository.saveAndFlush(any())).thenThrow(stop);
         var request = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 2)));
 
@@ -189,11 +189,11 @@ class OrderServiceCreateTest {
 
     @Test
     void pendingPersistenceFailureRollsBackWithoutCallingInventory() {
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         var transaction = new SimpleTransactionStatus();
         when(transactionManager.getTransaction(any()))
                 .thenReturn(new SimpleTransactionStatus(), transaction, new SimpleTransactionStatus());
-        var failure = new DataIntegrityViolationException("Falha no flush do PENDING");
+        var failure = new DataIntegrityViolationException("Failed to flush PENDING");
         when(orderRepository.saveAndFlush(any())).thenThrow(failure);
 
         assertThatThrownBy(() -> orderService.createOrder(ORDER, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL)).isSameAs(failure);
@@ -213,7 +213,7 @@ class OrderServiceCreateTest {
 
     @Test
     void persistsPendingBeforeReserveAndConfirmsWithOutboxAfterSuccess() {
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         when(productClient.getProductById("p2")).thenReturn(new ProductDTO("p2", "Mouse", new BigDecimal("20")));
         when(transactionManager.getTransaction(any())).thenAnswer(inv -> new SimpleTransactionStatus());
 
@@ -265,7 +265,7 @@ class OrderServiceCreateTest {
 
     @Test
     void transientServerErrorOnFirstReserveAttemptSucceedsOnRetryAndConfirms() {
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         when(orderRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
             order.setId(ORDER_ID);
@@ -291,7 +291,7 @@ class OrderServiceCreateTest {
 
     @Test
     void optimisticLockFailureWhenConfirmingBecauseReconcilerExpiredThrows503ReservationException() {
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         AtomicInteger saves = new AtomicInteger();
         when(orderRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
@@ -311,7 +311,7 @@ class OrderServiceCreateTest {
 
     @Test
     void responseIsMappedBeforeConfirmationTransactionCloses() {
-        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
+        when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Keyboard", BigDecimal.TEN));
         when(transactionManager.getTransaction(any())).thenAnswer(inv -> new SimpleTransactionStatus());
         var commits = new AtomicInteger();
         var confirmationCommitted = new AtomicBoolean();
@@ -333,7 +333,7 @@ class OrderServiceCreateTest {
             var persisted = spy(order);
             doAnswer(call -> {
                 if (confirmationCommitted.get()) {
-                    throw new org.hibernate.LazyInitializationException("Sessão encerrada");
+                    throw new org.hibernate.LazyInitializationException("Session closed");
                 }
                 return items;
             }).when(persisted).getItems();

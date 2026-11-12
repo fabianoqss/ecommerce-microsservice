@@ -106,7 +106,7 @@ class OrderServiceQuantityLimitTest {
 
         assertThatThrownBy(() -> orderService.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(OrderQuantityLimitExceededException.class)
-                .hasMessageContaining("limite de 10000").hasMessageContaining("p1");
+                .hasMessageContaining("limit of 10000").hasMessageContaining("p1");
 
         verify(orderRepository, never()).saveAndFlush(any());
         verifyNoInteractions(productClient, inventoryClient, outboxEventRepository);
@@ -147,7 +147,7 @@ class OrderServiceQuantityLimitTest {
 
         assertThatThrownBy(() -> service.createOrder(request, "owner-sub", IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(OrderQuantityLimitExceededException.class)
-                .hasMessageContaining("limite de 10");
+                .hasMessageContaining("limit of 10");
 
         verify(orderRepository, never()).saveAndFlush(any());
         verifyNoInteractions(productClient, inventoryClient, outboxEventRepository);
@@ -217,7 +217,7 @@ class OrderServiceQuantityLimitTest {
 
     private void stubSuccessfulCreation(String... productIds) {
         for (String productId : productIds) {
-            when(productClient.getProductById(productId)).thenReturn(new ProductDTO(productId, "Produto", BigDecimal.ONE));
+            when(productClient.getProductById(productId)).thenReturn(new ProductDTO(productId, "Product", BigDecimal.ONE));
         }
         when(orderRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);

@@ -8,13 +8,13 @@ import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
-@Schema(name = "InventoryReserveRequestDTO", description = "Itens a reservar ou liberar em estoque")
+@Schema(name = "InventoryReserveRequestDTO", description = "Items to reserve or release in inventory")
 public record InventoryReserveRequestDTO(
 
-        @Schema(description = "Itens do pedido (entre 1 e 50 itens)")
-        @NotEmpty(message = "A lista de itens não pode ser vazia")
-        @Size(min = 1, max = 50, message = "A lista de itens deve conter entre 1 e 50 itens")
+        @Schema(description = "Order items (between 1 and 50 items)")
+        @NotEmpty(message = "Item list must not be empty")
+        @Size(min = 1, max = 50, message = "Item list must contain between 1 and 50 items")
         @Valid
-        List<@NotNull(message = "Item da lista não pode ser nulo") InventoryItemDTO> items
+        List<@NotNull(message = "List item must not be null") InventoryItemDTO> items
 ) {
 }

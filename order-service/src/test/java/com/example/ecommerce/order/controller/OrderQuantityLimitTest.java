@@ -89,7 +89,7 @@ class OrderQuantityLimitTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(422))
                 .andExpect(jsonPath("$.title").value("Unprocessable Content"))
-                .andExpect(jsonPath("$.detail").value(containsString("limite de 10000")))
+                .andExpect(jsonPath("$.detail").value(containsString("limit of 10000")))
                 .andExpect(jsonPath("$.detail").value(containsString("p1")))
                 .andExpect(jsonPath("$.instance").value("/api/order"));
 
@@ -108,7 +108,7 @@ class OrderQuantityLimitTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.errors").value(contains("items[0].quantity: quantity deve ser menor ou igual a 10000")));
+                .andExpect(jsonPath("$.errors").value(contains("items[0].quantity: quantity must be less than or equal to 10000")));
 
         verifyNoInteractions(orderRepository, productClient, inventoryClient, outboxEventRepository);
     }

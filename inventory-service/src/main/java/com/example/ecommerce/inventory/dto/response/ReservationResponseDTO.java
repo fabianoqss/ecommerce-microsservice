@@ -8,22 +8,22 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-@Schema(name = "ReservationResponseDTO", description = "Estado da reserva no livro-razão de estoque")
+@Schema(name = "ReservationResponseDTO", description = "Reservation state in the inventory ledger")
 public record ReservationResponseDTO(
 
-        @Schema(description = "Identificador da reserva (orderId)")
+        @Schema(description = "Reservation identifier (orderId)")
         UUID id,
 
-        @Schema(description = "Estado atual da reserva (RESERVED ou RELEASED)")
+        @Schema(description = "Current reservation state (RESERVED or RELEASED)")
         ReservationStatus status,
 
-        @Schema(description = "Itens normalizados da reserva, ordenados por skuCode")
+        @Schema(description = "Normalized reservation items, sorted by skuCode")
         List<InventoryItemDTO> items,
 
-        @Schema(description = "Instante de criação da reserva/lápide")
+        @Schema(description = "Reservation or tombstone creation time")
         Instant createdAt,
 
-        @Schema(description = "Instante da última transição de estado")
+        @Schema(description = "Time of the last state transition")
         Instant updatedAt
 ) {
 }

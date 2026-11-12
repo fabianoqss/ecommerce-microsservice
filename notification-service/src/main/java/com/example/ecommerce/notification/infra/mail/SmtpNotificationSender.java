@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
+import java.util.Currency;
 import java.util.Locale;
 
 @Slf4j
@@ -21,8 +22,7 @@ import java.util.Locale;
 public class SmtpNotificationSender implements NotificationSender {
 
     private static final String CANCELLED_STATUS = "CANCELLED";
-    private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
-    private static final DateTimeFormatter ORDER_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", PT_BR);
+    private static final DateTimeFormatter ORDER_TIME_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a", Locale.US);
     private static final String EMAILS_METRIC = "ecommerce.notification.emails";
 
     private final JavaMailSender javaMailSender;
@@ -42,7 +42,7 @@ public class SmtpNotificationSender implements NotificationSender {
         String eventType = isCancellation(event) ? "cancelled" : "created";
 
         if (event.customerEmail() == null || event.customerEmail().isBlank()) {
-            log.warn("E-mail não enviado: pedido sem e-mail do cliente: orderId={}, event_type={}", event.orderId(), eventType);
+            log.warn("Email not sent: order has no customer email address: orderId={}, event_type={}", event.orderId(), eventType);
             count("skipped", eventType);
             return;
         }
@@ -61,7 +61,7 @@ public class SmtpNotificationSender implements NotificationSender {
         }
 
         count("sent", eventType);
-        log.info("E-mail de pedido enviado: orderId={}, event_type={}", event.orderId(), eventType);
+        log.info("Order email sent: orderId={}, event_type={}", event.orderId(), eventType);
     }
 
     private boolean isCancellation(OrderEventDTO event) {
@@ -70,29 +70,31 @@ public class SmtpNotificationSender implements NotificationSender {
 
     private String subjectFor(OrderEventDTO event) {
         return isCancellation(event)
-                ? "Seu pedido foi cancelado"
-                : "Recebemos o seu pedido";
+                ? "Your order has been cancelled"
+                : "We received your order";
     }
 
     private String bodyFor(OrderEventDTO event) {
         String headline = isCancellation(event)
-                ? "O seu pedido foi cancelado. Se o pagamento já tiver sido feito, o valor será estornado."
-                : "Obrigado pela compra! O seu pedido foi confirmado.";
+                ? "Your order has been cancelled. If you have already paid, your payment will be refunded."
+                : "Thank you for shopping with us! Your order has been confirmed.";
+        NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(Locale.US);
+        currencyFormat.setCurrency(Currency.getInstance("BRL"));
 
         return """
-                Olá!
+                Hello!
 
                 %s
 
-                Pedido: %s
+                Order: %s
                 Total: %s
-                Data: %s
+                Date: %s
 
-                Equipe da Loja
+                The DS Catalog team
                 """.formatted(
                 headline,
                 event.orderId(),
-                event.totalValue() == null ? "-" : NumberFormat.getCurrencyInstance(PT_BR).format(event.totalValue()),
+                event.totalValue() == null ? "-" : currencyFormat.format(event.totalValue()),
                 event.orderTime() == null ? "-" : ORDER_TIME_FORMAT.format(event.orderTime()));
     }
 

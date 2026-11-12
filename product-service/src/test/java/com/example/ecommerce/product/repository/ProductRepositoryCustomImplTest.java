@@ -42,13 +42,13 @@ class ProductRepositoryCustomImplTest {
 
     private static Stream<Arguments> literalNames() {
         return Stream.of(
-                Arguments.of("Teclado", "Teclado"),
-                Arguments.of("Teclado (TKL)", "Teclado \\(TKL\\)"),
+                Arguments.of("Keyboard", "Keyboard"),
+                Arguments.of("Keyboard (TKL)", "Keyboard \\(TKL\\)"),
                 Arguments.of(".*", "\\.\\*"),
                 Arguments.of("(a+)+$", "\\(a\\+\\)\\+\\$"),
                 Arguments.of("a\\b", "a\\\\b"),
                 Arguments.of("\\.^$|?*+()[]{}-/#", "\\\\\\.\\^\\$\\|\\?\\*\\+\\(\\)\\[\\]\\{\\}\\-\\/\\#"),
-                Arguments.of("  Áudio Mecânico  ", "Áudio Mecânico"),
+                Arguments.of("  Caf\u00e9 Speakers  ", "Caf\u00e9 Speakers"),
                 Arguments.of("a\tb\nc", "a\tb\nc"));
     }
 }

@@ -28,7 +28,7 @@ public class OrderCancellationListener {
     public void handleOrderCancelled(OrderCancelledEventDTO event) {
         if (event == null || event.version() == null || event.version() < MIN_SUPPORTED_VERSION) {
             recordMetric("ignored", "ignored");
-            log.info("Evento ORDER_CANCELLED ignorado por versão anterior à v3: eventId={}, orderId={}, version={}",
+            log.info("ORDER_CANCELLED event ignored because its version predates v3: eventId={}, orderId={}, version={}",
                     event != null ? event.eventId() : null,
                     event != null ? event.orderId() : null,
                     event != null ? event.version() : null);
@@ -37,7 +37,7 @@ public class OrderCancellationListener {
 
         if (event.orderId() == null || event.reservationMode() == null) {
             throw new IllegalArgumentException(
-                    "Evento ORDER_CANCELLED v3 inválido (orderId ou reservationMode ausente): eventId=" + event.eventId());
+                    "Invalid ORDER_CANCELLED v3 event (missing orderId or reservationMode): eventId=" + event.eventId());
         }
 
         if (event.reservationMode() == ReservationMode.LEDGER) {
@@ -48,7 +48,7 @@ public class OrderCancellationListener {
 
         if (event.items() == null || event.items().isEmpty()) {
             throw new IllegalArgumentException(
-                    "Evento ORDER_CANCELLED v3 LEGACY sem itens: orderId=" + event.orderId());
+                    "ORDER_CANCELLED v3 LEGACY event has no items: orderId=" + event.orderId());
         }
 
         String result = inventoryService.releaseLegacy(event.orderId(), event.items());

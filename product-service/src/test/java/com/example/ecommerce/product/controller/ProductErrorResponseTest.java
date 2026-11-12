@@ -42,7 +42,7 @@ class ProductErrorResponseTest {
 
     @Test
     void missingProductReturnsProblemDetail() throws Exception {
-        when(productService.findByID("missing")).thenThrow(new ResourceNotFoundException("Produto não encontrado"));
+        when(productService.findByID("missing")).thenThrow(new ResourceNotFoundException("Product not found"));
 
         mvc.perform(get("/api/product/missing"))
                 .andExpect(status().isNotFound())
@@ -50,7 +50,7 @@ class ProductErrorResponseTest {
                 .andExpect(jsonPath("$.type").value("about:blank"))
                 .andExpect(jsonPath("$.title").value("Not Found"))
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.detail").value("Produto não encontrado"))
+                .andExpect(jsonPath("$.detail").value("Product not found"))
                 .andExpect(jsonPath("$.instance").value("/api/product/missing"));
     }
 
@@ -91,7 +91,7 @@ class ProductErrorResponseTest {
     })
     void invalidImageUrlReturnsBadRequestProblemDetail(String invalidImageUrl) throws Exception {
         String payload = """
-                {"name":"Teclado","description":"Teclado mecânico RGB","price":349.90,"category":"Periféricos","imageUrl":"%s"}
+                {"name":"Keyboard","description":"RGB mechanical keyboard","price":349.90,"category":"Peripherals","imageUrl":"%s"}
                 """.formatted(invalidImageUrl);
 
         mvc.perform(post("/api/product")
@@ -110,7 +110,7 @@ class ProductErrorResponseTest {
     void imageUrlExceedingMaxLengthReturnsBadRequestProblemDetail() throws Exception {
         String longUrl = "https://example.com/" + "a".repeat(2030);
         String payload = """
-                {"name":"Teclado","description":"Teclado mecânico RGB","price":349.90,"category":"Periféricos","imageUrl":"%s"}
+                {"name":"Keyboard","description":"RGB mechanical keyboard","price":349.90,"category":"Peripherals","imageUrl":"%s"}
                 """.formatted(longUrl);
 
         mvc.perform(post("/api/product")
@@ -128,7 +128,7 @@ class ProductErrorResponseTest {
     @ValueSource(strings = {"", "   "})
     void blankCategoryReturnsBadRequestProblemDetail(String blankCategory) throws Exception {
         String payload = """
-                {"name":"Teclado","description":"Teclado mecânico RGB","price":349.90,"category":"%s"}
+                {"name":"Keyboard","description":"RGB mechanical keyboard","price":349.90,"category":"%s"}
                 """.formatted(blankCategory);
 
         mvc.perform(post("/api/product")
@@ -146,7 +146,7 @@ class ProductErrorResponseTest {
     @Test
     void categoryExceedingMaxLengthReturnsBadRequestProblemDetail() throws Exception {
         String payload = """
-                {"name":"Teclado","description":"Teclado mecânico RGB","price":349.90,"category":"%s"}
+                {"name":"Keyboard","description":"RGB mechanical keyboard","price":349.90,"category":"%s"}
                 """.formatted("c".repeat(101));
 
         mvc.perform(post("/api/product")
@@ -163,7 +163,7 @@ class ProductErrorResponseTest {
     @Test
     void descriptionExceedingMaxLengthReturnsBadRequestProblemDetail() throws Exception {
         String payload = """
-                {"name":"Teclado","description":"%s","price":349.90,"category":"Periféricos"}
+                {"name":"Keyboard","description":"%s","price":349.90,"category":"Peripherals"}
                 """.formatted("d".repeat(2001));
 
         mvc.perform(post("/api/product")
@@ -185,7 +185,7 @@ class ProductErrorResponseTest {
             return new ProductResponseDTO("abc", req.name(), req.description(), req.price(), req.category(), req.imageUrl(), 0L);
         });
         String payload = """
-                {"name":"Teclado","description":"Teclado mecânico RGB","price":349.90,"category":"Periféricos","imageUrl":null}
+                {"name":"Keyboard","description":"RGB mechanical keyboard","price":349.90,"category":"Peripherals","imageUrl":null}
                 """;
 
         mvc.perform(post("/api/product")

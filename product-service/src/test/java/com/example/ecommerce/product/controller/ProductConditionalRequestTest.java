@@ -41,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProductConditionalRequestTest {
 
     private static final String VALID_PRODUCT = """
-            {"name":"Teclado","description":"Teclado mecânico RGB","price":349.90,"category":"Periféricos"}
+            {"name":"Keyboard","description":"RGB mechanical keyboard","price":349.90,"category":"Peripherals"}
             """;
 
     @Autowired
@@ -135,7 +135,7 @@ class ProductConditionalRequestTest {
     }
 
     private static ProductResponseDTO product(long version) {
-        return new ProductResponseDTO("abc", "Teclado", "Teclado mecânico RGB", new BigDecimal("349.90"),
-                "Periféricos", null, version);
+        return new ProductResponseDTO("abc", "Keyboard", "RGB mechanical keyboard", new BigDecimal("349.90"),
+                "Peripherals", null, version);
     }
 }

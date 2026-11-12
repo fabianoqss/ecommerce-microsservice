@@ -55,7 +55,7 @@ public class RedisProcessedEventStore implements ProcessedEventStore {
         var ownerToken = UUID.randomUUID();
         var result = redis.execute(ACQUIRE, List.of(key(eventId)), processingValue(ownerToken),
                 Long.toString(properties.processingTtl().toMillis()));
-        var status = AcquireStatus.valueOf(Objects.requireNonNull(result, "Resultado da aquisição é obrigatório"));
+        var status = AcquireStatus.valueOf(Objects.requireNonNull(result, "Acquisition result is required"));
         return new AcquireResult(status, status == AcquireStatus.ACQUIRED ? ownerToken : null);
     }
 
@@ -71,10 +71,10 @@ public class RedisProcessedEventStore implements ProcessedEventStore {
     }
 
     private String processingValue(UUID ownerToken) {
-        return "PROCESSING:" + Objects.requireNonNull(ownerToken, "ownerToken é obrigatório");
+        return "PROCESSING:" + Objects.requireNonNull(ownerToken, "ownerToken is required");
     }
 
     private String key(UUID eventId) {
-        return KEY_PREFIX + Objects.requireNonNull(eventId, "eventId é obrigatório");
+        return KEY_PREFIX + Objects.requireNonNull(eventId, "eventId is required");
     }
 }

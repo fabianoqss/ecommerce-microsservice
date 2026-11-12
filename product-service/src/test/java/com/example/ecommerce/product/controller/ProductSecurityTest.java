@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProductSecurityTest {
 
     private static final String VALID_PRODUCT = """
-            {"name":"Teclado","description":"Teclado mecânico RGB","price":349.90,"category":"Periféricos"}
+            {"name":"Keyboard","description":"RGB mechanical keyboard","price":349.90,"category":"Peripherals"}
             """;
 
     @Autowired
@@ -53,7 +53,7 @@ class ProductSecurityTest {
     @Test
     void anonymousCanReadProducts() throws Exception {
         when(productService.findByID("abc")).thenReturn(created(new ProductRequestDTO(
-                "Teclado", "Teclado mecânico RGB", new BigDecimal("349.90"), "Periféricos", null)));
+                "Keyboard", "RGB mechanical keyboard", new BigDecimal("349.90"), "Peripherals", null)));
         mvc.perform(get("/api/product")).andExpect(allowed());
         mvc.perform(get("/api/product/abc")).andExpect(allowed());
     }
@@ -89,7 +89,7 @@ class ProductSecurityTest {
     void adminCanWrite() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
         when(productService.insert(any())).thenReturn(
-                new ProductResponseDTO("abc", "Teclado", "Teclado mecânico RGB", new BigDecimal("349.90"), "Periféricos", null, 0L));
+                new ProductResponseDTO("abc", "Keyboard", "RGB mechanical keyboard", new BigDecimal("349.90"), "Peripherals", null, 0L));
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(VALID_PRODUCT))
                 .andExpect(status().isCreated());
         when(productService.update(eq("abc"), eq(0L), any())).thenAnswer(invocation -> created(invocation.getArgument(2)));
@@ -104,7 +104,7 @@ class ProductSecurityTest {
     void adminCanCreateProductAtNameAndPriceLimits() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
         when(productService.insert(any())).thenAnswer(invocation -> created(invocation.getArgument(0)));
-        String product = VALID_PRODUCT.replace("Teclado\"", "a".repeat(255) + "\"")
+        String product = VALID_PRODUCT.replace("Keyboard\"", "a".repeat(255) + "\"")
                 .replace("349.90", "99999999999999999.99");
 
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
@@ -115,7 +115,7 @@ class ProductSecurityTest {
     void adminCannotCreateProductWithNameLongerThan255Characters() throws Exception {
         var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
         when(productService.insert(any())).thenAnswer(invocation -> created(invocation.getArgument(0)));
-        String product = VALID_PRODUCT.replace("Teclado\"", "a".repeat(256) + "\"");
+        String product = VALID_PRODUCT.replace("Keyboard\"", "a".repeat(256) + "\"");
 
         mvc.perform(post("/api/product").with(admin).contentType(MediaType.APPLICATION_JSON).content(product))
                 .andExpect(status().isBadRequest())

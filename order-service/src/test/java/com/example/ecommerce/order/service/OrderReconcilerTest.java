@@ -142,7 +142,7 @@ class OrderReconcilerTest {
         reconciler.setMaxAttempts(3);
         when(transactionManager.getTransaction(any())).thenAnswer(inv -> new SimpleTransactionStatus());
         when(orderRepository.findReconcilableOrdersForUpdate(any(), anyInt())).thenReturn(List.of(expired));
-        doThrow(new IllegalStateException("Inventory indisponível")).when(inventoryClient).releaseReservation(ORDER_ID);
+        doThrow(new IllegalStateException("Inventory unavailable")).when(inventoryClient).releaseReservation(ORDER_ID);
 
         reconciler.reconcile();
 
