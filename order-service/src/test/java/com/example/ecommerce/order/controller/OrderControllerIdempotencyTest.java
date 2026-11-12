@@ -42,6 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrderControllerIdempotencyTest {
 
     private static final String USER_ID = "owner-sub";
+
+    private static final String CUSTOMER_EMAIL = "customer.com";
     private static final UUID ORDER_ID = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b");
     private static final UUID IDEMPOTENCY_KEY = UUID.fromString("a4ee662f-e404-4cf5-afc0-d837d0beaf82");
     private static final OrderRequestDTO ORDER = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 1)));
@@ -89,7 +91,7 @@ class OrderControllerIdempotencyTest {
         var response = new OrderResponseDTO(ORDER_ID, "CONFIRMED", BigDecimal.TEN,
                 LocalDateTime.of(2026, 10, 27, 10, 0),
                 List.of(new OrderItemResponseDTO("p1", "Teclado", 1, BigDecimal.TEN)));
-        when(orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY))
+        when(orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .thenReturn(new CreateOrderResult(response, replayed));
 
         mvc.perform(authenticatedOrder().header("Idempotency-Key", IDEMPOTENCY_KEY.toString()))
@@ -102,12 +104,12 @@ class OrderControllerIdempotencyTest {
                 .andExpect(jsonPath("$.items[0].productId").value("p1"))
                 .andExpect(jsonPath("$.items[0].quantity").value(1));
 
-        verify(orderService).createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY);
+        verify(orderService).createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
     }
 
     @Test
     void orderInProgressReturnsConflictProblemDetailWithOrderId() throws Exception {
-        when(orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY))
+        when(orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .thenThrow(new OrderInProgressException(ORDER_ID));
 
         mvc.perform(authenticatedOrder().header("Idempotency-Key", IDEMPOTENCY_KEY.toString()))
@@ -116,12 +118,12 @@ class OrderControllerIdempotencyTest {
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.orderId").value(ORDER_ID.toString()));
 
-        verify(orderService).createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY);
+        verify(orderService).createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
     }
 
     @Test
     void idempotencyKeyReuseReturnsUnprocessableContentProblemDetail() throws Exception {
-        when(orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY))
+        when(orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .thenThrow(new IdempotencyKeyReuseException("Key already used with another cart"));
 
         mvc.perform(authenticatedOrder().header("Idempotency-Key", IDEMPOTENCY_KEY.toString()))
@@ -130,12 +132,12 @@ class OrderControllerIdempotencyTest {
                 .andExpect(jsonPath("$.status").value(422))
                 .andExpect(jsonPath("$.detail").value("Key already used with another cart"));
 
-        verify(orderService).createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY);
+        verify(orderService).createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
     }
 
     private static MockHttpServletRequestBuilder authenticatedOrder() {
         return post("/api/order")
-                .with(jwt().jwt(j -> j.subject(USER_ID))
+                .with(jwt().jwt(j -> j.subject(USER_ID).claim("email", CUSTOMER_EMAIL))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(ORDER_BODY);

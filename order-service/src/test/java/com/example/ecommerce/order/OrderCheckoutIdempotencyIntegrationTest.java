@@ -65,6 +65,7 @@ class OrderCheckoutIdempotencyIntegrationTest {
     private static final String TOKEN_PATH = "/realms/ecommerce/protocol/openid-connect/token";
     private static final String RESERVATION_URL_PATTERN = "/api/inventory/reservations/.*";
     private static final String USER_ID = "owner-sub";
+    private static final String CUSTOMER_EMAIL = "customer.com";
     private static final OrderRequestDTO ORDER = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 1)));
     private static final String INVENTORY_BODY = """
             {"items":[{"skuCode":"p1","quantity":1}]}
@@ -136,7 +137,7 @@ class OrderCheckoutIdempotencyIntegrationTest {
             if (!start.await(10, TimeUnit.SECONDS)) {
                 throw new TimeoutException("Concurrent checkout did not start");
             }
-            return orderService.createOrder(ORDER, USER_ID, key);
+            return orderService.createOrder(ORDER, USER_ID, key, CUSTOMER_EMAIL);
         };
 
         try {
@@ -177,8 +178,8 @@ class OrderCheckoutIdempotencyIntegrationTest {
     void repeatedCheckoutAfterConfirmationReplaysSameOrderWithoutAnotherReservation() {
         UUID key = UUID.randomUUID();
 
-        var first = orderService.createOrder(ORDER, USER_ID, key);
-        var replay = orderService.createOrder(ORDER, USER_ID, key);
+        var first = orderService.createOrder(ORDER, USER_ID, key, CUSTOMER_EMAIL);
+        var replay = orderService.createOrder(ORDER, USER_ID, key, CUSTOMER_EMAIL);
 
         assertThat(first.replayed()).isFalse();
         assertThat(replay.replayed()).isTrue();
@@ -197,10 +198,10 @@ class OrderCheckoutIdempotencyIntegrationTest {
     @Test
     void sameKeyWithDifferentCartRejectsCheckoutWithoutAnotherOrderOrReservation() {
         UUID key = UUID.randomUUID();
-        var first = orderService.createOrder(ORDER, USER_ID, key);
+        var first = orderService.createOrder(ORDER, USER_ID, key, CUSTOMER_EMAIL);
         var differentCart = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 2)));
 
-        assertThatThrownBy(() -> orderService.createOrder(differentCart, USER_ID, key))
+        assertThatThrownBy(() -> orderService.createOrder(differentCart, USER_ID, key, CUSTOMER_EMAIL))
                 .isInstanceOf(IdempotencyKeyReuseException.class);
 
         assertSingleConfirmedOrderAndReservation(key, first.orderResponseDTO().id());

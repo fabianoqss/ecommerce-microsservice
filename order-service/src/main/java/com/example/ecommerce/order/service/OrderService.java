@@ -132,7 +132,7 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(id));
     }
 
-    public CreateOrderResult createOrder(OrderRequestDTO request, String userId, UUID idempotencyKey) {
+    public CreateOrderResult createOrder(OrderRequestDTO request, String userId, UUID idempotencyKey, String customerEmail) {
         List<InventoryItemDTO> reserveItems = aggregateInventoryItems(request.items().stream()
                 .map(i -> new InventoryItemDTO(i.productId(), i.quantity()))
                 .toList());
@@ -182,6 +182,7 @@ public class OrderService {
 
         Order order = new Order();
         order.setUserID(userId);
+        order.setCustomerEmail(customerEmail);
         order.setIdempotencyKey(idempotencyKey);
         order.setRequestHash(requestHash);
         order.setOrderTime(LocalDateTime.now());
@@ -317,6 +318,7 @@ public class OrderService {
                 cancelled ? ORDER_CANCELLED_EVENT_VERSION : ORDER_EVENT_VERSION,
                 order.getId(),
                 order.getUserID(),
+                order.getCustomerEmail(),
                 order.getStatus().name(),
                 order.getTotalValue(),
                 order.getOrderTime(),

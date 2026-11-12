@@ -134,7 +134,7 @@ class OrderErrorResponseTest {
 
     @Test
     void orderTotalLimitExceededReturnsUnprocessableContentProblemDetail() throws Exception {
-        when(orderService.createOrder(any(), any(), any(UUID.class)))
+        when(orderService.createOrder(any(), any(), any(UUID.class), any()))
                 .thenThrow(new OrderTotalLimitExceededException(new BigDecimal("1000000.00")));
 
         mvc.perform(post("/api/order")

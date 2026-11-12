@@ -52,6 +52,8 @@ import static org.mockito.Mockito.when;
 class OrderServiceIdempotencyTest {
 
     private static final String USER_ID = "owner-sub";
+
+    private static final String CUSTOMER_EMAIL = "customer.com";
     private static final UUID ORDER_ID = UUID.fromString("019a0b2c-3d4e-7f50-8a1b-2c3d4e5f6a7b");
     private static final UUID IDEMPOTENCY_KEY = UUID.fromString("a4ee662f-e404-4cf5-afc0-d837d0beaf82");
     private static final OrderRequestDTO ORDER = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 1)));
@@ -100,7 +102,7 @@ class OrderServiceIdempotencyTest {
         when(orderRepository.findByUserIDAndIdempotencyKey(USER_ID, IDEMPOTENCY_KEY))
                 .thenReturn(Optional.of(existing));
 
-        var result = orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY);
+        var result = orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
 
         assertThat(result.replayed()).isTrue();
         assertThat(result.orderResponseDTO().id()).isEqualTo(ORDER_ID);
@@ -123,7 +125,7 @@ class OrderServiceIdempotencyTest {
                 .thenReturn(Optional.of(existing));
         var differentOrder = new OrderRequestDTO(List.of(new OrderItemRequestDTO("p1", 2)));
 
-        assertThatThrownBy(() -> orderService.createOrder(differentOrder, USER_ID, IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> orderService.createOrder(differentOrder, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOf(IdempotencyKeyReuseException.class);
 
         verify(orderRepository, never()).saveAndFlush(any());
@@ -136,7 +138,7 @@ class OrderServiceIdempotencyTest {
         when(orderRepository.findByUserIDAndIdempotencyKey(USER_ID, IDEMPOTENCY_KEY))
                 .thenReturn(Optional.of(existingOrder(OrderStatus.PENDING)));
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY))
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL))
                 .isInstanceOfSatisfying(OrderInProgressException.class,
                         exception -> assertThat(exception.getOrderId()).isEqualTo(ORDER_ID));
 
@@ -152,7 +154,7 @@ class OrderServiceIdempotencyTest {
         when(productClient.getProductById("p1")).thenReturn(new ProductDTO("p1", "Teclado", BigDecimal.TEN));
         when(orderRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("Duplicate key"));
 
-        var result = orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY);
+        var result = orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
 
         assertThat(result.replayed()).isTrue();
         assertThat(result.orderResponseDTO().id()).isEqualTo(ORDER_ID);
@@ -172,7 +174,7 @@ class OrderServiceIdempotencyTest {
         var failure = new DataIntegrityViolationException("Pending order persistence failed");
         when(orderRepository.saveAndFlush(any())).thenThrow(failure);
 
-        assertThatThrownBy(() -> orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY)).isSameAs(failure);
+        assertThatThrownBy(() -> orderService.createOrder(ORDER, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL)).isSameAs(failure);
 
         verify(orderRepository, times(2)).findByUserIDAndIdempotencyKey(USER_ID, IDEMPOTENCY_KEY);
         verify(orderRepository).saveAndFlush(any());
@@ -190,8 +192,8 @@ class OrderServiceIdempotencyTest {
         var aggregated = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p2", 2), new OrderItemRequestDTO("p1", 2)));
 
-        orderService.createOrder(duplicated, USER_ID, IDEMPOTENCY_KEY);
-        orderService.createOrder(aggregated, USER_ID, UUID.randomUUID());
+        orderService.createOrder(duplicated, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
+        orderService.createOrder(aggregated, USER_ID, UUID.randomUUID(), CUSTOMER_EMAIL);
 
         ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository, times(4)).saveAndFlush(captor.capture());
@@ -208,8 +210,8 @@ class OrderServiceIdempotencyTest {
         var second = new OrderRequestDTO(List.of(
                 new OrderItemRequestDTO("p1", 2), new OrderItemRequestDTO("p2", 2)));
 
-        orderService.createOrder(first, USER_ID, IDEMPOTENCY_KEY);
-        orderService.createOrder(second, USER_ID, UUID.randomUUID());
+        orderService.createOrder(first, USER_ID, IDEMPOTENCY_KEY, CUSTOMER_EMAIL);
+        orderService.createOrder(second, USER_ID, UUID.randomUUID(), CUSTOMER_EMAIL);
 
         ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository, times(4)).saveAndFlush(captor.capture());
